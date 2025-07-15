@@ -92,6 +92,9 @@ class TXEngine:
         self.scan_id = 0
         self.trader = PaperTrader() if TXConfig.ENABLE_PAPER_TRADING else None
         self.recent_alerts = {}  # Track recent alerts to prevent spam
+        
+        # Start Alpha Vantage background updater for stocks and forex
+        self.router.start_alpha_vantage_loop(refresh_interval=60)
 
     def run(self):
         print("=" * 60)
