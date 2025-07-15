@@ -15,6 +15,8 @@ from detectors.bullish_engulfing import is_bullish_engulfing
 from detectors.bearish_engulfing import is_bearish_engulfing
 from detectors.dragonfly_doji import is_dragonfly_doji 
 from detectors.harami_bearish import is_harami_bearish
+from detectors.harami_bullish import is_harami_bullish
+from detectors.morning_star import is_morning_star
 from detectors.tweezer_top import is_tweezer_top
 from detectors.tweezer_bottom import is_tweezer_bottom
 from detectors.dark_cloud_cover import is_dark_cloud_cover
@@ -29,6 +31,7 @@ pattern_registry = [
     is_doji,
     is_spinning_top,
     is_evening_star,
+    is_morning_star,
     is_piercing_line,
     is_dark_cloud_cover,
     is_three_black_crows,
@@ -37,6 +40,7 @@ pattern_registry = [
     is_bearish_engulfing,
     is_dragonfly_doji,
     is_harami_bearish,
+    is_harami_bullish,
     is_tweezer_top,
     is_tweezer_bottom
 ]

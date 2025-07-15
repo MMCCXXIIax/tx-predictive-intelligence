@@ -29,7 +29,7 @@ class TXConfig:
         "Hammer",
         "Bullish Engulfing",
         "Morning Star",
-        "Spinning Top"
+        "Spinning Top",
         "Inverted Hammer",
         "Bearish Engulfing",
         "Evening Star",
@@ -38,7 +38,7 @@ class TXConfig:
         "Piercing Line",
         "Dark Cloud Cover",
         "Harami Bullish",
-        "Harami Bearish"
+        "Harami Bearish",
         "Tweezer Top",
         "Tweezer Bottom",
         "Dragonfly Doji",
@@ -91,6 +91,7 @@ class TXEngine:
         self.router = DataRouter(TXConfig)
         self.scan_id = 0
         self.trader = PaperTrader() if TXConfig.ENABLE_PAPER_TRADING else None
+        self.recent_alerts = {}  # Track recent alerts to prevent spam
 
     def run(self):
         print("=" * 60)
@@ -130,8 +131,16 @@ class TXEngine:
                     last_price = candles[-1]["close"]
                     print(f"  ✅ {symbol}: {strongest['name']} ({strongest['confidence']:.0%})")
 
-                    # 🔔 Alert logic
-                    AlertSystem.trigger_alert(symbol, strongest, last_price)
+                    # 🔔 Alert logic with cooldown (prevent spam for same pattern)
+                    alert_key = f"{symbol}_{strongest['name']}"
+                    current_time = time.time()
+                    
+                    # Only alert if pattern hasn't been seen in last 5 minutes (300 seconds)
+                    if alert_key not in self.recent_alerts or (current_time - self.recent_alerts[alert_key]) > 300:
+                        AlertSystem.trigger_alert(symbol, strongest, last_price)
+                        self.recent_alerts[alert_key] = current_time
+                    else:
+                        print(f"   🔇 {symbol}: {strongest['name']} (alert cooldown active)")
 
                     # 🧠 Paper trading logic
                     if TXConfig.ENABLE_PAPER_TRADING and self.trader:
