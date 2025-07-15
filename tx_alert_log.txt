@@ -567,3 +567,27 @@
 2025-07-15 17:13:38 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
 2025-07-15 17:14:08 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
 2025-07-15 17:14:39 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:15:09 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:15:39 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:17:15 | bitcoin | Three White Soldiers | 0.95 | $117449.00 | Use discretion. Validate before trading.
+2025-07-15 17:17:15 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:20:48 | solana | Three White Soldiers | 0.95 | $161.19 | Use discretion. Validate before trading.
+2025-07-15 17:22:19 | bitcoin | Three White Soldiers | 0.95 | $117449.00 | Use discretion. Validate before trading.
+2025-07-15 17:22:19 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:25:52 | solana | Three White Soldiers | 0.95 | $161.19 | Use discretion. Validate before trading.
+2025-07-15 17:27:24 | bitcoin | Three White Soldiers | 0.95 | $117449.00 | Use discretion. Validate before trading.
+2025-07-15 17:27:24 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:30:57 | solana | Three White Soldiers | 0.95 | $161.19 | Use discretion. Validate before trading.
+2025-07-15 17:32:28 | bitcoin | Three White Soldiers | 0.95 | $117449.00 | Use discretion. Validate before trading.
+2025-07-15 17:32:28 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:36:01 | solana | Three White Soldiers | 0.95 | $161.19 | Use discretion. Validate before trading.
+2025-07-15 17:37:33 | bitcoin | Three White Soldiers | 0.95 | $117449.00 | Use discretion. Validate before trading.
+2025-07-15 17:37:33 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:41:06 | solana | Three White Soldiers | 0.95 | $161.19 | Use discretion. Validate before trading.
+2025-07-15 17:42:37 | bitcoin | Three White Soldiers | 0.95 | $117449.00 | Use discretion. Validate before trading.
+2025-07-15 17:46:10 | solana | Three White Soldiers | 0.95 | $161.19 | Use discretion. Validate before trading.
+2025-07-15 18:04:02 | ethereum | Marubozu | 0.90 | $3091.75 | Use discretion. Validate before trading.
+2025-07-15 18:04:02 | solana | Three White Soldiers | 0.95 | $161.37 | Use discretion. Validate before trading.
+2025-07-15 20:14:27 | bitcoin | Marubozu | 0.90 | $116975.00 | Use discretion. Validate before trading.
+2025-07-15 20:14:27 | ethereum | Marubozu | 0.90 | $3041.61 | Use discretion. Validate before trading.
+2025-07-15 20:14:27 | solana | Marubozu | 0.90 | $160.29 | Use discretion. Validate before trading.
