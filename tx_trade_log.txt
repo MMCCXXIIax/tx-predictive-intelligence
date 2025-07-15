@@ -1,0 +1,2 @@
+2025-07-09 11:06:22 | solana | Marubozu | 0.90 | $152.76 | SIMULATED
+2025-07-09 11:13:58 | bitcoin | Three White Soldiers | 0.95 | $108858.00 | SIMULATED

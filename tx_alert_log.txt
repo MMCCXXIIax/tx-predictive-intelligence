@@ -1,0 +1,569 @@
+2025-06-02 14:02:42 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:03:13 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:03:43 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:04:14 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:04:44 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:05:15 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:05:45 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:06:16 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:06:46 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:07:17 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:07:47 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:08:18 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:08:48 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:09:19 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:09:49 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:10:20 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:10:50 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:11:21 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:11:51 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:12:22 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:12:53 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:13:24 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:13:54 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:14:24 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:14:55 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:15:25 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:15:56 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:16:26 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:16:57 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:17:27 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:17:58 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:18:28 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:18:59 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:19:29 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:20:00 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:20:30 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:21:01 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:21:31 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:22:02 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:22:32 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:23:03 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:23:33 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:24:04 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:24:34 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:25:05 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:25:35 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:26:06 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:26:36 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:27:07 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:27:37 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:28:08 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:28:38 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:29:09 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:29:39 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:30:10 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:30:40 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:31:10 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:31:41 | bitcoin | Shooting Star | 1.00 | $104065.00 | Use discretion. Validate before trading.
+2025-06-02 14:32:11 | bitcoin | Marubozu | 0.90 | $104212.00 | Use discretion. Validate before trading.
+2025-06-02 14:32:42 | bitcoin | Marubozu | 0.90 | $104212.00 | Use discretion. Validate before trading.
+2025-06-02 18:58:41 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 18:58:41 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 18:58:41 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 18:59:12 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 18:59:12 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 18:59:12 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 18:59:42 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 18:59:42 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 18:59:42 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:00:13 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:00:13 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:00:13 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:00:43 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:00:43 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:00:43 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:01:14 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:01:14 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:01:14 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:01:44 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:01:44 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:01:44 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:02:15 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:02:15 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:02:15 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:02:45 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:02:45 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:02:45 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:03:16 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:03:16 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:03:16 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:03:46 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:03:46 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:03:46 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:04:16 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:04:16 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:04:16 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:04:47 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:04:47 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:04:47 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:05:17 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:05:17 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:05:17 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:05:48 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:05:48 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:05:48 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:06:18 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:06:18 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:06:18 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:06:49 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:06:49 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:06:49 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:07:19 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:07:19 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:07:19 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:07:49 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:07:49 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:07:49 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:08:20 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:08:20 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:08:20 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:08:50 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:08:50 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:08:50 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:09:21 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:09:21 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:09:21 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:09:51 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:09:51 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:09:51 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:10:22 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:10:22 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:10:22 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:10:52 | bitcoin | Marubozu | 0.90 | $104532.00 | Use discretion. Validate before trading.
+2025-06-02 19:10:52 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:10:52 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:11:23 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:11:23 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:11:23 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:11:53 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:11:53 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:11:53 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:12:23 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:12:23 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:12:23 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:12:54 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:12:54 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:12:54 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:13:24 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:13:24 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:13:24 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:13:55 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:13:55 | ethereum | Marubozu | 0.90 | $2554.41 | Use discretion. Validate before trading.
+2025-06-02 19:13:55 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:14:25 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:14:25 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:14:25 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:14:56 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:14:56 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:14:56 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:15:26 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:15:26 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:15:26 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:15:56 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:15:56 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:15:56 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:16:27 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:16:27 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:16:27 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:16:57 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:16:57 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:16:57 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:17:28 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:17:28 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:17:28 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:17:58 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:17:58 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:17:58 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:18:28 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:18:28 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:18:28 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:18:59 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:18:59 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:18:59 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:19:29 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:19:29 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:20:00 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:20:00 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:20:00 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:20:30 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:20:30 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:20:30 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:21:01 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:21:01 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:21:01 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:21:31 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:21:31 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:21:31 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:22:02 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:22:02 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:22:02 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:22:32 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:22:32 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:23:03 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:23:03 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:23:03 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:23:33 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:23:33 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:24:04 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:24:04 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:24:04 | solana | Marubozu | 0.90 | $153.97 | Use discretion. Validate before trading.
+2025-06-02 19:24:34 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:24:34 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:25:04 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:25:04 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:25:35 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:25:35 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:26:06 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:26:06 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:26:36 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:26:36 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:27:06 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:27:06 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:27:37 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:27:37 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:28:07 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:28:07 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:28:38 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:28:38 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:29:08 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:29:08 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:29:39 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:29:39 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:30:09 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:30:09 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:30:39 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:30:39 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:31:20 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:31:20 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:31:50 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:31:50 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:32:26 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:32:56 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:32:56 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:33:27 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:33:27 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:33:59 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:33:59 | ethereum | Marubozu | 0.90 | $2547.00 | Use discretion. Validate before trading.
+2025-06-02 19:34:30 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:34:30 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:35:01 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:35:01 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:35:32 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:35:32 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:36:03 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:36:03 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:36:33 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:36:33 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:37:04 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:37:04 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:37:34 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:37:34 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:38:05 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:38:05 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:38:36 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:38:36 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:39:06 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:39:06 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:39:37 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:39:37 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:40:07 | bitcoin | Marubozu | 0.90 | $104411.00 | Use discretion. Validate before trading.
+2025-06-02 19:40:07 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:40:37 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:41:08 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:41:38 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:42:09 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-02 19:42:39 | ethereum | Marubozu | 0.90 | $2542.86 | Use discretion. Validate before trading.
+2025-06-03 12:35:43 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:35:44 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:36:16 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:36:16 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:36:47 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:36:47 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:37:18 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:37:18 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:37:49 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:37:50 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:38:20 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:38:20 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:38:51 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:38:51 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:39:21 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:39:21 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:39:52 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:39:52 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:40:23 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:40:23 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:40:53 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:40:53 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:41:24 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:41:24 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:41:54 | AAPL | Spinning Top | 0.98 | $201.57 | Use discretion. Validate before trading.
+2025-06-03 12:41:54 | TSLA | Doji | 0.90 | $341.70 | Use discretion. Validate before trading.
+2025-06-03 12:43:56 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:44:27 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:44:57 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:45:27 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:45:58 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:46:28 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:46:59 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:47:29 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:48:00 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:48:32 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:49:03 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:49:33 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:50:04 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:50:34 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:51:05 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:51:35 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:52:06 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:52:36 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:53:07 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:53:37 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:54:08 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:54:38 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:55:10 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:55:40 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:56:12 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:56:42 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:57:12 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:57:43 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:58:13 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:58:44 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:59:14 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 12:59:45 | bitcoin | Marubozu | 0.90 | $105387.00 | Use discretion. Validate before trading.
+2025-06-03 20:11:48 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:12:19 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:12:49 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:13:20 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:13:50 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:14:21 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:14:51 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:15:21 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:15:52 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:16:22 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:16:53 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:17:23 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:17:54 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:18:24 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:18:55 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:19:25 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:19:56 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:20:26 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:20:56 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:21:27 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:21:57 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:22:28 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:22:58 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:23:31 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:24:02 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:24:32 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:25:03 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:25:33 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:26:04 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:26:34 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:27:05 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:27:35 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:28:06 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:28:36 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:29:06 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:29:37 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:30:07 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:30:37 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:31:07 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:31:38 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-03 20:32:08 | bitcoin | Doji | 0.90 | $106291.00 | Use discretion. Validate before trading.
+2025-06-22 12:11:58 | ethereum | Spinning Top | 0.93 | $2273.56 | Use discretion. Validate before trading.
+2025-06-22 12:12:29 | ethereum | Spinning Top | 0.93 | $2273.56 | Use discretion. Validate before trading.
+2025-06-22 12:12:59 | ethereum | Spinning Top | 0.93 | $2273.56 | Use discretion. Validate before trading.
+2025-06-24 01:41:32 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:42:03 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:42:33 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:43:03 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:43:34 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:44:04 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:44:35 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:45:05 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:45:35 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:46:06 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:46:36 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:47:07 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:47:37 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:48:07 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:48:38 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:49:08 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:49:38 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:50:09 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:50:39 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:51:10 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:51:40 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:52:10 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:52:41 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:53:11 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:53:42 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:54:12 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:54:42 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:55:13 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:55:43 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:56:14 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:56:44 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:57:14 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:57:45 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:58:15 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:58:46 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:59:16 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 01:59:46 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:00:17 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:00:47 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:01:18 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:01:48 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:02:18 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:02:49 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:03:19 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:03:50 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:04:20 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:04:51 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:05:21 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:05:52 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:06:22 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:06:52 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:07:23 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:07:53 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:08:24 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:08:54 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:09:25 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:09:55 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:10:25 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:10:56 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:11:26 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 02:11:57 | solana | Bullish Engulfing | 0.90 | $143.96 | Use discretion. Validate before trading.
+2025-06-24 03:30:56 | solana | Bullish Engulfing | 0.90 | $143.29 | Use discretion. Validate before trading.
+2025-06-24 03:31:26 | solana | Bullish Engulfing | 0.90 | $143.29 | Use discretion. Validate before trading.
+2025-06-24 03:31:56 | solana | Bullish Engulfing | 0.90 | $143.29 | Use discretion. Validate before trading.
+2025-06-24 03:32:27 | solana | Bullish Engulfing | 0.90 | $143.29 | Use discretion. Validate before trading.
+2025-06-24 03:32:57 | solana | Bullish Engulfing | 0.90 | $143.29 | Use discretion. Validate before trading.
+2025-06-24 03:33:27 | solana | Bullish Engulfing | 0.90 | $143.29 | Use discretion. Validate before trading.
+2025-06-24 03:33:58 | solana | Bullish Engulfing | 0.90 | $143.29 | Use discretion. Validate before trading.
+2025-06-24 03:34:28 | solana | Bullish Engulfing | 0.90 | $143.29 | Use discretion. Validate before trading.
+2025-06-24 03:34:58 | solana | Bullish Engulfing | 0.90 | $143.29 | Use discretion. Validate before trading.
+2025-06-24 09:28:26 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-06-24 09:28:56 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-06-24 09:29:27 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-06-24 09:29:58 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-06-24 09:30:28 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-06-24 09:30:59 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-06-24 09:31:29 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-06-24 09:32:00 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-06-24 09:32:31 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-06-24 09:33:01 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-06-24 09:33:32 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-06-24 09:34:02 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-06-24 09:34:33 | TSLA | Spinning Top | 1.00 | $353.89 | Use discretion. Validate before trading.
+2025-07-09 10:57:58 | solana | Marubozu | 0.90 | $152.76 | Use discretion. Validate before trading.
+2025-07-09 10:58:28 | solana | Marubozu | 0.90 | $152.76 | Use discretion. Validate before trading.
+2025-07-09 10:58:59 | solana | Marubozu | 0.90 | $152.76 | Use discretion. Validate before trading.
+2025-07-09 11:03:43 | solana | Marubozu | 0.90 | $152.76 | Use discretion. Validate before trading.
+2025-07-09 11:04:14 | solana | Marubozu | 0.90 | $152.76 | Use discretion. Validate before trading.
+2025-07-09 11:04:44 | solana | Marubozu | 0.90 | $152.76 | Use discretion. Validate before trading.
+2025-07-09 11:05:15 | solana | Marubozu | 0.90 | $152.76 | Use discretion. Validate before trading.
+2025-07-09 11:06:22 | solana | Marubozu | 0.90 | $152.76 | Use discretion. Validate before trading.
+2025-07-09 11:13:58 | bitcoin | Three White Soldiers | 0.95 | $108858.00 | Use discretion. Validate before trading.
+2025-07-09 21:19:39 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:20:09 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:20:40 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:21:10 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:21:41 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:22:11 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:22:41 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:23:12 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:23:42 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:24:13 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:24:43 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:25:13 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:25:44 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:26:14 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:26:44 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:27:15 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:27:45 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:28:15 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:28:46 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:29:16 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:29:46 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:30:17 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:30:47 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:31:18 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:31:48 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:32:19 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:32:49 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:41:54 | bitcoin | Piercing Line | 0.91 | $111203.00 | Use discretion. Validate before trading.
+2025-07-09 21:41:54 | ethereum | Marubozu | 0.90 | $2749.85 | Use discretion. Validate before trading.
+2025-07-09 21:41:54 | solana | Marubozu | 0.90 | $157.30 | Use discretion. Validate before trading.
+2025-07-09 21:42:25 | bitcoin | Evening Star | 0.92 | $110834.00 | Use discretion. Validate before trading.
+2025-07-09 21:42:25 | ethereum | Marubozu | 0.90 | $2749.85 | Use discretion. Validate before trading.
+2025-07-09 21:42:25 | solana | Marubozu | 0.90 | $157.30 | Use discretion. Validate before trading.
+2025-07-15 16:18:50 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:18:50 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:19:21 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:19:21 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:19:52 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:19:52 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:20:22 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:20:22 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:20:53 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:20:53 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:21:24 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:21:24 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:21:55 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:21:55 | ethereum | Marubozu | 0.90 | $3040.74 | Use discretion. Validate before trading.
+2025-07-15 16:21:55 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:22:26 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:22:26 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:22:56 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:22:56 | ethereum | Marubozu | 0.90 | $3040.74 | Use discretion. Validate before trading.
+2025-07-15 16:22:56 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:23:31 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:23:31 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:24:02 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:24:02 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:24:33 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:24:33 | ethereum | Marubozu | 0.90 | $3040.74 | Use discretion. Validate before trading.
+2025-07-15 16:24:33 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:25:03 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:25:03 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:25:34 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:25:34 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:26:04 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:26:04 | ethereum | Marubozu | 0.90 | $3040.74 | Use discretion. Validate before trading.
+2025-07-15 16:26:04 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:26:35 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:26:35 | ethereum | Marubozu | 0.90 | $3040.74 | Use discretion. Validate before trading.
+2025-07-15 16:26:35 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:27:05 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:27:05 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 16:27:36 | bitcoin | Piercing Line | 0.91 | $116501.00 | Use discretion. Validate before trading.
+2025-07-15 16:27:36 | ethereum | Marubozu | 0.90 | $3040.74 | Use discretion. Validate before trading.
+2025-07-15 16:27:36 | solana | Marubozu | 0.90 | $160.68 | Use discretion. Validate before trading.
+2025-07-15 17:02:58 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:03:29 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:03:59 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:04:30 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:05:00 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:05:30 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:06:01 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:06:31 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:07:02 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:07:32 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:08:03 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:08:33 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:09:04 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:09:34 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:10:05 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:10:35 | ethereum | Three White Soldiers | 0.95 | $3048.43 | Use discretion. Validate before trading.
+2025-07-15 17:11:05 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:11:36 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:12:06 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:12:37 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:13:07 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:13:38 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:14:08 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
+2025-07-15 17:14:39 | ethereum | Three White Soldiers | 0.95 | $3058.30 | Use discretion. Validate before trading.
