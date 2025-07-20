@@ -162,33 +162,7 @@ class TXEngine:
                         if not best_pattern or r["confidence"] > best_pattern["confidence"]:
                             best_pattern = r
 
-                if best_pattern:
-                    alert_key = f"{symbol}_{best_pattern['name']}"
-                    current_time = time.time()
-                    if (alert_key not in self.recent_alerts or
-                        (current_time - self.recent_alerts[alert_key]) > 300):
-                        AlertSystem.trigger_alert(symbol, best_pattern, last_price)
-                        self.recent_alerts[alert_key] = current_time
-
-                    scan_results.append({
-                        "symbol": symbol,
-                        "status": "pattern",
-                        "pattern": best_pattern["name"],
-                        "confidence": f"{best_pattern['confidence']:.0%}",
-                        "price": f"${last_price:,.2f}"
-                    })
-
-                    # Buy logic
-                    if TXConfig.ENABLE_PAPER_TRADING and self.trader:
-                        if self.trader.can_buy(symbol):
-                            trade = self.trader.buy(
-                                symbol,
-                                last_price,
-                                best_pattern["name"],
-                                best_pattern["confidence"]
-                            )
-                            trade["time"] = scan_time
-                            app_state["paper_trades"].insert(0, trade)
+                
 
                 else:
                     scan_results.append({
@@ -204,24 +178,49 @@ class TXEngine:
                     "message": str(e)
                 })
 
-        
-        ## After detecting patterns, update the global "last_signal"
-        if best_pattern:
-            app_state["last_signal"] = {
-                "symbol": symbol,
-                "pattern": best_pattern["name"],
-                "confidence": f"{best_pattern['confidence']:.0%}",
-                "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
-                "timeframe": "5m"  # Hardcoded for now
-            }
-        
-        
-        
         app_state["last_scan"] = {
             "id": self.scan_id,
             "time": scan_time,
             "results": scan_results
         }
+
+        
+        if best_pattern:
+                    alert_key = f"{symbol}_{best_pattern['name']}"
+                    current_time = time.time()
+                    if (alert_key not in self.recent_alerts or
+                        (current_time - self.recent_alerts[alert_key]) > 300):
+                        AlertSystem.trigger_alert(symbol, best_pattern, last_price)
+                        self.recent_alerts[alert_key] = current_time
+
+                    scan_results.append({
+                        "symbol": symbol,
+                        "status": "pattern",
+                        "pattern": best_pattern["name"],
+                        "confidence": f"{best_pattern['confidence']:.0%}",
+                        "price": f"${last_price:,.2f}"
+                    })
+
+                    # Update global last_signal when pattern detected
+                    app_state["last_signal"] = {
+                        "symbol": symbol,
+                        "pattern": best_pattern["name"],
+                        "confidence": f"{best_pattern['confidence']:.0%}",
+                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
+                        "timeframe": "5m"  # Hardcoded for now
+                    }
+
+                    # Buy logic
+                    if TXConfig.ENABLE_PAPER_TRADING and self.trader:
+                        if self.trader.can_buy(symbol):
+                            trade = self.trader.buy(
+                                symbol,
+                                last_price,
+                                best_pattern["name"],
+                                best_pattern["confidence"]
+                            )
+                            trade["time"] = scan_time
+                            app_state["paper_trades"].insert(0, trade)
 
         return scan_results
 
