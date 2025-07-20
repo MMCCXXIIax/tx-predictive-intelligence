@@ -17,7 +17,7 @@ class PaperTrader:
     def can_sell(self, symbol, current_price):
         return symbol in self.positions and current_price > 0
 
-    def buy(self, symbol, price, pattern):
+    def buy(self, symbol, price, pattern, confidence):
         qty = self.default_qty
         cost = price * qty
 
@@ -25,6 +25,7 @@ class PaperTrader:
             "entry_price": price,
             "qty": qty,
             "pattern": pattern,
+            "confidence": confidence,
             "buy_time": None  # Optional: Add datetime.now() if needed
         }
 
@@ -34,6 +35,7 @@ class PaperTrader:
             "price": round(price, 2),
             "qty": qty,
             "pattern": pattern,
+            "confidence": f"{confidence:.0%}",
             "pnl": None
         }
         self.trades.append(trade)

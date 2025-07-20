@@ -6,7 +6,7 @@ import threading
 import random
 import uuid
 from datetime import datetime, timedelta
-from flask import Flask, render_template_string, jsonify, request
+from flask import Flask, render_template_string, jsonify, request, make_response
 from detectors.ai_pattern_logic import detect_all_patterns
 from services.data_router import DataRouter
 from services.paper_trader import PaperTrader
@@ -269,15 +269,15 @@ class TXEngine:
 
                     # Buy logic
                     if TXConfig.ENABLE_PAPER_TRADING and self.trader:
-                        if self.trader.can_buy(symbol):
-                            trade = self.trader.buy(
-                                symbol,
-                                last_price,
-                                best_pattern["name"],
-                                best_pattern["confidence"]
-                            )
-                            trade["time"] = scan_time
-                            app_state["paper_trades"].insert(0, trade)
+                        trade = self.trader.buy(
+                            symbol,
+                            last_price,
+                            best_pattern["name"],
+                            best_pattern["confidence"]
+                        )
+                        trade["time"] = scan_time
+                        app_state["paper_trades"].insert(0, trade)
+
                 else:
                     scan_results.append({
                         "symbol": symbol,
