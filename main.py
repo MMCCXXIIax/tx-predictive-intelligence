@@ -3,11 +3,82 @@ import time
 import os
 import json
 import threading
+import random
+import uuid
 from datetime import datetime, timedelta
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template_string, jsonify, request
 from detectors.ai_pattern_logic import detect_all_patterns
 from services.data_router import DataRouter
 from services.paper_trader import PaperTrader
+
+# ====================== INITIALIZE REPLIT DB ======================
+try:
+    from replit import db
+except:
+    # Fallback for local testing
+    class MockDB:
+        def __init__(self):
+            self.data = {}
+        def __getitem__(self, key):
+            return self.data.get(key)
+        def __setitem__(self, key, value):
+            self.data[key] = value
+        def get(self, key, default=None):
+            return self.data.get(key, default)
+    db = MockDB()
+
+# Initialize database collections if they don't exist
+if 'visitors' not in db:
+    db['visitors'] = {}
+if 'detections' not in db:
+    db['detections'] = []
+if 'user_count' not in db:
+    db['user_count'] = 12  # Initial count
+
+# ====================== TRACKING SYSTEM ======================
+def track_visit(request):
+    """Record a visit and return visitor ID"""
+    visitor_id = request.cookies.get('visitor_id')
+
+    if not visitor_id:
+        # New visitor
+        visitor_id = str(uuid.uuid4())
+        db['visitors'][visitor_id] = {
+            'first_seen': datetime.now().isoformat(),
+            'last_seen': datetime.now().isoformat(),
+            'user_agent': request.headers.get('User-Agent', ''),
+            'ip': request.remote_addr,
+            'visit_count': 1
+        }
+        db['user_count'] = len(db['visitors'])
+    else:
+        # Returning visitor
+        if visitor_id in db['visitors']:
+            db['visitors'][visitor_id]['last_seen'] = datetime.now().isoformat()
+            db['visitors'][visitor_id]['visit_count'] += 1
+
+    return visitor_id
+
+def log_detection(symbol, pattern, confidence, price):
+    """Store pattern detection for future AI training"""
+    detection_id = str(uuid.uuid4())
+
+    db['detections'].append({
+        'id': detection_id,
+        'timestamp': datetime.now().isoformat(),
+        'symbol': symbol,
+        'pattern': pattern,
+        'confidence': confidence,
+        'price': price,
+        'outcome': None,  # To be set later
+        'verified': False
+    })
+
+    # Keep only last 10,000 detections
+    if len(db['detections']) > 10000:
+        db['detections'] = db['detections'][-10000:]
+
+    return detection_id
 
 # ====================== CONFIG ======================
 class TXConfig:
@@ -41,7 +112,8 @@ class TXConfig:
 app_state = {
     "last_scan": [],
     "alerts": [],
-    "paper_trades": []
+    "paper_trades": [],
+    "last_signal": None
 }
 
 # ====================== ALERT SYSTEM ======================
@@ -70,6 +142,23 @@ class AlertSystem:
         app_state["alerts"].insert(0, alert)
         if len(app_state["alerts"]) > 20:
             app_state["alerts"].pop()
+
+        # Update last signal whenever new alert triggers
+        app_state["last_signal"] = {
+            "symbol": symbol,
+            "pattern": pattern_name,
+            "confidence": f"{confidence:.0%}",
+            "time": timestamp,
+            "timeframe": "5m"
+        }
+
+        # Log this detection for AI training
+        log_detection(
+            symbol=symbol,
+            pattern=pattern_name,
+            confidence=confidence,
+            price=last_price
+        )
 
         if "CONSOLE" in TXConfig.ALERT_TYPES:
             print(f"""
@@ -147,7 +236,7 @@ class TXEngine:
             try:
                 last_price = candles[-1]["close"]
 
-                # ✅ Auto SELL logic
+                # Auto SELL logic
                 if TXConfig.ENABLE_PAPER_TRADING and self.trader:
                     sell_trade = self.trader.check_auto_sell(symbol, last_price)
                     if sell_trade:
@@ -162,8 +251,33 @@ class TXEngine:
                         if not best_pattern or r["confidence"] > best_pattern["confidence"]:
                             best_pattern = r
 
-                
+                if best_pattern:
+                    alert_key = f"{symbol}_{best_pattern['name']}"
+                    current_time = time.time()
+                    if (alert_key not in self.recent_alerts or
+                        (current_time - self.recent_alerts[alert_key]) > 300):
+                        AlertSystem.trigger_alert(symbol, best_pattern, last_price)
+                        self.recent_alerts[alert_key] = current_time
 
+                    scan_results.append({
+                        "symbol": symbol,
+                        "status": "pattern",
+                        "pattern": best_pattern["name"],
+                        "confidence": f"{best_pattern['confidence']:.0%}",
+                        "price": f"${last_price:,.2f}"
+                    })
+
+                    # Buy logic
+                    if TXConfig.ENABLE_PAPER_TRADING and self.trader:
+                        if self.trader.can_buy(symbol):
+                            trade = self.trader.buy(
+                                symbol,
+                                last_price,
+                                best_pattern["name"],
+                                best_pattern["confidence"]
+                            )
+                            trade["time"] = scan_time
+                            app_state["paper_trades"].insert(0, trade)
                 else:
                     scan_results.append({
                         "symbol": symbol,
@@ -184,205 +298,176 @@ class TXEngine:
             "results": scan_results
         }
 
-        
-        if best_pattern:
-                    alert_key = f"{symbol}_{best_pattern['name']}"
-                    current_time = time.time()
-                    if (alert_key not in self.recent_alerts or
-                        (current_time - self.recent_alerts[alert_key]) > 300):
-                        AlertSystem.trigger_alert(symbol, best_pattern, last_price)
-                        self.recent_alerts[alert_key] = current_time
-
-                    scan_results.append({
-                        "symbol": symbol,
-                        "status": "pattern",
-                        "pattern": best_pattern["name"],
-                        "confidence": f"{best_pattern['confidence']:.0%}",
-                        "price": f"${last_price:,.2f}"
-                    })
-
-                    # Update global last_signal when pattern detected
-                    app_state["last_signal"] = {
-                        "symbol": symbol,
-                        "pattern": best_pattern["name"],
-                        "confidence": f"{best_pattern['confidence']:.0%}",
-                        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC"),
-                        "timeframe": "5m"  # Hardcoded for now
-                    }
-
-                    # Buy logic
-                    if TXConfig.ENABLE_PAPER_TRADING and self.trader:
-                        if self.trader.can_buy(symbol):
-                            trade = self.trader.buy(
-                                symbol,
-                                last_price,
-                                best_pattern["name"],
-                                best_pattern["confidence"]
-                            )
-                            trade["time"] = scan_time
-                            app_state["paper_trades"].insert(0, trade)
-
         return scan_results
 
 # ====================== FLASK SERVER ======================
 app = Flask(__name__)
 
-# In your Flask app (main.py)
 @app.route('/')
 def dashboard():
-    return render_template_string('''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>TX PREDICTIVE INTELLIGENCE</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-        <style>
-            :root {
-                --tx-green: #00ff88;
-                --tx-black: #121212;
-                --tx-gray: #1e1e1e;
-                --tx-red: #ff5555;
-            }
-            body {
-                font-family: 'Space Mono', monospace;
-                background: var(--tx-black);
-                color: white;
-                margin: 0;
-                padding: 20px;
-            }
-            .terminal {
-                background: var(--tx-gray);
-                border-radius: 8px;
-                padding: 20px;
-                max-width: 800px;
-                margin: 0 auto;
-                border: 1px solid #333;
-            }
-            .tx-header {
-                color: var(--tx-green);
-                border-bottom: 1px solid #333;
-                padding-bottom: 10px;
-                margin-bottom: 20px;
-            }
-            .asset-row {
-                display: flex;
-                justify-content: space-between;
-                padding: 8px 0;
-                border-bottom: 1px solid #252525;
-            }
-            .asset-name {
-                font-weight: bold;
-                color: var(--tx-green);
-            }
-            .asset-price {
-                font-feature-settings: "tnum";
-            }
-            .no-pattern {
-                color: #777;
-            }
-            .pattern-detected {
-                color: white;
-                background: #0066ff;
-                padding: 2px 6px;
-                border-radius: 4px;
-            }
-            .tx-logo {
-                font-size: 24px;
-                letter-spacing: -1px;
-            }
-            .tx-tagline {
-                color: #aaa;
-                font-size: 14px;
-            }
-            .powered-by {
-                text-align: right;
-                font-size: 12px;
-                color: #444;
-                margin-top: 20px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="terminal">
-            <!-- HEADER -->
-            <div class="tx-header">
-                <div class="tx-logo">TX PREDICTIVE INTELLIGENCE</div>
-                <div class="tx-tagline">AI-Powered Market Anticipation System | Kampala, Uganda</div>
-            </div>
-
-            <!-- ASSET GRID -->
-            <div class="asset-grid">
-                {% for r in scan.results %}
-                <div class="asset-row">
-                    <span class="asset-name">{{ r.symbol }}</span>
-                    <span class="asset-price">${{ r.price.split('$')[1] if r.price else 'N/A' }}</span>
-                    <span class="{% if r.status == 'pattern' %}pattern-detected{% else %}no-pattern{% endif %}">
-                        {% if r.status == 'pattern' %}
-                            {{ r.pattern }} ({{ r.confidence }})
-                        {% else %}
-                            IDLE
-                        {% endif %}
-                    </span>
+    visitor_id = track_visit(request)
+    response = make_response(render_template_string(
+        '''
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>TX PREDICTIVE INTELLIGENCE</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+            <style>
+                :root {
+                    --tx-green: #00ff88;
+                    --tx-black: #121212;
+                    --tx-gray: #1e1e1e;
+                    --tx-red: #ff5555;
+                }
+                body {
+                    font-family: 'Space Mono', monospace;
+                    background: var(--tx-black);
+                    color: white;
+                    margin: 0;
+                    padding: 20px;
+                }
+                .terminal {
+                    background: var(--tx-gray);
+                    border-radius: 8px;
+                    padding: 20px;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    border: 1px solid #333;
+                }
+                .tx-header {
+                    color: var(--tx-green);
+                    border-bottom: 1px solid #333;
+                    padding-bottom: 10px;
+                    margin-bottom: 20px;
+                }
+                .asset-row {
+                    display: flex;
+                    justify-content: space-between;
+                    padding: 8px 0;
+                    border-bottom: 1px solid #252525;
+                }
+                .asset-name {
+                    font-weight: bold;
+                    color: var(--tx-green);
+                }
+                .asset-price {
+                    font-feature-settings: "tnum";
+                }
+                .no-pattern {
+                    color: #777;
+                }
+                .pattern-detected {
+                    color: white;
+                    background: #0066ff;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                }
+                .tx-logo {
+                    font-size: 24px;
+                    letter-spacing: -1px;
+                }
+                .tx-tagline {
+                    color: #aaa;
+                    font-size: 14px;
+                }
+                .powered-by {
+                    text-align: right;
+                    font-size: 12px;
+                    color: #444;
+                    margin-top: 20px;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="terminal">
+                <div class="tx-header">
+                    <div class="tx-logo">TX PREDICTIVE INTELLIGENCE</div>
+                    <div class="tx-tagline">AI-Powered Market Anticipation System | Kampala, Uganda</div>
                 </div>
-                {% endfor %}
+
+                <div class="asset-grid">
+                    {% for r in scan.results %}
+                    <div class="asset-row">
+                        <span class="asset-name">{{ r.symbol }}</span>
+                        <span class="asset-price">{{ r.price if r.price else 'N/A' }}</span>
+                        <span class="{% if r.status == 'pattern' %}pattern-detected{% else %}no-pattern{% endif %}">
+                            {% if r.status == 'pattern' %}
+                                {{ r.pattern }} ({{ r.confidence }})
+                            {% else %}
+                                IDLE
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div style="margin-top: 20px; color: #666;">
+                    Next scan in: <span id="countdown">{{ refresh_seconds }}</span>s
+                </div>
+
+                {% if last_signal %}
+                <div style="background: #0d1a26; padding: 10px; border-radius: 4px; margin: 20px 0;">
+                    <div style="color: var(--tx-green); font-weight: bold;">🚨 Latest Signal</div>
+                    <div>{{ last_signal.symbol }} {{ last_signal.timeframe }}: {{ last_signal.pattern }} ({{ last_signal.confidence }})</div>
+                    <div style="font-size: 12px; color: #777;">{{ last_signal.time }}</div>
+                </div>
+                {% endif %}
+
+                <div style="margin: 15px 0; font-size: 12px; color: #555;">
+                    ⚡ <strong>{{ user_count }} traders</strong> live
+                </div>
+
+                <div style="margin-top: 30px; background: #000; padding: 15px; border-radius: 4px;">
+                    <h3 style="margin-top: 0; color: var(--tx-green);">🚀 PRO ACCESS</h3>
+                    <p>Unlock real-time AI predictions:</p>
+                    <ul>
+                        <li>Telegram/WhatsApp alerts</li>
+                        <li>15+ assets including forex</li>
+                        <li>Historical backtesting</li>
+                    </ul>
+                    <p><strong>$5/month via USDT</strong> | DM @YourHandle</p>
+                </div>
+
+                <div class="powered-by">
+                    TX Engine v0.9 | Data: Alpha Vantage
+                </div>
             </div>
 
-            <!-- NEXT SCAN -->
-            <div style="margin-top: 20px; color: #666;">
-                Next scan in: <span id="countdown">300</span>s
-            </div>
-
-        <!-- Below "Next scan" counter -->
-        <div style="margin: 15px 0; font-size: 12px; color: #555;">
-            ⚡ <strong>12 traders</strong> live | Last signal: BTC Bullish Engulfing (2h ago)
-        </div>
-
-        <!-- Above PRO ACCESS -->
-        <div style="background: #0d1a26; padding: 10px; border-radius: 4px; margin: 20px 0;">
-            <div style="color: var(--tx-green); font-weight: bold;">🚨 Latest Signal</div>
-            <div>ETH 5m TF: Morning Star (87%)</div>
-            <div style="font-size: 12px; color: #777;">2025-07-20 19:45:22 UTC</div>
-        </div>
-
-
-            <!-- CTA -->
-            <div style="margin-top: 30px; background: #000; padding: 15px; border-radius: 4px;">
-                <h3 style="margin-top: 0; color: var(--tx-green);">🚀 PRO ACCESS</h3>
-                <p>Unlock real-time AI predictions:</p>
-                <ul>
-                    <li>Telegram/WhatsApp alerts</li>
-                    <li>15+ assets including forex</li>
-                    <li>Historical backtesting</li>
-                </ul>
-                <p><strong>$5/month via USDT</strong> | DM @YourHandle</p>
-            </div>
-
-            <div class="powered-by">
-                TX Engine v0.9 | Data: Alpha Vantage
-            </div>
-        </div>
-
-        <script>
-            // Auto-refresh countdown
-            let seconds = {{ refresh_seconds }};
-            function updateCountdown() {
-                document.getElementById('countdown').textContent = seconds;
-                seconds--;
-                if (seconds < 0) location.reload();
-            }
-            setInterval(updateCountdown, 1000);
-        </script>
-    </body>
-    </html>
-    ''',
-    scan=app_state.get("last_scan", {"results": []}),
-    refresh_seconds=TXConfig.REFRESH_INTERVAL
-    )
+            <script>
+                let seconds = {{ refresh_seconds }};
+                function updateCountdown() {
+                    document.getElementById('countdown').textContent = seconds;
+                    seconds--;
+                    if (seconds < 0) location.reload();
+                }
+                setInterval(updateCountdown, 1000);
+            </script>
+        </body>
+        </html>
+        ''',
+        scan=app_state.get("last_scan", {"results": []}),
+        last_signal=app_state.get("last_signal"),
+        user_count=db['user_count'],
+        refresh_seconds=TXConfig.REFRESH_INTERVAL
+    ))
+    response.set_cookie('visitor_id', visitor_id, max_age=60*60*24*30)  # 30 days
+    return response
 
 @app.route('/api/scan')
 def api_scan():
     return jsonify(app_state)
+
+@app.route('/api/log_outcome/<detection_id>', methods=['POST'])
+def log_outcome(detection_id):
+    outcome = request.json.get('outcome')
+    for detection in db['detections']:
+        if detection['id'] == detection_id:
+            detection['outcome'] = outcome
+            detection['verified'] = True
+            return jsonify({"status": "success"})
+    return jsonify({"status": "not_found"}), 404
 
 # ====================== MAIN ======================
 if __name__ == "__main__":
