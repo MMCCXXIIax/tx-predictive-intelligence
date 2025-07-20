@@ -591,3 +591,10 @@
 2025-07-15 20:14:27 | bitcoin | Marubozu | 0.90 | $116975.00 | Use discretion. Validate before trading.
 2025-07-15 20:14:27 | ethereum | Marubozu | 0.90 | $3041.61 | Use discretion. Validate before trading.
 2025-07-15 20:14:27 | solana | Marubozu | 0.90 | $160.29 | Use discretion. Validate before trading.
+2025-07-15 20:19:20 | bitcoin | Marubozu | 0.90 | $116393.00 | Use discretion. Validate before trading.
+2025-07-15 20:19:20 | ethereum | Marubozu | 0.90 | $3041.61 | Use discretion. Validate before trading.
+2025-07-15 20:19:20 | solana | Marubozu | 0.90 | $160.29 | Use discretion. Validate before trading.
+2025-07-15 20:31:24 | bitcoin | Marubozu | 0.90 | $116393.00 | Use discretion. Validate before trading.
+2025-07-15 20:31:24 | ethereum | Marubozu | 0.90 | $3041.61 | Use discretion. Validate before trading.
+2025-07-15 20:31:24 | solana | Marubozu | 0.90 | $160.29 | Use discretion. Validate before trading.
+2025-07-20 00:44:33 | bitcoin | Bearish Engulfing | 0.90 | $117832.00 | Use discretion. Validate before trading.

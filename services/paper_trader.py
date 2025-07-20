@@ -1,106 +1,92 @@
 # services/paper_trader.py
 
-import os
-import csv
-from datetime import datetime
-
 class PaperTrader:
-    def __init__(self, starting_balance=100000.0, log_file="tx_paper_trade_log.csv"):
+    def __init__(self, starting_balance=10000.0, default_qty=1, stop_loss_pct=0.03, take_profit_pct=0.06):
         self.balance = starting_balance
-        self.positions = {}  # e.g., { "bitcoin": { "avg_entry": 30000, "quantity": 0.1, "invested": 3000 } }
-        self.log_file = log_file
+        self.default_qty = default_qty
+        self.stop_loss_pct = stop_loss_pct
+        self.take_profit_pct = take_profit_pct
 
-        if not os.path.exists(self.log_file):
-            with open(self.log_file, mode="w", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow([
-                    "Timestamp", "Symbol", "Action", "Pattern", "Confidence",
-                    "Price", "Quantity", "Amount", "Balance", "Realized_PnL"
-                ])
+        self.positions = {}  # symbol -> {entry_price, qty, pattern}
+        self.trades = []     # full trade history
+        self.total_profit = 0.0
 
     def can_buy(self, symbol):
-        return True  # Will later allow config for max positions, etc.
+        return symbol not in self.positions
 
-    def buy(self, symbol, price, pattern, confidence, amount_usd=1000.0):
-        if self.balance < amount_usd:
-            return f"❌ Insufficient balance to buy {symbol} for ${amount_usd:.2f}"
+    def can_sell(self, symbol, current_price):
+        return symbol in self.positions and current_price > 0
 
-        quantity = amount_usd / price
+    def buy(self, symbol, price, pattern):
+        qty = self.default_qty
+        cost = price * qty
 
-        if symbol in self.positions:
-            # Update average entry price and quantity
-            pos = self.positions[symbol]
-            total_cost = pos["avg_entry"] * pos["quantity"] + price * quantity
-            total_qty = pos["quantity"] + quantity
-            pos["avg_entry"] = total_cost / total_qty
-            pos["quantity"] = total_qty
-            pos["invested"] += amount_usd
-        else:
-            self.positions[symbol] = {
-                "avg_entry": price,
-                "quantity": quantity,
-                "invested": amount_usd,
-                "pattern": pattern,
-                "confidence": confidence
-            }
-
-        self.balance -= amount_usd
-        self._log_trade("BUY", symbol, pattern, confidence, price, quantity, amount_usd, pnl=None)
-        return f"✅ Simulated BUY: {symbol} | Qty: {quantity:.6f} @ ${price:.2f} | Cost: ${amount_usd:.2f}"
-
-    def can_sell(self, symbol):
-        return symbol in self.positions and self.positions[symbol]["quantity"] > 0
-
-    def sell(self, symbol, price, pattern="Exit", confidence=1.0, quantity=None):
-        if not self.can_sell(symbol):
-            return f"⚠️ No position in {symbol} to sell."
-
-        pos = self.positions[symbol]
-        qty_to_sell = quantity or pos["quantity"]
-        qty_to_sell = min(qty_to_sell, pos["quantity"])
-        amount = qty_to_sell * price
-        cost_basis = pos["avg_entry"] * qty_to_sell
-        realized_pnl = amount - cost_basis
-
-        # Update or close position
-        pos["quantity"] -= qty_to_sell
-        pos["invested"] -= cost_basis
-        if pos["quantity"] <= 0:
-            del self.positions[symbol]
-
-        self.balance += amount
-        self._log_trade("SELL", symbol, pattern, confidence, price, qty_to_sell, amount, pnl=realized_pnl)
-
-        return (
-            f"✅ Simulated SELL: {symbol} | Qty: {qty_to_sell:.6f} @ ${price:.2f} "
-            f"| Proceeds: ${amount:.2f} | PnL: ${realized_pnl:.2f}"
-        )
-
-    def _log_trade(self, action, symbol, pattern, confidence, price, quantity, amount_usd, pnl=None):
-        with open(self.log_file, mode="a", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([
-                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                symbol,
-                action,
-                pattern,
-                round(confidence, 2),
-                round(price, 4),
-                round(quantity, 6),
-                round(amount_usd, 2),
-                round(self.balance, 2),
-                "" if pnl is None else round(pnl, 2)
-            ])
-
-    def get_portfolio_snapshot(self):
-        snapshot = {
-            "balance": round(self.balance, 2),
-            "positions": {}
+        self.positions[symbol] = {
+            "entry_price": price,
+            "qty": qty,
+            "pattern": pattern,
+            "buy_time": None  # Optional: Add datetime.now() if needed
         }
-        for symbol, pos in self.positions.items():
-            snapshot["positions"][symbol] = {
-                "avg_entry": round(pos["avg_entry"], 4),
-                "quantity": round(pos["quantity"], 6),
-                "invested": round(pos["invested"], 2)
-            }
-        return snapshot
+
+        trade = {
+            "symbol": symbol,
+            "action": "BUY",
+            "price": round(price, 2),
+            "qty": qty,
+            "pattern": pattern,
+            "pnl": None
+        }
+        self.trades.append(trade)
+        return trade
+
+    def sell(self, symbol, price, reason="manual"):
+        if symbol not in self.positions:
+            return None
+
+        position = self.positions.pop(symbol)
+        entry_price = position["entry_price"]
+        qty = position["qty"]
+        pattern = position["pattern"]
+
+        pnl = round((price - entry_price) * qty, 2)
+        self.total_profit += pnl
+
+        trade = {
+            "symbol": symbol,
+            "action": "SELL",
+            "price": round(price, 2),
+            "qty": qty,
+            "pattern": pattern,
+            "pnl": pnl,
+            "reason": reason
+        }
+
+        self.trades.append(trade)
+        return trade
+
+    def check_auto_sell(self, symbol, current_price):
+        """
+        Checks if a symbol should be sold due to stop loss or take profit.
+        If so, it triggers a sell and returns the trade dictionary.
+        """
+        if symbol not in self.positions:
+            return None
+
+        entry = self.positions[symbol]["entry_price"]
+        sl_price = entry * (1 - self.stop_loss_pct)
+        tp_price = entry * (1 + self.take_profit_pct)
+
+        if current_price <= sl_price:
+            return self.sell(symbol, current_price, reason="stop_loss")
+        elif current_price >= tp_price:
+            return self.sell(symbol, current_price, reason="take_profit")
+        return None
+
+    def get_open_positions(self):
+        return self.positions
+
+    def get_trade_log(self):
+        return self.trades
+
+    def get_total_pnl(self):
+        return self.total_profit
