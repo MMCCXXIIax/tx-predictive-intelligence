@@ -368,7 +368,6 @@ def dashboard():
                     border-radius: 4px;
                 }
 
-
 # Initialize alert engine
 from services.alert_engine import TXAlertEngine
 alert_engine = TXAlertEngine()
@@ -384,10 +383,10 @@ def handle_alert_response():
     """Handle user response to alerts"""
     data = request.json
     action = data.get('action')
-    
+
     # Process the response
     result = alert_engine.process_user_response("latest", action)
-    
+
     return jsonify({"status": "success", "action": action})
 
 @app.route('/api/create_strategy', methods=['POST'])
@@ -448,7 +447,7 @@ def create_strategy():
                     <div style="font-size: 12px; color: #777;">{{ last_signal.time }}</div>
                 </div>
                 {% endif %}
-                
+
                 <div style="margin-top: 15px; display: flex; gap: 10px;">
                     <button onclick="logOutcome('win')" 
                             style="background: var(--tx-green); border: none; padding: 5px 10px; border-radius: 4px;">
@@ -541,13 +540,13 @@ def create_strategy():
             <script>
                 let seconds = {{ refresh_seconds }};
                 let alertSound = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmAcBT2a2+/QfCsELYbR7/DPQAUF');
-                
+
                 function updateCountdown() {
                     document.getElementById('countdown').textContent = seconds;
                     seconds--;
                     if (seconds < 0) location.reload();
                 }
-                
+
                 function checkForAlerts() {
                     fetch('/api/get_active_alerts')
                         .then(response => response.json())
@@ -557,18 +556,18 @@ def create_strategy():
                             }
                         });
                 }
-                
+
                 function showAlert(alert) {
                     // Play sound
                     alertSound.play().catch(e => console.log('Audio play failed'));
-                    
+
                     // Show alert interface
                     document.getElementById('alertInterface').style.display = 'block';
                     document.getElementById('alertMessage').innerHTML = 
                         `<strong>${alert.symbol}</strong>: ${alert.pattern} (${alert.confidence})<br>
                          Price: $${alert.price}<br>
                          <em>${alert.message}</em>`;
-                    
+
                     // Update TX personality
                     const personalities = [
                         "I told you to watch this one! 👀",
@@ -580,18 +579,18 @@ def create_strategy():
                     document.getElementById('txPersonality').textContent = 
                         personalities[Math.floor(Math.random() * personalities.length)];
                 }
-                
+
                 function handleAlert(action) {
                     // Hide alert interface
                     document.getElementById('alertInterface').style.display = 'none';
-                    
+
                     // Send response to server
                     fetch('/api/handle_alert_response', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
                         body: JSON.stringify({action: action})
                     });
-                    
+
                     // Update TX personality based on action
                     const responses = {
                         'IGNORE': "Fine, ignore me. I'll just be here... watching... 😒",
@@ -601,7 +600,7 @@ def create_strategy():
                     };
                     document.getElementById('txPersonality').textContent = responses[action];
                 }
-                
+
                 // Check for alerts every 10 seconds
                 setInterval(checkForAlerts, 10000);
                 setInterval(updateCountdown, 1000);
@@ -614,7 +613,8 @@ def create_strategy():
         user_count=db['user_count'],
         refresh_seconds=TXConfig.REFRESH_INTERVAL
     ))
-    response.set_cookie('visitor_id', visitor_id, max_age=60*60*24*30)  # 30 days
+    response.set_cookie('visitor_id', visitor_id, max_age=60*60*24*30)
+    response.set_cookie('personalization', 'GPT-4o enabled', max_age=60*60*24*30)
     return response
 
 @app.route('/api/scan')

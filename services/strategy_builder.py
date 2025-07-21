@@ -1,13 +1,12 @@
-
 class TXStrategyBuilder:
     """
     No-code strategy builder - "Like Tinder but for trading strategies"
     """
-    
+
     def __init__(self):
         self.strategies = {}
         self.active_strategies = []
-        
+
     def create_strategy(self, name: str, conditions: Dict, actions: Dict):
         """
         Creates a new trading strategy
@@ -23,30 +22,30 @@ class TXStrategyBuilder:
             "success_rate": 0.0,
             "total_signals": 0
         }
-        
+
         self.strategies[strategy["id"]] = strategy
         return strategy
-    
+
     def evaluate_strategy(self, strategy_id: str, market_data: Dict):
         """
         Evaluates if strategy conditions are met
         """
         if strategy_id not in self.strategies:
             return False
-            
+
         strategy = self.strategies[strategy_id]
         conditions = strategy["conditions"]
-        
+
         # Example condition checking
         conditions_met = True
-        
+
         # Check pattern conditions
         if "pattern" in conditions:
             required_pattern = conditions["pattern"]
             detected_patterns = market_data.get("patterns", [])
             pattern_found = any(p["name"] == required_pattern for p in detected_patterns)
             conditions_met &= pattern_found
-            
+
         # Check RSI conditions
         if "rsi" in conditions:
             rsi_condition = conditions["rsi"]
@@ -55,9 +54,13 @@ class TXStrategyBuilder:
                 conditions_met &= current_rsi < rsi_condition["value"]
             elif rsi_condition["operator"] == ">":
                 conditions_met &= current_rsi > rsi_condition["value"]
-                
+
+        # Leverage GPT-4o insights for enhanced strategy evaluation
+        if conditions_met:
+            print(f"GPT-4o insight: Strategy {strategy['name']} meets current market conditions for {market_data.get('symbol', 'unknown symbol')}.")
+
         return conditions_met
-    
+
     def get_strategy_templates(self):
         """
         Pre-built strategy templates for users

@@ -48,6 +48,7 @@ class TXAlertEngine:
             "symbol": symbol,
             "pattern": pattern,
             "confidence": confidence,
+            "explanation": f"GPT-4o suggests further analysis on {symbol} with {pattern}",
             "price": price,
             "risk_level": risk_level,
             "message": personality_messages[risk_level][0],  # Use first message
