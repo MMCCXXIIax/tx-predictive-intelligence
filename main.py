@@ -414,7 +414,39 @@ def dashboard():
                     <div style="font-size: 12px; color: #777;">{{ last_signal.time }}</div>
                 </div>
                 {% endif %}
+                
+                <div style="margin-top: 15px; display: flex; gap: 10px;">
+                    <button onclick="logOutcome('win')" 
+                            style="background: var(--tx-green); border: none; padding: 5px 10px; border-radius: 4px;">
+                        ✅ Trade Won
+                    </button>
+                    <button onclick="logOutcome('loss')" 
+                            style="background: var(--tx-red); border: none; padding: 5px 10px; border-radius: 4px;">
+                        ❌ Trade Lost
+                    </button>
+                </div>
 
+                <script>
+                function logOutcome(outcome) {
+                    // Get the latest detection ID
+                    const lastSignal = {{ last_signal | tojson | safe }};
+
+                    fetch('/api/log_outcome', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            detection_id: lastSignal?.timestamp,  // Using timestamp as unique ID
+                            outcome: outcome
+                        })
+                    }).then(response => {
+                        if (response.ok) {
+                            alert('Outcome logged! Thank you.');
+                        }
+                    });
+                }
+                </script>
                 <div style="margin: 15px 0; font-size: 12px; color: #555;">
                     ⚡ <strong>{{ user_count }} traders</strong> live
                 </div>
@@ -459,26 +491,88 @@ def dashboard():
 def api_scan():
     return jsonify(app_state)
 
+
 @app.route('/api/log_outcome/<detection_id>', methods=['POST'])
 def log_outcome(detection_id):
-    outcome = request.json.get('outcome')
-    for detection in db['detections']:
-        if detection['id'] == detection_id:
-            detection['outcome'] = outcome
-            detection['verified'] = True
-            return jsonify({"status": "success"})
-    return jsonify({"status": "not_found"}), 404
+    try:
+        outcome = request.json.get('outcome')
+
+        # Find the detection in the database
+        for idx, detection in enumerate(db['detections']):
+            if detection['id'] == detection_id:
+                db['detections'][idx]['outcome'] = outcome
+                db['detections'][idx]['verified'] = True
+                return jsonify({"status": "success"})
+
+        return jsonify({"status": "detection_not_found"}), 404
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ====================== DATA BACKUP SYSTEM ======================
+def backup_to_github():
+    """Automatically exports data to GitHub"""
+    try:
+        print("⏳ Starting GitHub backup...")
+        export = {
+            'timestamp': datetime.now().isoformat(),
+            'data': {
+                'visitors': dict(db['visitors']),
+                'detections': list(db['detections'])
+            }
+        }
+
+        with open('tx_backup.json', 'w') as f:
+            json.dump(export, f, indent=2)
+
+        # Configure git (only needs to run once)
+        if not os.path.exists('.git/config'):
+            os.system('git init')
+            os.system('git remote add origin ' +
+                     f'https://{os.getenv("TOKEN")}@github.com/MMCCXXIIax/tx-backups.git')
+
+        # Push to GitHub
+        os.system('git config --global user.name "TX-AutoBackup"')
+        os.system('git config --global user.email "backup@tx.com"')
+        os.system('git add tx_backup.json')
+        os.system('git commit -m "Auto backup"')
+        os.system('git push origin main')
+
+        print("✅ Backup completed!")
+    except Exception as e:
+        print(f"⚠️ Backup failed: {str(e)}")
+
+
+def scan_scheduler():
+    """Runs periodic scans in the background"""
+    while True:
+        try:
+            engine.run_scan()
+            time.sleep(TXConfig.REFRESH_INTERVAL)
+        except Exception as e:
+            print(f"⚠️ Scan scheduler error: {str(e)}")
+            time.sleep(10)  # Wait before retrying
+
+
+
+
 
 # ====================== MAIN ======================
 if __name__ == "__main__":
+    # Initialize engine
     engine = TXEngine()
     engine.run_scan()
 
-    def scan_scheduler():
-        while True:
-            time.sleep(TXConfig.REFRESH_INTERVAL)
-            engine.run_scan()
-
+    # Start scanner thread
     threading.Thread(target=scan_scheduler, daemon=True).start()
+
+    # Start backup scheduler (every 24 hours)
+    def backup_scheduler():
+        while True:
+            time.sleep(24 * 60 * 60)  # 24 hours
+            backup_to_github()
+
+    threading.Thread(target=backup_scheduler, daemon=True).start()
+
     print("✅ TX Copilot running at http://localhost:8080 ...")
     app.run(host='0.0.0.0', port=8080)
