@@ -428,23 +428,35 @@ def dashboard():
 
                 <script>
                 function logOutcome(outcome) {
-                    // Get the latest detection ID
-                    const lastSignal = {{ last_signal | tojson | safe }};
-
-                    fetch('/api/log_outcome', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            detection_id: lastSignal?.timestamp,  // Using timestamp as unique ID
-                            outcome: outcome
+                    // Get the latest detection ID from the most recent detection
+                    fetch('/api/get_latest_detection_id')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.detection_id) {
+                                return fetch('/api/log_outcome', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        detection_id: data.detection_id,
+                                        outcome: outcome
+                                    })
+                                });
+                            } else {
+                                throw new Error('No recent detection found');
+                            }
                         })
-                    }).then(response => {
-                        if (response.ok) {
-                            alert('Outcome logged! Thank you.');
-                        }
-                    });
+                        .then(response => {
+                            if (response.ok) {
+                                alert('Outcome logged! Thank you.');
+                            } else {
+                                alert('Failed to log outcome.');
+                            }
+                        })
+                        .catch(error => {
+                            alert('No recent detection to log outcome for.');
+                        });
                 }
                 </script>
                 <div style="margin: 15px 0; font-size: 12px; color: #555;">
@@ -492,10 +504,29 @@ def api_scan():
     return jsonify(app_state)
 
 
-@app.route('/api/log_outcome/<detection_id>', methods=['POST'])
-def log_outcome(detection_id):
+@app.route('/api/get_latest_detection_id')
+def get_latest_detection_id():
     try:
-        outcome = request.json.get('outcome')
+        detections = db.get('detections', [])
+        if detections:
+            # Get the most recent detection
+            latest_detection = detections[-1]
+            return jsonify({"detection_id": latest_detection['id']})
+        else:
+            return jsonify({"error": "No detections found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/log_outcome', methods=['POST'])
+def log_outcome():
+    try:
+        data = request.json
+        outcome = data.get('outcome')
+        detection_id = data.get('detection_id')
+
+        if not outcome or not detection_id:
+            return jsonify({"status": "error", "message": "Missing outcome or detection_id"}), 400
 
         # Find the detection in the database
         for idx, detection in enumerate(db['detections']):
