@@ -89,13 +89,13 @@ class TXConfig:
         "AAPL": "stock",
         "TSLA": "stock"
     }
-    REFRESH_INTERVAL = 300
+    REFRESH_INTERVAL = 180
     CANDLE_LIMIT = 100
     ALERT_CONFIDENCE_THRESHOLD = 0.85
     ALERT_TYPES = ["CONSOLE", "WEB"]
 
     CACHE_FILE = "tx_cache.json"
-    CACHE_DURATION = 300
+    CACHE_DURATION = 180
 
     PATTERN_WATCHLIST = [
         "Bullish Engulfing",
@@ -103,7 +103,10 @@ class TXConfig:
         "Morning Star",
         "Evening Star",
         "Three White Soldiers",
-        "Three Black Crows"
+        "Three Black Crows",
+        "Hammer",
+        "Inverted Hammer", 
+        "Shooting Star"
     ]
 
     ENABLE_PAPER_TRADING = True
@@ -471,7 +474,7 @@ def dashboard():
                         <li>15+ assets including forex</li>
                         <li>Historical backtesting</li>
                     </ul>
-                    <p><strong>$5/month via USDT</strong> | DM @YourHandle</p>
+                    <p><strong>$5/month via USDT</strong> | DM on IG @robert.manejk</p>
                 </div>
 
                 <div class="powered-by">

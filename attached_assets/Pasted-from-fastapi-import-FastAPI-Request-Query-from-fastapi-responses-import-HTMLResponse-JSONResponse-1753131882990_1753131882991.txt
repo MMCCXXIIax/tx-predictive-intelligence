@@ -1,0 +1,205 @@
+from fastapi import FastAPI, Request, Query
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List
+from starlette.templating import Jinja2Templates
+import uvicorn
+import json
+from dotenv import load_dotenv
+
+# ✅ Load environment variables
+load_dotenv()
+
+# Core detection and utilities
+from detectors.ai_pattern_logic import detect_all_patterns
+from tx_smart_insights import generate_insights
+from tx_live_feed import fetch_intraday_ohlc
+from ohlc_parser import parse_ohlc_from_alpha_vantage
+
+# ----------------------------
+# FastAPI App Initialization
+# ----------------------------
+app = FastAPI(
+    title="TX Pattern Detection API",
+    version="1.0.1",
+    description="API for detecting candlestick patterns with smart insights."
+)
+
+# Enable CORS for frontend integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Jinja2 template setup
+templates = Jinja2Templates(directory="templates")
+
+# ----------------------------
+# Models
+# ----------------------------
+class Candle(BaseModel):
+    timestamp: str
+    open: float
+    high: float
+    low: float
+    close: float
+
+class CandleInput(BaseModel):
+    candles: List[Candle]
+    symbol: str = "UNKNOWN"
+
+# ----------------------------
+# Root Endpoint
+# ----------------------------
+@app.get("/", response_model=dict)
+def root():
+    return {
+        "service": "TX Pattern Detection Service",
+        "status": "running",
+        "version": "1.0.1",
+        "endpoints": {
+            "/v1/detect": "POST - Detect patterns in candle array",
+            "/v1/live-feed": "GET - Fetch live OHLC for symbol",
+            "/v1/live-detect": "GET - Live detect on OHLC",
+            "/pattern-checker": "Form UI for manual testing"
+        }
+    }
+
+# ----------------------------
+# API: Pattern Detection (Manual)
+# ----------------------------
+@app.post("/v1/detect")
+def detect_patterns(input_data: CandleInput):
+    try:
+        candles = [c.dict() for c in input_data.candles]
+        symbol = input_data.symbol.upper()
+        patterns = detect_all_patterns(candles)
+        insights = generate_insights(symbol, patterns)
+
+        return {
+            "symbol": symbol,
+            "patterns": patterns,
+            "insights": insights,
+            "total": len(patterns)
+        }
+
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": f"Detection failed: {str(e)}"})
+
+# ----------------------------
+# API: Live OHLC Fetch
+# ----------------------------
+@app.get("/v1/live-feed")
+def get_live_data(symbol: str = Query(...), interval: str = "1min", limit: int = 10):
+    try:
+        raw_data = fetch_intraday_ohlc(symbol, interval)
+        candles = parse_ohlc_from_alpha_vantage(raw_data, interval)
+        return {"symbol": symbol.upper(), "interval": interval, "candles": candles}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": f"Live feed error: {str(e)}"})
+
+# ----------------------------
+# API: Live Pattern Detection
+# ----------------------------
+@app.get("/v1/live-detect")
+def live_detect(symbol: str = Query(...), interval: str = "1min", limit: int = 10):
+    try:
+        raw_data = fetch_intraday_ohlc(symbol, interval)
+        candles = parse_ohlc_from_alpha_vantage(raw_data, interval)
+
+        if not candles or len(candles) < 2:
+            return JSONResponse(status_code=400, content={"error": "Insufficient candle data"})
+
+        patterns = detect_all_patterns(candles)
+        insights = generate_insights(symbol.upper(), patterns)
+
+        return {
+            "symbol": symbol.upper(),
+            "interval": interval,
+            "candles_used": len(candles),
+            "patterns": patterns,
+            "insights": insights,
+            "total_detected": len(patterns)
+        }
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": f"Live detect error: {str(e)}",
+                "hint": "Check Alpha Vantage rate limit or verify symbol/interval validity"
+            }
+        )
+
+# ----------------------------
+# HTML UI Routes (Manual Form)
+# ----------------------------
+@app.get("/pattern-checker", response_class=HTMLResponse)
+def show_form(request: Request):
+    return templates.TemplateResponse("pattern_form.html", {"request": request})
+
+@app.post("/pattern-checker", response_class=HTMLResponse)
+async def handle_form(request: Request):
+    form_data = await request.form()
+    candle_data_raw = form_data.get("candle_data")
+
+    if not candle_data_raw:
+        return templates.TemplateResponse("pattern_form.html", {
+            "request": request,
+            "candles": "",
+            "error": "Missing candle data."
+        })
+
+    try:
+        # Handle textarea input or file upload
+        if hasattr(candle_data_raw, "read"):
+            raw_bytes = await candle_data_raw.read()
+            candle_data_str = raw_bytes.decode("utf-8")
+        else:
+            candle_data_str = str(candle_data_raw)
+
+        candle_list = json.loads(candle_data_str)
+
+        if not isinstance(candle_list, list):
+            raise ValueError("JSON input must be an array of candles.")
+
+        parsed = [{
+            "timestamp": str(c["timestamp"]),
+            "open": float(c["open"]),
+            "high": float(c["high"]),
+            "low": float(c["low"]),
+            "close": float(c["close"]),
+        } for c in candle_list]
+
+        patterns = detect_all_patterns(parsed)
+        insights = generate_insights("ManualInput", patterns)
+
+        return templates.TemplateResponse("pattern_form.html", {
+            "request": request,
+            "candles": candle_data_str,
+            "patterns": patterns,
+            "insights": insights
+        })
+
+    except json.JSONDecodeError as e:
+        return templates.TemplateResponse("pattern_form.html", {
+            "request": request,
+            "candles": str(candle_data_raw),
+            "error": f"Invalid JSON format: {str(e)}"
+        })
+    except Exception as e:
+        return templates.TemplateResponse("pattern_form.html", {
+            "request": request,
+            "candles": str(candle_data_raw),
+            "error": str(e)
+        })
+
+# ----------------------------
+# Uvicorn Dev Entry Point
+# ----------------------------
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
