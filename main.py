@@ -314,7 +314,7 @@ def dashboard():
         <!DOCTYPE html>
         <html>
         <head>
-            <title>TX PREDICTIVE INTELLIGENCE</title>
+            <title>TX PREDICTIVE INTELLIGENCE - Your Trading Co-Pilot</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
             <style>
@@ -367,6 +367,37 @@ def dashboard():
                     padding: 2px 6px;
                     border-radius: 4px;
                 }
+
+
+# Initialize alert engine
+from services.alert_engine import TXAlertEngine
+alert_engine = TXAlertEngine()
+
+@app.route('/api/get_active_alerts')
+def get_active_alerts():
+    """Get currently active alerts"""
+    active_alerts = alert_engine.get_active_alerts()
+    return jsonify({"alerts": active_alerts})
+
+@app.route('/api/handle_alert_response', methods=['POST'])
+def handle_alert_response():
+    """Handle user response to alerts"""
+    data = request.json
+    action = data.get('action')
+    
+    # Process the response
+    result = alert_engine.process_user_response("latest", action)
+    
+    return jsonify({"status": "success", "action": action})
+
+@app.route('/api/create_strategy', methods=['POST'])
+def create_strategy():
+    """Create a new trading strategy"""
+    data = request.json
+    # This would integrate with the strategy builder
+    return jsonify({"status": "strategy_created", "id": "strategy_123"})
+
+
                 .tx-logo {
                     font-size: 24px;
                     letter-spacing: -1px;
@@ -466,15 +497,40 @@ def dashboard():
                     ⚡ <strong>{{ user_count }} traders</strong> live
                 </div>
 
+                <!-- TX Alert Interface -->
+                <div id="alertInterface" style="background: #1a0a0a; border: 2px solid var(--tx-red); padding: 15px; border-radius: 8px; margin: 20px 0; display: none;">
+                    <div style="color: var(--tx-red); font-weight: bold; font-size: 18px;">🚨 TX ALERT ACTIVATED</div>
+                    <div id="alertMessage" style="margin: 10px 0; color: white;"></div>
+                    <div style="display: flex; gap: 10px; margin: 15px 0;">
+                        <button onclick="handleAlert('IGNORE')" style="background: #666; border: none; padding: 8px 12px; border-radius: 4px; color: white;">😴 Ignore</button>
+                        <button onclick="handleAlert('SIMULATE')" style="background: #0066ff; border: none; padding: 8px 12px; border-radius: 4px; color: white;">📊 Simulate</button>
+                        <button onclick="handleAlert('EXECUTE')" style="background: var(--tx-green); border: none; padding: 8px 12px; border-radius: 4px; color: white;">⚡ Execute</button>
+                        <button onclick="handleAlert('SNOOZE')" style="background: #ff9900; border: none; padding: 8px 12px; border-radius: 4px; color: white;">⏰ Snooze 5m</button>
+                    </div>
+                    <div style="font-size: 12px; color: #aaa;">Suggested amounts: $100 | $250 | $500 | $1000</div>
+                </div>
+
+                <!-- TX Personality Section -->
+                <div style="background: var(--tx-gray); padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid var(--tx-green);">
+                    <div style="color: var(--tx-green); font-weight: bold;">💭 TX Says:</div>
+                    <div id="txPersonality" style="font-style: italic; color: #ccc;">
+                        "Like that overprotective friend who won't let you make bad decisions... but for trading."
+                    </div>
+                </div>
+
                 <div style="margin-top: 30px; background: #000; padding: 15px; border-radius: 4px;">
-                    <h3 style="margin-top: 0; color: var(--tx-green);">🚀 PRO ACCESS</h3>
-                    <p>Unlock real-time AI predictions:</p>
+                    <h3 style="margin-top: 0; color: var(--tx-green);">🚀 TX PRO ACCESS</h3>
+                    <p>Unlock the full "Jealous Ex" experience:</p>
                     <ul>
-                        <li>Telegram/WhatsApp alerts</li>
-                        <li>15+ assets including forex</li>
-                        <li>Historical backtesting</li>
+                        <li>🔔 Multi-device sound alerts (phone, tablet, desktop)</li>
+                        <li>📱 Telegram/WhatsApp notifications</li>
+                        <li>🎯 Strategy Builder (no-code)</li>
+                        <li>📊 15+ assets including forex</li>
+                        <li>🧠 AI sentiment overlay</li>
+                        <li>📈 Performance analytics & journaling</li>
                     </ul>
-                    <p><strong>$5/month via USDT</strong> | DM on IG @robert.manejk</p>
+                    <p><strong>$800/month flat rate</strong> | No profit sharing, pure SaaS</p>
+                    <p>DM on IG @robert.manejk</p>
                 </div>
 
                 <div class="powered-by">
@@ -484,11 +540,70 @@ def dashboard():
 
             <script>
                 let seconds = {{ refresh_seconds }};
+                let alertSound = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmAcBT2a2+/QfCsELYbR7/DPQAUF');
+                
                 function updateCountdown() {
                     document.getElementById('countdown').textContent = seconds;
                     seconds--;
                     if (seconds < 0) location.reload();
                 }
+                
+                function checkForAlerts() {
+                    fetch('/api/get_active_alerts')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.alerts && data.alerts.length > 0) {
+                                showAlert(data.alerts[0]);
+                            }
+                        });
+                }
+                
+                function showAlert(alert) {
+                    // Play sound
+                    alertSound.play().catch(e => console.log('Audio play failed'));
+                    
+                    // Show alert interface
+                    document.getElementById('alertInterface').style.display = 'block';
+                    document.getElementById('alertMessage').innerHTML = 
+                        `<strong>${alert.symbol}</strong>: ${alert.pattern} (${alert.confidence})<br>
+                         Price: $${alert.price}<br>
+                         <em>${alert.message}</em>`;
+                    
+                    // Update TX personality
+                    const personalities = [
+                        "I told you to watch this one! 👀",
+                        "See? I'm always watching your back.",
+                        "This is why you need me... *sips tea*",
+                        "Another pattern caught! You're welcome.",
+                        "I'm like Velma but for your portfolio 🔍"
+                    ];
+                    document.getElementById('txPersonality').textContent = 
+                        personalities[Math.floor(Math.random() * personalities.length)];
+                }
+                
+                function handleAlert(action) {
+                    // Hide alert interface
+                    document.getElementById('alertInterface').style.display = 'none';
+                    
+                    // Send response to server
+                    fetch('/api/handle_alert_response', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({action: action})
+                    });
+                    
+                    // Update TX personality based on action
+                    const responses = {
+                        'IGNORE': "Fine, ignore me. I'll just be here... watching... 😒",
+                        'SIMULATE': "Smart choice! Let's paper trade this first 📊",
+                        'EXECUTE': "YOLO! I hope you know what you're doing 🚀",
+                        'SNOOZE': "Okay, but I'll be back in 5 minutes. SET YOUR ALARM ⏰"
+                    };
+                    document.getElementById('txPersonality').textContent = responses[action];
+                }
+                
+                // Check for alerts every 10 seconds
+                setInterval(checkForAlerts, 10000);
                 setInterval(updateCountdown, 1000);
             </script>
         </body>
