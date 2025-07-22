@@ -1,5 +1,5 @@
 
-```python
+#python
 # ai_pattern_logic.py
 
 from pattern_registry import pattern_registry
@@ -43,4 +43,3 @@ def detect_all_patterns(candles):
             continue
 
     return results
-```
