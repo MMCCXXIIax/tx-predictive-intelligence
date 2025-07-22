@@ -11,6 +11,18 @@ class TXAlertEngine:
     """
     
     def __init__(self):
+
+    def get_pattern_explanation(self, symbol, pattern):
+        # Detailed explanation of the pattern
+        explanations = {
+            "Shooting Star": (
+                f"A Shooting Star pattern indicates a potential reversal after an uptrend in {symbol}. "
+                "Characterized by a small body and a long upper shadow, it suggests potential bearishness."
+            ),
+            # Other patterns could be added here
+        }
+        return explanations.get(pattern, "No detailed explanation available.")
+
         self.alert_history = []
         self.user_preferences = {}
         self.device_tokens = {}
@@ -42,13 +54,15 @@ class TXAlertEngine:
             ]
         }
         
+        detailed_explanation = self.get_pattern_explanation(symbol, pattern)
+        
         alert = {
             "id": f"tx_{int(time.time())}_{symbol}",
             "timestamp": datetime.now().isoformat(),
             "symbol": symbol,
             "pattern": pattern,
             "confidence": confidence,
-            "explanation": f"GPT-4o suggests further analysis on {symbol} with {pattern}",
+            "explanation": detailed_explanation,
             "price": price,
             "risk_level": risk_level,
             "message": personality_messages[risk_level][0],  # Use first message
