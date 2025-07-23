@@ -138,7 +138,7 @@ class AlertSystem:
             "confidence": f"{confidence:.0%}",
             "price": f"${last_price:,.2f}",
             "time": timestamp,
-            "explanation": explanation,
+            "explanation": detection.get("explanation", "No explanation available"),
             "action": action
         }
 
