@@ -727,5 +727,5 @@ if __name__ == "__main__":
 
     threading.Thread(target=backup_scheduler, daemon=True).start()
 
-    print("✅ TX Copilot running at http://localhost:8080 ...")
-    app.run(host='0.0.0.0', port=8080)
+    print("✅ TX Copilot running at http://localhost:5000 ...")
+    app.run(host='0.0.0.0', port=5000)
