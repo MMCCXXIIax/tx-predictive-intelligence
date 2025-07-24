@@ -440,6 +440,9 @@ def create_strategy():
                     Next scan in: <span id="countdown">{{ refresh_seconds }}</span>s
                 </div>
 
+                
+
+                
                 {% if last_signal %}
                 <div style="background: #0d1a26; padding: 10px; border-radius: 4px; margin: 20px 0;">
                     <div style="color: var(--tx-green); font-weight: bold;">🚨 Latest Signal</div>
@@ -458,6 +461,7 @@ def create_strategy():
                         ❌ Trade Lost
                     </button>
                 </div>
+
 
                 <script>
                 function logOutcome(outcome) {
