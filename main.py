@@ -374,7 +374,7 @@ alert_engine = TXAlertEngine()
 
 @app.route('/api/get_active_alerts')
 def get_active_alerts():
-    """Get currently active alerts"""
+    """Get currently active alerts using actual alert logic"""
     active_alerts = alert_engine.get_active_alerts()
     return jsonify({"alerts": active_alerts})
 
@@ -440,9 +440,9 @@ def create_strategy():
                     Next scan in: <span id="countdown">{{ refresh_seconds }}</span>s
                 </div>
 
-                
 
-                
+
+
                 {% if last_signal %}
                 <div style="background: #0d1a26; padding: 10px; border-radius: 4px; margin: 20px 0;">
                     <div style="color: var(--tx-green); font-weight: bold;">🚨 Latest Signal</div>
