@@ -3,3 +3,4 @@ websocket
 flask
 gunicorn
 python-dotenv
+databases==0.9.0

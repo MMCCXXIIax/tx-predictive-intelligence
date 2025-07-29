@@ -1,8 +1,3 @@
-#git add main.py
-#git commit -m "Fix: Render port binding with os.environ['PORT']"
-#git push origin main
-
-
 # main.py
 import time
 import os
@@ -372,36 +367,6 @@ def dashboard():
                     padding: 2px 6px;
                     border-radius: 4px;
                 }
-
-# Initialize alert engine
-from services.alert_engine import TXAlertEngine
-alert_engine = TXAlertEngine()
-
-@app.route('/api/get_active_alerts')
-def get_active_alerts():
-    """Get currently active alerts using actual alert logic"""
-    active_alerts = alert_engine.get_active_alerts()
-    return jsonify({"alerts": active_alerts})
-
-@app.route('/api/handle_alert_response', methods=['POST'])
-def handle_alert_response():
-    """Handle user response to alerts"""
-    data = request.json
-    action = data.get('action')
-
-    # Process the response
-    result = alert_engine.process_user_response("latest", action)
-
-    return jsonify({"status": "success", "action": action})
-
-@app.route('/api/create_strategy', methods=['POST'])
-def create_strategy():
-    """Create a new trading strategy"""
-    data = request.json
-    # This would integrate with the strategy builder
-    return jsonify({"status": "strategy_created", "id": "strategy_123"})
-
-
                 .tx-logo {
                     font-size: 24px;
                     letter-spacing: -1px;
@@ -445,9 +410,6 @@ def create_strategy():
                     Next scan in: <span id="countdown">{{ refresh_seconds }}</span>s
                 </div>
 
-
-
-
                 {% if last_signal %}
                 <div style="background: #0d1a26; padding: 10px; border-radius: 4px; margin: 20px 0;">
                     <div style="color: var(--tx-green); font-weight: bold;">🚨 Latest Signal</div>
@@ -466,7 +428,6 @@ def create_strategy():
                         ❌ Trade Lost
                     </button>
                 </div>
-
 
                 <script>
                 function logOutcome(outcome) {
@@ -537,7 +498,7 @@ def create_strategy():
                         <li>🧠 AI sentiment overlay</li>
                         <li>📈 Performance analytics & journaling</li>
                     </ul>
-                    <p><strong>$800/month flat rate</strong> | No profit sharing, pure SaaS</p>
+                    <p><strong>$24.99/month flat rate</strong> | No profit sharing, pure SaaS</p>
                     <p>DM on IG @robert.manejk</p>
                 </div>
 
@@ -630,7 +591,6 @@ def create_strategy():
 def api_scan():
     return jsonify(app_state)
 
-
 @app.route('/api/get_latest_detection_id')
 def get_latest_detection_id():
     try:
@@ -643,7 +603,6 @@ def get_latest_detection_id():
             return jsonify({"error": "No detections found"}), 404
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 @app.route('/api/log_outcome', methods=['POST'])
 def log_outcome():
@@ -666,6 +625,20 @@ def log_outcome():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/api/get_active_alerts')
+def get_active_alerts():
+    """Get currently active alerts"""
+    return jsonify({"alerts": app_state["alerts"]})
+
+@app.route('/api/handle_alert_response', methods=['POST'])
+def handle_alert_response():
+    """Handle user response to alerts"""
+    data = request.get_json()
+    action = data.get('action', 'IGNORE')
+
+    # Just log the response
+    print(f"User responded to alert with: {action}")
+    return jsonify({"status": "recorded", "action": action})
 
 # ====================== DATA BACKUP SYSTEM ======================
 def backup_to_github():
@@ -700,21 +673,6 @@ def backup_to_github():
     except Exception as e:
         print(f"⚠️ Backup failed: {str(e)}")
 
-
-def scan_scheduler():
-    """Runs periodic scans in the background"""
-    while True:
-        try:
-            engine.run_scan()
-            time.sleep(TXConfig.REFRESH_INTERVAL)
-        except Exception as e:
-            print(f"⚠️ Scan scheduler error: {str(e)}")
-            time.sleep(10)  # Wait before retrying
-
-
-
-
-
 # ====================== MAIN ======================
 if __name__ == "__main__":
     engine = TXEngine()
@@ -726,8 +684,6 @@ if __name__ == "__main__":
             engine.run_scan()
 
     threading.Thread(target=scan_scheduler, daemon=True).start()
-
-    # ✅ Bind to the port Render assigns
-    port = int(os.environ.get("PORT", 10000))  # fallback if PORT not set
+    port = int(os.environ.get("PORT", 10000))
     print(f"✅ TX Copilot running on port {port}")
     app.run(host="0.0.0.0", port=port)
