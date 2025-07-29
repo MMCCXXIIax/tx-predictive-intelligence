@@ -1,34 +1,7 @@
 #git add main.py
-#git commit -m "Fix: bind to Render-assigned port"
+#git commit -m "Fix: Render port binding with os.environ['PORT']"
 #git push origin main
 
-
-
-
-
-#git add requirements.txt
-#git commit -m "Add python-dotenv to requirements"
-#git push origin main
-
-
-
-#git init
-#git config --global user.name "Your Name"
-#git config --global user.email "your@email.com"
-
-#https://github.com/MMCCXXIIax/tx-copilot-bot.git
-#git remote set-url origin https://<YOUR_GITHUB_USERNAME>:<YOUR_TOKEN>@github.com/<YOUR_GITHUB_USERNAME>/tx-copilot-bot.git
-
-#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
-
-
-
-
-
-#git remote add origin https://github.com/yourusername/tx-copilot-bot.git
-#git branch -M main
-#git push -u origin main
-#https://github.com/MMCCXXIIax/tx-copilot-bot.git
 
 # main.py
 import time
@@ -744,22 +717,17 @@ def scan_scheduler():
 
 # ====================== MAIN ======================
 if __name__ == "__main__":
-    # Initialize engine
     engine = TXEngine()
     engine.run_scan()
 
-    # Start scanner thread
+    def scan_scheduler():
+        while True:
+            time.sleep(TXConfig.REFRESH_INTERVAL)
+            engine.run_scan()
+
     threading.Thread(target=scan_scheduler, daemon=True).start()
 
-    # Start backup scheduler (every 24 hours)
-    def backup_scheduler():
-        while True:
-            time.sleep(24 * 60 * 60)  # 24 hours
-            backup_to_github()
-
-    threading.Thread(target=backup_scheduler, daemon=True).start()
-
-    print("✅ TX Copilot running at http://localhost:5000 ...")
-    import os
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
+    # ✅ Bind to the port Render assigns
+    port = int(os.environ.get("PORT", 10000))  # fallback if PORT not set
+    print(f"✅ TX Copilot running on port {port}")
+    app.run(host="0.0.0.0", port=port)
