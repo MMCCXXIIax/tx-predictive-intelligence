@@ -615,7 +615,7 @@ def log_outcome():
             return jsonify({"status": "error", "message": "Missing outcome or detection_id"}), 400
 
         # Find the detection in the database
-        for idx, detection in enumerate(db['detections']):
+        for idx, detection in enumerate(db.get('detections', [])):
             if detection['id'] == detection_id:
                 db['detections'][idx]['outcome'] = outcome
                 db['detections'][idx]['verified'] = True
