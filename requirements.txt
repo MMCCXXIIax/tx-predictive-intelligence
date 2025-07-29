@@ -2,3 +2,4 @@ requests
 websocket
 flask
 gunicorn
+python-dotenv
