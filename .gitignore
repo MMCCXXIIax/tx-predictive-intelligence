@@ -1,3 +1,42 @@
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment and secrets
+.env
+.env.*
+
+# API cache or local storage
+tx_cache.json
+*.log
+
+# Replit-specific or editor files
+replit.nix
+.replit
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Virtual environment folders (if you ever use venv locally)
+venv/
+env/
+
+
+
+
+
+
+
+
+
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
