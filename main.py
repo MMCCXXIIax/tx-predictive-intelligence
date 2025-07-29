@@ -1,3 +1,17 @@
+#git add main.py
+#git commit -m "Fix: bind to Render-assigned port"
+#git push origin main
+
+
+
+
+
+#git add requirements.txt
+#git commit -m "Add python-dotenv to requirements"
+#git push origin main
+
+
+
 #git init
 #git config --global user.name "Your Name"
 #git config --global user.email "your@email.com"
@@ -746,4 +760,6 @@ if __name__ == "__main__":
     threading.Thread(target=backup_scheduler, daemon=True).start()
 
     print("✅ TX Copilot running at http://localhost:5000 ...")
-    app.run(host='0.0.0.0', port=5000)
+    import os
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
