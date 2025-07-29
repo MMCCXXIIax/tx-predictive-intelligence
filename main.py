@@ -677,15 +677,6 @@ def backup_to_github():
 
 # ====================== MAIN ======================
 if __name__ == "__main__":
-    engine = TXEngine()
-    engine.run_scan()
-
-    def scan_scheduler():
-        while True:
-            time.sleep(TXConfig.REFRESH_INTERVAL)
-            engine.run_scan()
-
-    threading.Thread(target=scan_scheduler, daemon=True).start()
-    port = int(os.environ.get("PORT", 10000))
-    print(f"✅ TX Copilot running on port {port}")
+    port = int(os.environ.get("PORT", 10000))  # ← THIS line is crucial!
+    print(f"✅ TX Copilot is binding to port {port} for Render.")
     app.run(host="0.0.0.0", port=port)
