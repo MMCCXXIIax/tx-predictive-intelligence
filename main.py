@@ -1,5 +1,3 @@
-#https://github.com/MMCCXXIIax/tx-copilot-bot.git
-
 # main.py
 import time
 import os
@@ -19,14 +17,19 @@ try:
 except:
     # Fallback for local testing
     class MockDB:
+
         def __init__(self):
             self.data = {}
+
         def __getitem__(self, key):
             return self.data.get(key)
+
         def __setitem__(self, key, value):
             self.data[key] = value
+
         def get(self, key, default=None):
             return self.data.get(key, default)
+
     db = MockDB()
 
 # Initialize database collections if they don't exist
@@ -36,6 +39,7 @@ if 'detections' not in db:
     db['detections'] = []
 if 'user_count' not in db:
     db['user_count'] = 12  # Initial count
+
 
 # ====================== TRACKING SYSTEM ======================
 def track_visit(request):
@@ -56,10 +60,12 @@ def track_visit(request):
     else:
         # Returning visitor
         if visitor_id in db['visitors']:
-            db['visitors'][visitor_id]['last_seen'] = datetime.now().isoformat()
+            db['visitors'][visitor_id]['last_seen'] = datetime.now().isoformat(
+            )
             db['visitors'][visitor_id]['visit_count'] += 1
 
     return visitor_id
+
 
 def log_detection(symbol, pattern, confidence, price):
     """Store pattern detection for future AI training"""
@@ -82,6 +88,7 @@ def log_detection(symbol, pattern, confidence, price):
 
     return detection_id
 
+
 # ====================== CONFIG ======================
 class TXConfig:
     ASSET_TYPES = {
@@ -100,18 +107,13 @@ class TXConfig:
     CACHE_DURATION = 180
 
     PATTERN_WATCHLIST = [
-        "Bullish Engulfing",
-        "Bearish Engulfing",
-        "Morning Star",
-        "Evening Star",
-        "Three White Soldiers",
-        "Three Black Crows",
-        "Hammer",
-        "Inverted Hammer", 
-        "Shooting Star"
+        "Bullish Engulfing", "Bearish Engulfing", "Morning Star",
+        "Evening Star", "Three White Soldiers", "Three Black Crows", "Hammer",
+        "Inverted Hammer", "Shooting Star"
     ]
 
     ENABLE_PAPER_TRADING = True
+
 
 # ====================== GLOBAL STATE ======================
 app_state = {
@@ -121,8 +123,10 @@ app_state = {
     "last_signal": None
 }
 
+
 # ====================== ALERT SYSTEM ======================
 class AlertSystem:
+
     @staticmethod
     def trigger_alert(symbol, detection, last_price):
         confidence = detection.get("confidence", 0.0)
@@ -140,7 +144,8 @@ class AlertSystem:
             "confidence": f"{confidence:.0%}",
             "price": f"${last_price:,.2f}",
             "time": timestamp,
-            "explanation": detection.get("explanation", "No explanation available"),
+            "explanation": detection.get("explanation",
+                                         "No explanation available"),
             "action": action
         }
 
@@ -158,12 +163,10 @@ class AlertSystem:
         }
 
         # Log this detection for AI training
-        log_detection(
-            symbol=symbol,
-            pattern=pattern_name,
-            confidence=confidence,
-            price=last_price
-        )
+        log_detection(symbol=symbol,
+                      pattern=pattern_name,
+                      confidence=confidence,
+                      price=last_price)
 
         if "CONSOLE" in TXConfig.ALERT_TYPES:
             print(f"""
@@ -171,8 +174,10 @@ class AlertSystem:
 Price: ${last_price:,.2f} | Time: {timestamp}
 ---""")
 
+
 # ====================== CACHING ======================
 class DataCache:
+
     @staticmethod
     def load_cache():
         try:
@@ -196,8 +201,10 @@ class DataCache:
         cache = DataCache.load_cache()
         data = cache.get(symbol, {})
         if data.get("timestamp"):
-            cache_time = datetime.strptime(data["timestamp"], '%Y-%m-%d %H:%M:%S')
-            if datetime.now() - cache_time < timedelta(seconds=TXConfig.CACHE_DURATION):
+            cache_time = datetime.strptime(data["timestamp"],
+                                           '%Y-%m-%d %H:%M:%S')
+            if datetime.now() - cache_time < timedelta(
+                    seconds=TXConfig.CACHE_DURATION):
                 return data.get("candles", [])
         return []
 
@@ -210,14 +217,17 @@ class DataCache:
         }
         DataCache.save_cache(cache)
 
+
 # ====================== ENGINE ======================
 class TXEngine:
+
     def __init__(self):
         self.router = DataRouter(TXConfig)
         self.scan_id = 0
         self.trader = PaperTrader() if TXConfig.ENABLE_PAPER_TRADING else None
         self.recent_alerts = {}
-        threading.Thread(target=self.router.start_alpha_vantage_loop, daemon=True).start()
+        threading.Thread(target=self.router.start_alpha_vantage_loop,
+                         daemon=True).start()
 
     def run_scan(self):
         self.scan_id += 1
@@ -243,7 +253,8 @@ class TXEngine:
 
                 # Auto SELL logic
                 if TXConfig.ENABLE_PAPER_TRADING and self.trader:
-                    sell_trade = self.trader.check_auto_sell(symbol, last_price)
+                    sell_trade = self.trader.check_auto_sell(
+                        symbol, last_price)
                     if sell_trade:
                         sell_trade["time"] = scan_time
                         app_state["paper_trades"].insert(0, sell_trade)
@@ -251,9 +262,10 @@ class TXEngine:
                 result = detect_all_patterns(candles)
                 best_pattern = None
                 for r in result:
-                    if (r["confidence"] >= TXConfig.ALERT_CONFIDENCE_THRESHOLD and
-                        r["name"] in TXConfig.PATTERN_WATCHLIST):
-                        if not best_pattern or r["confidence"] > best_pattern["confidence"]:
+                    if (r["confidence"] >= TXConfig.ALERT_CONFIDENCE_THRESHOLD
+                            and r["name"] in TXConfig.PATTERN_WATCHLIST):
+                        if not best_pattern or r["confidence"] > best_pattern[
+                                "confidence"]:
                             best_pattern = r
 
                 if best_pattern:
@@ -261,7 +273,8 @@ class TXEngine:
                     current_time = time.time()
                     if (alert_key not in self.recent_alerts or
                         (current_time - self.recent_alerts[alert_key]) > 300):
-                        AlertSystem.trigger_alert(symbol, best_pattern, last_price)
+                        AlertSystem.trigger_alert(symbol, best_pattern,
+                                                  last_price)
                         self.recent_alerts[alert_key] = current_time
 
                     scan_results.append({
@@ -274,12 +287,9 @@ class TXEngine:
 
                     # Buy logic
                     if TXConfig.ENABLE_PAPER_TRADING and self.trader:
-                        trade = self.trader.buy(
-                            symbol,
-                            last_price,
-                            best_pattern["name"],
-                            best_pattern["confidence"]
-                        )
+                        trade = self.trader.buy(symbol, last_price,
+                                                best_pattern["name"],
+                                                best_pattern["confidence"])
                         trade["time"] = scan_time
                         app_state["paper_trades"].insert(0, trade)
 
@@ -305,14 +315,16 @@ class TXEngine:
 
         return scan_results
 
+
 # ====================== FLASK SERVER ======================
 app = Flask(__name__)
+
 
 @app.route('/')
 def dashboard():
     visitor_id = track_visit(request)
-    response = make_response(render_template_string(
-        '''
+    response = make_response(
+        render_template_string('''
         <!DOCTYPE html>
         <html>
         <head>
@@ -580,18 +592,22 @@ def dashboard():
         </body>
         </html>
         ''',
-        scan=app_state.get("last_scan", {"results": []}),
-        last_signal=app_state.get("last_signal"),
-        user_count=db['user_count'],
-        refresh_seconds=TXConfig.REFRESH_INTERVAL
-    ))
-    response.set_cookie('visitor_id', visitor_id, max_age=60*60*24*30)
-    response.set_cookie('personalization', 'GPT-4o enabled', max_age=60*60*24*30)
+                               scan=app_state.get("last_scan",
+                                                  {"results": []}),
+                               last_signal=app_state.get("last_signal"),
+                               user_count=db['user_count'],
+                               refresh_seconds=TXConfig.REFRESH_INTERVAL))
+    response.set_cookie('visitor_id', visitor_id, max_age=60 * 60 * 24 * 30)
+    response.set_cookie('personalization',
+                        'GPT-4o enabled',
+                        max_age=60 * 60 * 24 * 30)
     return response
+
 
 @app.route('/api/scan')
 def api_scan():
     return jsonify(app_state)
+
 
 @app.route('/api/get_latest_detection_id')
 def get_latest_detection_id():
@@ -606,6 +622,7 @@ def get_latest_detection_id():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 @app.route('/api/log_outcome', methods=['POST'])
 def log_outcome():
     try:
@@ -614,7 +631,10 @@ def log_outcome():
         detection_id = data.get('detection_id')
 
         if not outcome or not detection_id:
-            return jsonify({"status": "error", "message": "Missing outcome or detection_id"}), 400
+            return jsonify({
+                "status": "error",
+                "message": "Missing outcome or detection_id"
+            }), 400
 
         # Find the detection in the database
         for idx, detection in enumerate(db.get('detections', [])):
@@ -627,10 +647,12 @@ def log_outcome():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.route('/api/get_active_alerts')
 def get_active_alerts():
     """Get currently active alerts"""
     return jsonify({"alerts": app_state["alerts"]})
+
 
 @app.route('/api/handle_alert_response', methods=['POST'])
 def handle_alert_response():
@@ -641,6 +663,7 @@ def handle_alert_response():
     # Just log the response
     print(f"User responded to alert with: {action}")
     return jsonify({"status": "recorded", "action": action})
+
 
 # ====================== DATA BACKUP SYSTEM ======================
 def backup_to_github():
@@ -661,8 +684,10 @@ def backup_to_github():
         # Configure git (only needs to run once)
         if not os.path.exists('.git/config'):
             os.system('git init')
-            os.system('git remote add origin ' +
-                     f'https://{os.getenv("TOKEN")}@github.com/MMCCXXIIax/tx-backups.git')
+            os.system(
+                'git remote add origin ' +
+                f'https://{os.getenv("TOKEN")}@github.com/MMCCXXIIax/tx-backups.git'
+            )
 
         # Push to GitHub
         os.system('git config --global user.name "TX-AutoBackup"')
@@ -675,8 +700,23 @@ def backup_to_github():
     except Exception as e:
         print(f"⚠️ Backup failed: {str(e)}")
 
-# ====================== MAIN ======================
+
+#====================== MAIN ======================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))  # ← THIS line is crucial!
-    print(f"✅ TX Copilot is binding to port {port} for Render.")
+    engine = TXEngine()
+    engine.run_scan()
+
+    def scan_scheduler():
+        while True:
+            time.sleep(TXConfig.REFRESH_INTERVAL)
+            engine.run_scan()
+
+    threading.Thread(target=scan_scheduler, daemon=True).start()
+    port = int(os.environ.get("PORT", 10000))
+    print(f"✅ TX Copilot running on port {port}")
     app.run(host="0.0.0.0", port=port)
+
+
+#git add main.py
+#git commit -m "Fix: Render port binding using os.environ"
+#git push origin main
