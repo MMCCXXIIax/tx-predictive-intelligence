@@ -716,7 +716,7 @@ if __name__ == "__main__":
     threading.Thread(target=scan_scheduler, daemon=True).start()
 
     # Modified port binding for Render
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 9000))
     host = "0.0.0.0"
 
     print(f"✅ TX Copilot running on {host}:{port}")
