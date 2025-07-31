@@ -712,7 +712,7 @@ if __name__ == "__main__":
             engine.run_scan()
 
     threading.Thread(target=scan_scheduler, daemon=True).start()
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 8080))
     print(f"✅ TX Copilot running on port {port}")
     app.run(host="0.0.0.0", port=port)
 
