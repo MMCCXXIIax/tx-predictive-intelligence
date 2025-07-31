@@ -702,6 +702,8 @@ def backup_to_github():
 
 
 #====================== MAIN ======================
+# ... (keep all your existing imports and code until the if __name__ == "__main__" block)
+
 if __name__ == "__main__":
     engine = TXEngine()
     engine.run_scan()
@@ -712,11 +714,18 @@ if __name__ == "__main__":
             engine.run_scan()
 
     threading.Thread(target=scan_scheduler, daemon=True).start()
-    port = int(os.environ.get("PORT", 8080))
-    print(f"✅ TX Copilot running on port {port}")
-    app.run(host="0.0.0.0", port=port)
 
+    # Modified port binding for Render
+    port = int(os.environ.get("PORT", 10000))
+    host = "0.0.0.0"
 
-#git add main.py
-#git commit -m "Fix: Render port binding using os.environ"
-#git push origin main
+    print(f"✅ TX Copilot running on {host}:{port}")
+    print("Starting Flask server...")
+
+    from werkzeug.serving import run_simple
+    run_simple(
+        hostname=host,
+        port=port,
+        application=app,
+        threaded=True
+    )
