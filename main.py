@@ -704,18 +704,22 @@ def backup_to_github():
 #====================== MAIN ======================
 # ... (keep all your existing imports and code until the if __name__ == "__main__" block)
 
+# ====================== MAIN ======================
 if __name__ == "__main__":
-    # Initialize engine
     engine = TXEngine()
     engine.run_scan()
 
-    # Start background scanner
-    threading.Thread(
-        target=lambda:
-    [time.sleep(TXConfig.REFRESH_INTERVAL), engine.run_scan() for _ in iter(int, 1)],
-    daemon=True
-    ).start()
+    # Start background scanner - CORRECTED VERSION
+    def scan_loop():
+        while True:
+            time.sleep(TXConfig.REFRESH_INTERVAL)
+            engine.run_scan()
 
-    # Development mode (for local testing)
-    if os.environ.get("FLASK_ENV") == "development":
-        app.run(host="0.0.0.0", port=9000, debug=True)
+    threading.Thread(target=scan_loop, daemon=True).start()
+
+    # Port configuration
+    port = int(os.environ.get("PORT", 9000))
+    host = "0.0.0.0"
+
+    print(f"✅ TX Copilot running on {host}:{port}")
+    app.run(host=host, port=port)
