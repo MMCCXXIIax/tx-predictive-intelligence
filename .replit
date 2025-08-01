@@ -14,14 +14,6 @@ requiredFiles = [".replit", "replit.nix"]
 run = ["sh", "-c", "gunicorn -w 4 -b 0.0.0.0:5000 main:app"]
 deploymentTarget = "cloudrun"
 
-[[ports]]
-localPort = 8080
-externalPort = 8080
-
-[[ports]]
-localPort = 10000
-externalPort = 80
-
 [workflows]
 runButton = "Run TX Engine"
 
@@ -33,3 +25,11 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python3 main.py"
+
+[[ports]]
+localPort = 9000
+externalPort = 80
+
+[[ports]]
+localPort = 10000
+externalPort = 9000

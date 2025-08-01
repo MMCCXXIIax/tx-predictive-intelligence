@@ -705,27 +705,17 @@ def backup_to_github():
 # ... (keep all your existing imports and code until the if __name__ == "__main__" block)
 
 if __name__ == "__main__":
+    # Initialize engine
     engine = TXEngine()
     engine.run_scan()
 
-    def scan_scheduler():
-        while True:
-            time.sleep(TXConfig.REFRESH_INTERVAL)
-            engine.run_scan()
+    # Start background scanner
+    threading.Thread(
+        target=lambda:
+    [time.sleep(TXConfig.REFRESH_INTERVAL), engine.run_scan() for _ in iter(int, 1)],
+    daemon=True
+    ).start()
 
-    threading.Thread(target=scan_scheduler, daemon=True).start()
-
-    # Modified port binding for Render
-    port = int(os.environ.get("PORT", 9000))
-    host = "0.0.0.0"
-
-    print(f"✅ TX Copilot running on {host}:{port}")
-    print("Starting Flask server...")
-
-    from werkzeug.serving import run_simple
-    run_simple(
-        hostname=host,
-        port=port,
-        application=app,
-        threaded=True
-    )
+    # Development mode (for local testing)
+    if os.environ.get("FLASK_ENV") == "development":
+        app.run(host="0.0.0.0", port=9000, debug=True)
