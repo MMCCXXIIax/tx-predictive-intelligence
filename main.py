@@ -732,3 +732,12 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 8080)),
         debug=True
     )
+
+
+
+
+## Delete ALL Docker-related files
+#rm -f Dockerfile .dockerignore docker-compose.yml 2> /dev/null
+
+# Verify no Docker files remain
+#ls -la | grep -i docker
