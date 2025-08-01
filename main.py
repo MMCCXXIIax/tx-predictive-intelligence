@@ -726,7 +726,7 @@ if __name__ == "__main__":
     scanner_thread.start()
 
     # Production port configuration
-    port = int(os.environ.get("PORT", 9000))
+    port = int(os.environ.get("PORT", 808))
     host = "0.0.0.0"
 
     # Add health check endpoint
