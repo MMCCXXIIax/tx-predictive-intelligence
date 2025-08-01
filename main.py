@@ -705,21 +705,57 @@ def backup_to_github():
 # ... (keep all your existing imports and code until the if __name__ == "__main__" block)
 
 # ====================== MAIN ===================
+# ====================== MAIN ======================
 if __name__ == "__main__":
+    # Initialize engine
     engine = TXEngine()
     engine.run_scan()
 
-    # Start background scanner - CORRECTED VERSION
+    # Improved background scanner with error handling
     def scan_loop():
         while True:
-            time.sleep(TXConfig.REFRESH_INTERVAL)
-            engine.run_scan()
+            try:
+                time.sleep(TXConfig.REFRESH_INTERVAL)
+                engine.run_scan()
+            except Exception as e:
+                print(f"⚠️ Scan error: {str(e)}")
+                time.sleep(10)  # Wait before retrying
 
-    threading.Thread(target=scan_loop, daemon=True).start()
+    # Daemon thread with proper cleanup
+    scanner_thread = threading.Thread(target=scan_loop, daemon=True)
+    scanner_thread.start()
 
-    # Port configuration
+    # Production port configuration
     port = int(os.environ.get("PORT", 9000))
     host = "0.0.0.0"
 
-    print(f"✅ TX Copilot running on {host}:{port}")
-    app.run(host=host, port=port)
+    # Add health check endpoint
+    @app.route('/health')
+    def health_check():
+        return jsonify({
+            "status": "healthy",
+            "version": "1.0",
+            "services": {
+                "scanner": scanner_thread.is_alive(),
+                "last_scan": app_state.get("last_scan", {}).get("time", "never")
+            }
+        })
+
+    # Production server setup
+    print(f"🚀 Starting production server on {host}:{port}")
+
+    try:
+        from werkzeug.serving import run_simple
+        run_simple(
+            hostname=host,
+            port=port,
+            application=app,
+            threaded=True,
+            processes=1
+        )
+    except KeyboardInterrupt:
+        print("\n🛑 Server shutting down gracefully...")
+    except Exception as e:
+        print(f"🔥 Critical server error: {str(e)}")
+    finally:
+        print("✅ Server stopped")

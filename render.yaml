@@ -1,13 +1,14 @@
 services:
 - type: web
-  name: tx-predictive-intelligence
+  name: tx-copilot-bot
   env: python
   plan: free
+  region: uganda  # Optional: Set nearest to your users
   buildCommand: |
     pip install -r requirements.txt
-  startCommand: |
-    gunicorn --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - --log-level debug wsgi:app
+  startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120 --access-logfile - --error-logfile - wsgi:app
   envVars:
     - key: PORT
-      value: 9000
+      value: 10000
   healthCheckPath: /health
+  autoDeploy: true
