@@ -1,0 +1,20 @@
+{
+  "builds": [
+    {
+      "src": "wsgi.py",
+      "use": "@railway/python@^3.0.0",
+      "config": {
+        "runtime": "python3.10"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/"
+    }
+  ],
+  "variables": {
+    "PORT": "8080"
+  }
+}

@@ -713,61 +713,22 @@ if __name__ == "__main__":
     engine = TXEngine()
     engine.run_scan()
 
-    # Improved background scanner with error handling
+    @app.before_request
+    def before_request():
+        if request.path != '/health':
+            print(f"Incoming request: {request.method} {request.path}")
+
+    # Start background scanner
     def scan_loop():
         while True:
-            try:
-                time.sleep(TXConfig.REFRESH_INTERVAL)
-                engine.run_scan()
-            except Exception as e:
-                print(f"⚠️ Scan error: {str(e)}")
-                time.sleep(10)  # Wait before retrying
+            time.sleep(TXConfig.REFRESH_INTERVAL)
+            engine.run_scan()
 
-    # Daemon thread with proper cleanup
-    scanner_thread = threading.Thread(target=scan_loop, daemon=True)
-    scanner_thread.start()
+    threading.Thread(target=scan_loop, daemon=True).start()
 
-    # Production port configuration
-    port = int(os.environ.get("PORT", 808))
-    host = "0.0.0.0"
-
-    # Add health check endpoint
-    @app.route('/health')
-    def health_check():
-        return jsonify({
-            "status": "healthy",
-            "version": "1.0",
-            "services": {
-                "scanner": scanner_thread.is_alive(),
-                "last_scan": app_state.get("last_scan", {}).get("time", "never")
-            }
-        })
-
-    # Production server setup
-    print(f"🚀 Starting production server on {host}:{port}")
-
-    try:
-        from werkzeug.serving import run_simple
-        run_simple(
-            hostname=host,
-            port=port,
-            application=app,
-            threaded=True,
-            processes=1
-        )
-    except KeyboardInterrupt:
-        print("\n🛑 Server shutting down gracefully...")
-    except Exception as e:
-        print(f"🔥 Critical server error: {str(e)}")
-    finally:
-        print("✅ Server stopped")
-
-
-
-
-
-
-
-#git add .env wsgi.py requirements.txt render.yaml main.py
-#git commit -m "Add proper .env configuration"
-#git push origin main
+    # Replit-specific setup
+    app.run(
+        host='0.0.0.0',
+        port=int(os.environ.get("PORT", 8080)),
+        debug=True
+    )
