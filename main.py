@@ -10,6 +10,8 @@ from flask import Flask, render_template_string, jsonify, request, make_response
 from detectors.ai_pattern_logic import detect_all_patterns
 from services.data_router import DataRouter
 from services.paper_trader import PaperTrader
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables from .env file
 
 # ====================== INITIALIZE REPLIT DB ======================
 try:
@@ -759,3 +761,13 @@ if __name__ == "__main__":
         print(f"🔥 Critical server error: {str(e)}")
     finally:
         print("✅ Server stopped")
+
+
+
+
+
+
+
+#git add .env wsgi.py requirements.txt render.yaml main.py
+#git commit -m "Add proper .env configuration"
+#git push origin main
