@@ -6,13 +6,21 @@ import threading
 import random
 import uuid
 from datetime import datetime, timedelta
-from flask import Flask, render_template_string, jsonify, request, make_response
+from flask import Flask,render_template_string, jsonify, request, make_response
+
 from detectors.ai_pattern_logic import detect_all_patterns
 from services.data_router import DataRouter
 from services.paper_trader import PaperTrader
 from dotenv import load_dotenv
-load_dotenv()  # Load environment variables from .env file
+load_dotenv()  # Load environment variables from .env fil
 
+# ✅ Define Flask app first
+app = Flask(__name__)
+
+# ✅ Enable CORS immediately after
+
+
+# ⏬ Your other code (config, engine, db setup, etc.)
 # ====================== INITIALIZE REPLIT DB ======================
 try:
     from replit import db
@@ -606,9 +614,18 @@ def dashboard():
     return response
 
 
-@app.route('/api/scan')
-def api_scan():
+
+@app.route('/api/scan') 
+def api_scan(): 
     return jsonify(app_state)
+
+
+@app.after_request
+def apply_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return response
 
 
 @app.route('/api/get_latest_detection_id')
@@ -732,12 +749,3 @@ if __name__ == "__main__":
         port=int(os.environ.get("PORT", 8080)),
         debug=True
     )
-
-
-
-
-## Delete ALL Docker-related files
-#rm -f Dockerfile .dockerignore docker-compose.yml 2> /dev/null
-
-# Verify no Docker files remain
-#ls -la | grep -i docker
