@@ -11,33 +11,22 @@ class PaperTrader:
         self.trades = []     # full trade history
         self.total_profit = 0.0
 
-    def can_buy(self, symbol, cost):
-        return self.balance >= cost
+    def can_buy(self, symbol):
+        return symbol not in self.positions
 
-    def place_order(self, symbol, order_type, price, qty, pattern, confidence):
-        if order_type == "market":
-            return self.buy(symbol, price, pattern, confidence, qty)
-        elif order_type == "limit":
-            if any(p['price'] <= price for p in self.positions.values()):
-                return self.buy(symbol, price, pattern, confidence, qty)
-            else:
-                print(f"Limit order for {symbol} pending with target price: {price}")
-        return None
+    def can_sell(self, symbol, current_price):
+        return symbol in self.positions and current_price > 0
 
-    def buy(self, symbol, price, pattern, confidence, qty=None):
-        if not qty:
-            qty = self.default_qty
+    def buy(self, symbol, price, pattern, confidence):
+        qty = self.default_qty
         cost = price * qty
-        if not self.can_buy(symbol, cost):
-            print(f"Insufficient balance to buy {qty} of {symbol}")
-            return None
 
-        self.balance -= cost
         self.positions[symbol] = {
             "entry_price": price,
             "qty": qty,
             "pattern": pattern,
-            "confidence": confidence
+            "confidence": confidence,
+            "buy_time": None  # Optional: Add datetime.now() if needed
         }
 
         trade = {
@@ -59,17 +48,17 @@ class PaperTrader:
         position = self.positions.pop(symbol)
         entry_price = position["entry_price"]
         qty = position["qty"]
+        pattern = position["pattern"]
 
         pnl = round((price - entry_price) * qty, 2)
         self.total_profit += pnl
-        self.balance += price * qty  # Recover funds from the sale
 
         trade = {
             "symbol": symbol,
             "action": "SELL",
             "price": round(price, 2),
             "qty": qty,
-            "pattern": position["pattern"],
+            "pattern": pattern,
             "pnl": pnl,
             "reason": reason
         }
@@ -78,6 +67,10 @@ class PaperTrader:
         return trade
 
     def check_auto_sell(self, symbol, current_price):
+        """
+        Checks if a symbol should be sold due to stop loss or take profit.
+        If so, it triggers a sell and returns the trade dictionary.
+        """
         if symbol not in self.positions:
             return None
 

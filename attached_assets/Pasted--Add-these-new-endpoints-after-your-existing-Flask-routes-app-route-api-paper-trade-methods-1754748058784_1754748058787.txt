@@ -1,0 +1,60 @@
+# Add these new endpoints after your existing Flask routes
+
+@app.route('/api/paper-trade', methods=['POST'])
+def place_paper_trade():
+    try:
+        data = request.json
+        symbol = data.get('symbol')
+        side = data.get('side')  # 'buy' or 'sell'
+        price = float(data.get('price'))
+        pattern = data.get('pattern', 'Manual')
+        confidence = float(data.get('confidence', 1.0))
+        size = float(data.get('size', 1))  # position size in units or $ amount
+
+        if not all([symbol, side, price]):
+            return jsonify({"status": "error", "message": "Missing required fields"}), 400
+
+        if not engine.trader:
+            return jsonify({"status": "error", "message": "Paper trading disabled"}), 400
+
+        if side.lower() == 'buy':
+            trade = engine.trader.buy(symbol, price, pattern, confidence, size=size)
+        elif side.lower() == 'sell':
+            trade = engine.trader.sell(symbol, price, pattern, confidence, size=size)
+        else:
+            return jsonify({"status": "error", "message": "Invalid trade side"}), 400
+
+        trade["time"] = datetime.now().strftime('%H:%M:%S')
+        app_state["paper_trades"].insert(0, trade)
+        return jsonify({"status": "success", "trade": trade})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/api/paper-trades', methods=['GET'])
+def get_paper_trades():
+    return jsonify({"paper_trades": app_state["paper_trades"]})
+
+
+@app.route('/api/close-position', methods=['POST'])
+def close_position():
+    try:
+        data = request.json
+        symbol = data.get('symbol')
+        price = float(data.get('price'))
+
+        if not all([symbol, price]):
+            return jsonify({"status": "error", "message": "Missing symbol or price"}), 400
+
+        if not engine.trader:
+            return jsonify({"status": "error", "message": "Paper trading disabled"}), 400
+
+        closed_trade = engine.trader.close(symbol, price)
+        if not closed_trade:
+            return jsonify({"status": "error", "message": "No open position for symbol"}), 404
+
+        closed_trade["time"] = datetime.now().strftime('%H:%M:%S')
+        app_state["paper_trades"].insert(0, closed_trade)
+        return jsonify({"status": "success", "trade": closed_trade})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500

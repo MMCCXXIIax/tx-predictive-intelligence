@@ -1,0 +1,65 @@
+Step 1 – Add new endpoints in main.py
+We’ll add:
+
+POST /api/paper-trade → Executes a simulated BUY or SELL
+
+GET /api/paper-trades → Returns all trade history
+
+(Optional later) POST /api/close-position → For manual closing
+
+Example:
+
+python
+Copy
+Edit
+from fastapi import FastAPI, Request
+from services.paper_trader import PaperTrader
+
+app = FastAPI()
+paper_trader = PaperTrader()
+
+@app.post("/api/paper-trade")
+async def place_paper_trade(request: Request):
+    data = await request.json()
+    symbol = data.get("symbol")
+    action = data.get("action")
+    price = float(data.get("price"))
+    pattern = data.get("pattern", "")
+    confidence = float(data.get("confidence", 0))
+
+    if action.upper() == "BUY":
+        if paper_trader.can_buy(symbol):
+            trade = paper_trader.buy(symbol, price, pattern, confidence)
+            return {"status": "success", "trade": trade}
+        else:
+            return {"status": "error", "message": "Already holding position for this symbol"}
+
+    elif action.upper() == "SELL":
+        if paper_trader.can_sell(symbol, price):
+            trade = paper_trader.sell(symbol, price, reason="manual")
+            return {"status": "success", "trade": trade}
+        else:
+            return {"status": "error", "message": "No open position for this symbol"}
+
+    return {"status": "error", "message": "Invalid action"}
+
+@app.get("/api/paper-trades")
+def get_paper_trades():
+    return {
+        "trades": paper_trader.get_trade_log(),
+        "open_positions": paper_trader.get_open_positions(),
+        "total_pnl": paper_trader.get_total_pnl()
+    }
+Step 2 – Hook these endpoints to Lovable Frontend
+SIMULATE button → Calls POST /api/paper-trade with action "BUY"
+
+EXECUTE button → Could be another backend endpoint for real execution (future)
+
+SELL/CLOSE → Calls POST /api/paper-trade with action "SELL"
+
+GET /api/paper-trades → To update the “Paper Trades” section in real time
+
+Step 3 – No breaking changes
+We’re not touching your detection logic — all your alerts will still be generated normally.
+We’re just adding a trade execution layer on top.
+
