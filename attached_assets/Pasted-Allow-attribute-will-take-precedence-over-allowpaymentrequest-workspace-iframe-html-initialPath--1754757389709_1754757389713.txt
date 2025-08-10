@@ -1,0 +1,45 @@
+Allow attribute will take precedence over 'allowpaymentrequest'.
+workspace_iframe.html?initialPath=%2F&id=%3Ar1bh%3A:32  Allow attribute will take precedence over 'allowpaymentrequest'.
+(index):1   Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+(index):1   Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+(index):1   Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+(index):1   Failed to load resource: the server responded with a status of 503 (Service Unavailable)
+beacon.js:1   Failed to load resource: net::ERR_BLOCKED_BY_CLIENT
+beacon.js:1   Failed to load resource: net::ERR_BLOCKED_BY_CLIENT
+beacon.js:1   Failed to load resource: net::ERR_BLOCKED_BY_CLIENT
+beacon.js:1   Failed to load resource: net::ERR_BLOCKED_BY_CLIENT
+[NEW] Explain Console errors by using Copilot in Edge: click
+         
+         to explain an error. 
+        Learn more
+        Don't show again
+_app-c29f3c490dda2b49.js:13   POST https://logs.browser-intake-us5-datadoghq.com/api/v2/logs?ddsource=browser&ddtags=sdk_version%3A4.46.0%2Capi%3Afetch%2Cenv%3Aproduction%2Cservice%3Awebsite%2Cversion%3A4072a9d5&dd-api-key=pub31a5047a3a4692afb84a423db984dc57&dd-evp-origin-version=4.46.0&dd-evp-origin=browser&dd-request-id=2e471e71-1cfe-45f6-93b0-3efa9311bb85 net::ERR_BLOCKED_BY_CLIENT
+(anonymous) @ _app-c29f3c490dda2b49.js:13
+a @ _app-c29f3c490dda2b49.js:40
+m @ _app-c29f3c490dda2b49.js:40
+g @ _app-c29f3c490dda2b49.js:40
+send @ _app-c29f3c490dda2b49.js:40
+e.flush @ _app-c29f3c490dda2b49.js:15
+(anonymous) @ _app-c29f3c490dda2b49.js:15
+(anonymous) @ _app-c29f3c490dda2b49.js:15
+e.notify @ _app-c29f3c490dda2b49.js:15
+f @ _app-c29f3c490dda2b49.js:15
+(anonymous) @ _app-c29f3c490dda2b49.js:15
+(anonymous) @ _app-c29f3c490dda2b49.js:15
+e.notify @ _app-c29f3c490dda2b49.js:15
+T @ _app-c29f3c490dda2b49.js:40
+process @ _app-c29f3c490dda2b49.js:40
+U @ _app-c29f3c490dda2b49.js:40
+(anonymous) @ _app-c29f3c490dda2b49.js:40
+(anonymous) @ _app-c29f3c490dda2b49.js:1
+d @ _app-c29f3c490dda2b49.js:1
+(anonymous) @ _app-c29f3c490dda2b49.js:1
+n @ _app-c29f3c490dda2b49.js:13
+setTimeout
+(anonymous) @ _app-c29f3c490dda2b49.js:13
+a @ _app-c29f3c490dda2b49.js:15
+throttled @ _app-c29f3c490dda2b49.js:1
+s @ _app-c29f3c490dda2b49.js:23
+d @ _app-c29f3c490dda2b49.js:1
+(anonymous) @ _app-c29f3c490dda2b49.js:1
+_app-c29f3c490dda2b49.js:13   POST https://logs.browser-intake-us5-datadoghq.com/api/v2/logs?ddsource=browser&ddtags=sdk_version%3A4.46.0%2Capi%3Axhr%2Cenv%3Aproduction%2Cservice%3Awebsite%2Cversion%3A4072a9d5&dd-api-key=pub31a5047a3a4692afb84a423db984dc57&dd-evp-origin-version=4.46.0&dd-evp-origin=browser&dd-request-id=1c303dcc-3114-4852-b95c-508f73449db2 net::ERR_BLOCKED_BY_CLIENT

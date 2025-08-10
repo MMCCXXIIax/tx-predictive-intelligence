@@ -1,6 +1,8 @@
 entrypoint = "main.py"
 modules = ["nodejs-20", "python-3.11"]
 
+audio = true
+
 [nix]
 channel = "stable-24_05"
 packages = ["libev"]

@@ -210,3 +210,56 @@ Timestamp,Symbol,Action,Pattern,Confidence,Price,Amount,Balance
 2025-07-15 20:31:55,solana,BUY,Marubozu,0.9,160.29,6.238692,1000.0,94000.0,
 2025-07-20 00:44:33,bitcoin,BUY,Bearish Engulfing,0.9,117832.0,0.008487,1000.0,99000.0,
 2025-07-20 00:45:03,bitcoin,BUY,Bearish Engulfing,0.9,117832.0,0.008487,1000.0,98000.0,
+2025-08-10 09:34:27,solana,BUY,Morning Star,0.93,180.55,1.0,180.55,,buy,99819.45
+2025-08-10 09:34:29,solana,BUY,Morning Star,0.93,180.55,1.0,180.55,,buy,99819.45
+2025-08-10 09:36:27,solana,BUY,Morning Star,0.93,180.55,1.0,180.55,,buy,99638.9
+2025-08-10 09:36:29,solana,BUY,Morning Star,0.93,180.55,1.0,180.55,,buy,99638.9
+2025-08-10 09:38:27,solana,BUY,Morning Star,0.93,180.55,1.0,180.55,,buy,99458.35
+2025-08-10 09:38:29,solana,BUY,Morning Star,0.93,180.55,1.0,180.55,,buy,99458.35
+2025-08-10 09:40:28,solana,BUY,Morning Star,0.93,180.55,1.0,180.55,,buy,99277.8
+2025-08-10 09:40:30,solana,BUY,Morning Star,0.93,180.55,1.0,180.55,,buy,99277.8
+2025-08-10 09:41:57,solana,BUY,Morning Star,0.93,180.55,1.0,180.55,,buy,99819.45
+2025-08-10 10:30:29,ethereum,BUY,Three White Soldiers,0.95,4226.47,1.0,4226.47,,buy,95773.53
+2025-08-10 10:30:29,solana,BUY,Bullish Engulfing,0.9,180.79,1.0,180.79,,buy,95592.74
+2025-08-10 10:30:32,ethereum,BUY,Three White Soldiers,0.95,4226.47,1.0,4226.47,,buy,95773.53
+2025-08-10 10:30:32,solana,BUY,Bullish Engulfing,0.9,180.79,1.0,180.79,,buy,95592.74
+2025-08-10 10:32:29,ethereum,BUY,Three White Soldiers,0.95,4226.47,1.0,4226.47,,buy,91366.27
+2025-08-10 10:32:29,solana,BUY,Bullish Engulfing,0.9,180.79,1.0,180.79,,buy,91185.48
+2025-08-10 10:32:33,ethereum,BUY,Three White Soldiers,0.95,4226.47,1.0,4226.47,,buy,91366.27
+2025-08-10 10:32:33,solana,BUY,Bullish Engulfing,0.9,180.79,1.0,180.79,,buy,91185.48
+2025-08-10 10:34:29,ethereum,BUY,Three White Soldiers,0.95,4226.47,1.0,4226.47,,buy,86959.01
+2025-08-10 10:34:29,solana,BUY,Bullish Engulfing,0.9,180.79,1.0,180.79,,buy,86778.22
+2025-08-10 10:34:33,ethereum,BUY,Three White Soldiers,0.95,4226.47,1.0,4226.47,,buy,86959.01
+2025-08-10 10:34:33,solana,BUY,Bullish Engulfing,0.9,180.79,1.0,180.79,,buy,86778.22
+2025-08-10 10:36:31,ethereum,BUY,Three White Soldiers,0.95,4226.47,1.0,4226.47,,buy,82551.75
+2025-08-10 10:36:31,solana,BUY,Bullish Engulfing,0.9,180.79,1.0,180.79,,buy,82370.96
+2025-08-10 10:36:34,ethereum,BUY,Three White Soldiers,0.95,4226.47,1.0,4226.47,,buy,82551.75
+2025-08-10 10:36:34,solana,BUY,Bullish Engulfing,0.9,180.79,1.0,180.79,,buy,82370.96
+2025-08-10 12:19:05,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,95794.85
+2025-08-10 12:19:08,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,95794.85
+2025-08-10 12:28:09,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,95794.85
+2025-08-10 12:28:12,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,95794.85
+2025-08-10 12:30:10,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,91589.7
+2025-08-10 12:30:12,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,91589.7
+2025-08-10 12:32:10,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,87384.55
+2025-08-10 12:32:12,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,87384.55
+2025-08-10 12:34:12,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,83179.4
+2025-08-10 12:34:13,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,83179.4
+2025-08-10 12:36:12,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,78974.25
+2025-08-10 12:36:13,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,78974.25
+2025-08-10 12:38:12,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,74769.1
+2025-08-10 12:38:13,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,74769.1
+2025-08-10 12:40:13,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,70563.95
+2025-08-10 12:40:14,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,70563.95
+2025-08-10 12:42:13,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,66358.8
+2025-08-10 12:42:14,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,66358.8
+2025-08-10 12:44:14,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,62153.65
+2025-08-10 12:44:14,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,62153.65
+2025-08-10 12:46:15,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,57948.5
+2025-08-10 12:46:15,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,57948.5
+2025-08-10 12:48:15,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,53743.35
+2025-08-10 12:48:15,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,53743.35
+2025-08-10 12:50:15,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,49538.2
+2025-08-10 12:50:16,ethereum,BUY,Shooting Star,1.0,4205.15,1.0,4205.15,,buy,49538.2
+2025-08-10 14:16:31,ethereum,BUY,Evening Star,0.92,4183.12,1.0,4183.12,,buy,95816.88
+2025-08-10 14:16:36,ethereum,BUY,Evening Star,0.92,4183.12,1.0,4183.12,,buy,95816.88

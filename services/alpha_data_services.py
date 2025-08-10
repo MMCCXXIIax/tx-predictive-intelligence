@@ -1,4 +1,4 @@
-# services/alpha_data_service.py
+# services/alpha_data_services.py
 
 import requests
 import os
@@ -15,7 +15,7 @@ class AlphaDataService:
     def get_latest_candles(self, symbol, market_type="stock"):
         try:
             if not API_KEY:
-                print(f"⚠️ Alpha Vantage API key not found. Please set ALPHA_VANTAGE_KEY in your environment.")
+                print("⚠️ Alpha Vantage API key not found. Please set ALPHA_VANTAGE_KEY in your environment.")
                 return []
 
             if market_type == "stock":

@@ -1,5 +1,4 @@
 # main.py
-from flask_cors import CORS
 import time
 import os
 import json
@@ -15,16 +14,13 @@ from services.paper_trader import PaperTrader
 from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env fil
-#  Define Flask app first
+
+# ✅ Define Flask app first
 app = Flask(__name__)
-CORS(app,
-     origins=[
-         "https://23172b0b-3460-43d6-96ee-0ae883210c36.lovableproject.com"
-     ])
 
-#
+# ✅ Enable CORS immediately after
 
-# Your other code (config, engine, db setup, etc.)
+# ⏬ Your other code (config, engine, db setup, etc.)
 # ====================== INITIALIZE REPLIT DB ======================
 try:
     from replit import db
@@ -123,12 +119,11 @@ class TXConfig:
     PATTERN_WATCHLIST = [
         "Bullish Engulfing", "Bearish Engulfing", "Morning Star",
         "Evening Star", "Three White Soldiers", "Three Black Crows", "Hammer",
-        "Inverted Hammer", "Shooting Star", "Shooting Star", "Piercing Line",
-        "Dark Cloud Cover"
+        "Inverted Hammer", "Shooting Star", "Shooting Star", "Piercing Line", "Dark Cloud Cover"
     ]
 
     ENABLE_PAPER_TRADING = True
-
+ 
 
 # ====================== GLOBAL STATE ======================
 app_state = {
@@ -145,10 +140,71 @@ class AlertSystem:
     @staticmethod
     def trigger_alert(symbol, detection, last_price):
         confidence = detection.get("confidence", 0.0)
+        if confidence < TXConfig.ALERT_CONFIDENCE_THRESHOLD:
+            return
+
         pattern_name = detection.get("name")
         explanation = detection.get("explanation", "")
         action = detection.get("action", "Validate before trading.")
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+
+@app.route('/api/paper-trade', methods=['POST'])
+def place_paper_trade():
+    try:
+        data = request.json
+        symbol = data.get('symbol')
+        side = data.get('side')  # 'buy' or 'sell'
+        price = float(data.get('price'))
+        pattern = data.get('pattern', 'Manual')
+        confidence = float(data.get('confidence', 1.0))
+        size = float(data.get('size', 1))  # position size in units or $ amount
+
+        if not all([symbol, side, price]):
+            return jsonify({"status": "error", "message": "Missing required fields"}), 400
+
+        if not engine.trader:
+            return jsonify({"status": "error", "message": "Paper trading disabled"}), 400
+
+        if side.lower() == 'buy':
+            trade = engine.trader.buy(symbol, price, pattern, confidence, qty=size)
+        elif side.lower() == 'sell':
+            trade = engine.trader.sell(symbol, price, reason="manual")
+        else:
+            return jsonify({"status": "error", "message": "Invalid trade side"}), 400
+
+        trade["time"] = datetime.now().strftime('%H:%M:%S')
+        app_state["paper_trades"].insert(0, trade)
+        return jsonify({"status": "success", "trade": trade})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/paper-trades', methods=['GET'])
+def get_paper_trades():
+    return jsonify({"paper_trades": app_state["paper_trades"]})
+
+@app.route('/api/close-position', methods=['POST'])
+def close_position():
+    try:
+        data = request.json
+        symbol = data.get('symbol')
+        price = float(data.get('price'))
+
+        if not all([symbol, price]):
+            return jsonify({"status": "error", "message": "Missing symbol or price"}), 400
+
+        if not engine.trader:
+            return jsonify({"status": "error", "message": "Paper trading disabled"}), 400
+
+        closed_trade = engine.trader.sell(symbol, price, reason="manual")
+        if not closed_trade:
+            return jsonify({"status": "error", "message": "No open position for symbol"}), 404
+
+        closed_trade["time"] = datetime.now().strftime('%H:%M:%S')
+        app_state["paper_trades"].insert(0, closed_trade)
+        return jsonify({"status": "success", "trade": closed_trade})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
         alert = {
             "symbol": symbol,
@@ -182,125 +238,9 @@ class AlertSystem:
 
         if "CONSOLE" in TXConfig.ALERT_TYPES:
             print(f"""
-    🚨 ALERT: {symbol} {pattern_name} ({confidence:.0%})
-    Price: ${last_price:,.2f} | Time: {timestamp}
-    ---""")
-
-        if confidence < TXConfig.ALERT_CONFIDENCE_THRESHOLD:
-            return
-
-
-@app.route('/api/paper-trades', methods=['GET'])
-def get_paper_trades():
-    return jsonify({"paper_trades": app_state["paper_trades"]})
-
-
-@app.route('/api/paper-trades', methods=['POST'])
-def place_paper_trade():
-    try:
-        data = request.json or {}
-        symbol = data.get('symbol')
-        side = (data.get('side') or '').lower()  # 'buy' or 'sell'
-        price = float(
-            data.get('price')) if data.get('price') is not None else None
-        pattern = data.get('pattern', 'Manual')
-        confidence = float(data.get('confidence', 1.0))
-        qty = data.get('qty')  # optional
-        amount_usd = data.get('amount_usd')  # optional
-
-        if not all([symbol, side, price is not None]):
-            return jsonify({
-                "status":
-                "error",
-                "message":
-                "Missing required fields (symbol, side, price)"
-            }), 400
-
-        if not engine.trader:
-            return jsonify({
-                "status": "error",
-                "message": "Paper trading disabled"
-            }), 400
-
-        if side == 'buy':
-            # allow qty or amount_usd
-            if qty is not None:
-                qty = float(qty)
-                trade = engine.trader.buy(symbol,
-                                          price,
-                                          pattern,
-                                          confidence,
-                                          qty=qty)
-            elif amount_usd is not None:
-                amount_usd = float(amount_usd)
-                trade = engine.trader.buy(symbol,
-                                          price,
-                                          pattern,
-                                          confidence,
-                                          amount_usd=amount_usd)
-            else:
-                # default to default_qty inside PaperTrader
-                trade = engine.trader.buy(symbol, price, pattern, confidence)
-        elif side == 'sell':
-            # optional qty for partial sells
-            if qty is not None:
-                qty = float(qty)
-                trade = engine.trader.sell(symbol,
-                                           price,
-                                           qty=qty,
-                                           reason="manual")
-            else:
-                trade = engine.trader.sell(symbol, price, reason="manual")
-        else:
-            return jsonify({
-                "status": "error",
-                "message": "Invalid trade side"
-            }), 400
-
-        if isinstance(trade, dict) and trade.get("error"):
-            return jsonify({
-                "status": "error",
-                "message": trade.get("message")
-            }), 400
-
-        trade["time"] = datetime.now().strftime('%H:%M:%S')
-        app_state["paper_trades"].insert(0, trade)
-        return jsonify({"status": "success", "trade": trade})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route('/api/close-position', methods=['POST'])
-def close_position():
-    try:
-        data = request.json
-        symbol = data.get('symbol')
-        price = float(data.get('price'))
-
-        if not all([symbol, price]):
-            return jsonify({
-                "status": "error",
-                "message": "Missing symbol or price"
-            }), 400
-
-        if not engine.trader:
-            return jsonify({
-                "status": "error",
-                "message": "Paper trading disabled"
-            }), 400
-
-        closed_trade = engine.trader.sell(symbol, price, reason="manual")
-        if not closed_trade:
-            return jsonify({
-                "status": "error",
-                "message": "No open position for symbol"
-            }), 404
-
-        closed_trade["time"] = datetime.now().strftime('%H:%M:%S')
-        app_state["paper_trades"].insert(0, closed_trade)
-        return jsonify({"status": "success", "trade": closed_trade})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+🚨 ALERT: {symbol} {pattern_name} ({confidence:.0%})
+Price: ${last_price:,.2f} | Time: {timestamp}
+---""")
 
 
 # ====================== CACHING ======================
@@ -434,39 +374,6 @@ class TXEngine:
                     "status": "error",
                     "message": str(e)
                 })
-
-        def consolidate_asset_status(scan_results):
-            """Consolidate asset patterns and IDLE statuses."""
-            consolidated = {}
-            for result in scan_results:
-                symbol = result["symbol"]
-                if symbol not in consolidated:
-                    consolidated[symbol] = result
-                else:
-                    # Prefer detected patterns over idle, based on confidence
-                    if result["status"] == "pattern" and consolidated[symbol][
-                            "status"] != "pattern":
-                        consolidated[symbol] = result
-
-            return list(consolidated.values())
-
-        def run_scan(self):
-            self.scan_id += 1
-            scan_time = datetime.now().strftime('%H:%M:%S')
-            scan_results = []
-
-            # Your existing logic to populate scan_results...
-
-            # Consolidate scan results before updating app_state
-            scan_results = consolidate_asset_status(scan_results)
-
-            app_state["last_scan"] = {
-                "id": self.scan_id,
-                "time": scan_time,
-                "results": scan_results
-            }
-
-            return scan_results
 
         app_state["last_scan"] = {
             "id": self.scan_id,
@@ -712,7 +619,6 @@ def dashboard():
                         `<strong>${alert.symbol}</strong>: ${alert.pattern} (${alert.confidence})<br>
                          Price: $${alert.price}<br>
                          <em>${alert.message}</em>`;
-                         console.info("Informational message");
 
                     // Update TX personality
                     const personalities = [
@@ -768,21 +674,7 @@ def dashboard():
 
 @app.route('/api/scan')
 def api_scan():
-    portfolio = None
-    if engine.trader:
-        # Optionally pass market prices if you have them from last scan
-        market_prices = {}
-        if "last_scan" in app_state and "results" in app_state["last_scan"]:
-            for result in app_state["last_scan"]["results"]:
-                if "price" in result and result["price"].startswith("$"):
-                    try:
-                        market_prices[result["symbol"]] = float(
-                            result["price"].replace("$", "").replace(",", ""))
-                    except:
-                        pass
-        portfolio = engine.trader.get_portfolio_value(market_prices)
-
-    return jsonify({"app_state": app_state, "portfolio": portfolio})
+    return jsonify(app_state)
 
 
 @app.after_request
@@ -829,28 +721,6 @@ def log_outcome():
                 return jsonify({"status": "success"})
 
         return jsonify({"status": "detection_not_found"}), 404
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route('/api/portfolio', methods=['GET'])
-def get_portfolio():
-    try:
-        if not engine.trader:
-            return jsonify({
-                "status": "error",
-                "message": "Paper trading disabled"
-            }), 400
-
-        # Optionally fetch live prices for unrealized PnL
-        market_prices = {}
-        for symbol in TXConfig.ASSET_TYPES.keys():
-            candles = DataCache.get_cached(symbol)
-            if candles:
-                market_prices[symbol] = candles[-1]["close"]
-
-        portfolio_data = engine.trader.get_portfolio_value(market_prices)
-        return jsonify({"status": "success", "portfolio": portfolio_data})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -907,37 +777,6 @@ def backup_to_github():
     except Exception as e:
         print(f"⚠️ Backup failed: {str(e)}")
 
-    import requests
-
-    @app.route('/api/submit-feedback', methods=['POST'])
-    def submit_feedback():
-        try:
-            data = request.json
-            feedback = data.get('feedback')
-            account_details = data.get('account_details', 'Anonymous')
-
-            # Send feedback to Slack or any other service
-            # Slack webhook example:
-            slack_webhook_url = os.getenv("SLACK_WEBHOOK_URL")
-            if slack_webhook_url:
-                message = {
-                    "text": f"New Feedback from {account_details}:\n{feedback}"
-                }
-                response = requests.post(slack_webhook_url, json=message)
-
-                if response.status_code == 200:
-                    return jsonify(
-                        {"message": "Feedback submitted successfully!"})
-                else:
-                    return jsonify({"message":
-                                    "Failed to forward feedback."}), 500
-            else:
-                return jsonify(
-                    {"message": "Slack webhook URL not configured."}), 500
-
-        except Exception as e:
-            return jsonify({"message": str(e)}), 500989
-
 
 #====================== MAIN ======================
 # ... (keep all your existing imports and code until the if __name__ == "__main__" block)
@@ -964,29 +803,3 @@ if __name__ == "__main__":
 
     # Replit-specific setup
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)), debug=True)
-
-
-
-
-
-
-
-
-
-git config --global user.name "Your Name"
-git config --global user.email "your-email@example.com"
-
-git init
-
-git remote add origin https://YOUR_GITHUB_USERNAME:GITHUB_TOKEN@github.com/YOUR_GITHUB_USERNAME/REPO_NAME.git
-
-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
-
-
-git add .
-
-git commit -m "Initial commit"
-
-    git push origin main
-
-https://github.com/MMCCXXIIax/tx-predictive-intelligence.git
