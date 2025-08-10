@@ -983,6 +983,9 @@ git remote add origin https://YOUR_GITHUB_USERNAME:GITHUB_TOKEN@github.com/YOUR_
 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
 
 
+
+
+git remote add origin https://YOUR_GITHUB_USERNAME:GITHUB_TOKEN@github.com/YOUR_GITHUB_USERNAME/REPO_NAME.git
 git add .
 
 git commit -m "Initial commit"
@@ -990,3 +993,6 @@ git commit -m "Initial commit"
     git push origin main
 
 https://github.com/MMCCXXIIax/tx-predictive-intelligence.git
+
+
+    git remote remove origin
