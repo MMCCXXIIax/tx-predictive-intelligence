@@ -53,3 +53,55 @@ def is_shooting_star(candles):
             f"lower_shadow={lower_shadow:.2f}, body_ratio={body_ratio:.2f}."
         )
     }
+
+#pip install flask flask-cors python-dotenv requests waitress
+
+#Environment variables
+
+#ALPHA_VANTAGE_KEY — optional (for stock/forex).
+
+#SLACK_WEBHOOK_URL — optional (for feedback/alerts).
+
+#TOKEN and BACKUP_REPO — optional if you want automatic backups to GitHub.
+
+#PORT — port to bind (Render/Replit will provide this).
+
+#BACKEND_SCAN_INTERVAL — seconds between engine scans (default 30).
+
+#DEFAULT_USER_REFRESH — frontend default refresh (default 120).
+
+#CORS_EXTRA_ORIGINS — comma-separated additional origins to allow.
+
+
+
+#3. Files required (must be present in project):
+
+#detectors/ folder (all pattern detectors) and detectors/ai_pattern_logic.py
+
+#services/data_router.py, services/crypto_data_services.py, services/alpha_data_services.py
+
+#services/paper_trader.py If any of those are missing the server will still start but detection or data features will return helpful errors.
+
+
+
+#4. Run
+
+#Locally / Replit: python main.py
+
+#For a multi-worker server in production (if you use gunicorn):
+
+#gunicorn main:app -w 4 -b 0.0.0.0:$PORT
+
+
+
+#5. Front-end integration
+
+#Use /api/scan to power the dashboard. It returns refresh_seconds per visitor — the front-end should poll at that interval (or user override via /api/set-refresh).
+
+#For portfolio view call /api/portfolio.
+
+#To place paper trades POST to /api/paper-trades (see code payload example in earlier messages).
+
+#To fetch alerts: /api/get_active_alerts.
+
+#To list detections for study or ML: /api/logs/detections.

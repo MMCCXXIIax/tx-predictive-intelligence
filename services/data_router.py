@@ -15,7 +15,7 @@ class DataRouter:
         self.config = config
         self.crypto_service = CryptoDataService(
             symbols=[s for s, t in config.ASSET_TYPES.items() if t == "crypto"],
-            refresh_interval=config.REFRESH_INTERVAL,
+            refresh_interval=config.DEFAULT_USER_REFRESH,
             candle_limit=config.CANDLE_LIMIT
         )
         self.alpha_service = AlphaDataService(candle_limit=config.CANDLE_LIMIT)
