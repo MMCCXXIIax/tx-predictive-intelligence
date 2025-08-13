@@ -47,7 +47,7 @@ DEFAULT_ALLOWED = [
     "https://23172b0b-3460-43d6-96ee-0ae883210c36.lovableproject.com",
     "https://lovableproject.com",
     "http://localhost:5173",
-    "http://localhost:3000",
+    "http://localhost:3000", "https://tx-predictive-intelligence.vercel.app/"
 ]
 extra = os.getenv("CORS_EXTRA_ORIGINS", "")
 if extra:
@@ -702,25 +702,7 @@ def api_backup():
 def health():
     return jsonify({"status": "ok", "time": datetime.utcnow().isoformat()})
 
-@app.route("/api/candles", methods=["GET"])
-def get_candles():
-    """Fetch real candle data for a given symbol."""
-    symbol = request.args.get("symbol")
-    if not symbol:
-        return jsonify({"error": "Symbol parameter is required"}), 400
 
-    try:
-        # Use the DataRouter's get_latest_candles method to fetch real data
-        if engine and engine.router:
-            candles = engine.router.get_latest_candles(symbol)
-            if candles:
-                return jsonify({"candles": candles})
-            else:
-                return jsonify({"error": "No candle data available for this symbol"}), 404
-        else:
-            return jsonify({"error": "Data router is not available"}), 500
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 
 # -------------------------
