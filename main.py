@@ -47,7 +47,7 @@ DEFAULT_ALLOWED = [
     "https://23172b0b-3460-43d6-96ee-0ae883210c36.lovableproject.com",
     "https://lovableproject.com",
     "http://localhost:5173",
-    "http://localhost:3000", "https://tx-predictive-intelligence.vercel.app"
+    "http://localhost:3000", "https://tx-predictive-intelligence.vercel.app", "https://vercel.com/robert-manegabes-projects/tx-predictive-intelligence/9tCmDHzqQmVAddSNx6RfUWdcTQeC"
 ]
 extra = os.getenv("CORS_EXTRA_ORIGINS", "")
 if extra:
