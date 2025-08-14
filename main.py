@@ -25,7 +25,9 @@ try:
     from detectors.ai_pattern_logic import detect_all_patterns
 except Exception as e:
     detect_all_patterns = None
-    print("⚠️ Warning: detectors.ai_pattern_logic not found or failed to import:", e)
+    print(
+        "⚠️ Warning: detectors.ai_pattern_logic not found or failed to import:",
+        e)
 
 try:
     from services.data_router import DataRouter
@@ -37,18 +39,20 @@ try:
     from services.paper_trader import PaperTrader
 except Exception as e:
     PaperTrader = None
-    print("⚠️ Warning: services.paper_trader not found or failed to import:", e)
+    print("⚠️ Warning: services.paper_trader not found or failed to import:",
+          e)
 
 # Flask app
 app = Flask(__name__)
 
 # Allowed origins: add lovableproject domain and allow others via env
+# In main.py (~line 36), update DEFAULT_ALLOWED:
 DEFAULT_ALLOWED = [
-    "https://23172b0b-3460-43d6-96ee-0ae883210c36.lovableproject.com",
-    "https://lovableproject.com",
-    "http://localhost:5173",
-    "http://localhost:3000", "https://tx-predictive-intelligence.vercel.app", "https://vercel.com/robert-manegabes-projects/tx-predictive-intelligence/9tCmDHzqQmVAddSNx6RfUWdcTQeC", "https://tx-trade-whisperer.lovable.app","https://preview--tx-trade-whisperer.lovable.app"
+    "https://tx-trade-whisperer.lovable.app",  # Production frontend
+    "https://preview--tx-trade-whisperer.lovable.app",  # Preview deployments
+    "http://localhost:3000",  # For local development
 ]
+
 extra = os.getenv("CORS_EXTRA_ORIGINS", "")
 if extra:
     DEFAULT_ALLOWED += [o.strip() for o in extra.split(",") if o.strip()]
@@ -61,11 +65,15 @@ CORS(app, origins=DEFAULT_ALLOWED)
 try:
     from replit import db  # type: ignore
 except Exception:
+
     class MockDB(dict):
+
         def __init__(self):
             super().__init__()
+
         def get(self, key, default=None):
             return super().get(key, default)
+
     db = MockDB()
 
 # initialize db keys
@@ -75,6 +83,7 @@ if 'detections' not in db:
     db['detections'] = []
 if 'user_count' not in db:
     db['user_count'] = 0
+
 
 # -------------------------
 # Configuration
@@ -97,7 +106,8 @@ class TXConfig:
     DEFAULT_USER_REFRESH = int(os.getenv("DEFAULT_USER_REFRESH", "120"))
 
     CANDLE_LIMIT = int(os.getenv("CANDLE_LIMIT", "100"))
-    ALERT_CONFIDENCE_THRESHOLD = float(os.getenv("ALERT_CONFIDENCE_THRESHOLD", "0.85"))
+    ALERT_CONFIDENCE_THRESHOLD = float(
+        os.getenv("ALERT_CONFIDENCE_THRESHOLD", "0.85"))
 
     CACHE_FILE = "tx_cache.json"
     CACHE_DURATION = int(os.getenv("CACHE_DURATION", "180"))
@@ -105,19 +115,26 @@ class TXConfig:
     PATTERN_WATCHLIST = [
         "Bullish Engulfing", "Bearish Engulfing", "Morning Star",
         "Evening Star", "Three White Soldiers", "Three Black Crows", "Hammer",
-        "Inverted Hammer", "Shooting Star", "Piercing Line", "Dark Cloud Cover",
-        "Doji", "Marubozu"
+        "Inverted Hammer", "Shooting Star", "Piercing Line",
+        "Dark Cloud Cover", "Doji", "Marubozu"
     ]
 
-    ENABLE_PAPER_TRADING = os.getenv("ENABLE_PAPER_TRADING", "true").lower() in ("1", "true", "yes")
+    ENABLE_PAPER_TRADING = os.getenv("ENABLE_PAPER_TRADING",
+                                     "true").lower() in ("1", "true", "yes")
+
 
 # Application runtime state (in-memory)
 app_state = {
-    "last_scan": {"id": 0, "time": None, "results": []},
-    "alerts": [],              # recent alerts
-    "paper_trades": [],        # recent paper trades (display)
+    "last_scan": {
+        "id": 0,
+        "time": None,
+        "results": []
+    },
+    "alerts": [],  # recent alerts
+    "paper_trades": [],  # recent paper trades (display)
     "last_signal": None
 }
+
 
 # -------------------------
 # Utility functions
@@ -144,6 +161,7 @@ def track_visit(req) -> str:
             db['visitors'][visitor_id] = v
     return visitor_id
 
+
 def log_detection(symbol, pattern, confidence, price):
     detection_id = str(uuid.uuid4())
     entry = {
@@ -164,10 +182,12 @@ def log_detection(symbol, pattern, confidence, price):
     db['detections'] = dets
     return detection_id
 
+
 # -------------------------
 # Caching helper
 # -------------------------
 class DataCache:
+
     @staticmethod
     def load_cache():
         try:
@@ -192,8 +212,10 @@ class DataCache:
         data = cache.get(symbol, {})
         if data.get("timestamp"):
             try:
-                cache_time = datetime.strptime(data["timestamp"], '%Y-%m-%d %H:%M:%S')
-                if datetime.utcnow() - cache_time < timedelta(seconds=TXConfig.CACHE_DURATION):
+                cache_time = datetime.strptime(data["timestamp"],
+                                               '%Y-%m-%d %H:%M:%S')
+                if datetime.utcnow() - cache_time < timedelta(
+                        seconds=TXConfig.CACHE_DURATION):
                     return data.get("candles", [])
             except Exception:
                 return data.get("candles", [])
@@ -208,10 +230,12 @@ class DataCache:
         }
         DataCache.save_cache(cache)
 
+
 # -------------------------
 # Alert system
 # -------------------------
 class AlertSystem:
+
     @staticmethod
     def trigger_alert(symbol: str, detection: dict, last_price: float):
         if not detection:
@@ -220,19 +244,30 @@ class AlertSystem:
         if confidence < TXConfig.ALERT_CONFIDENCE_THRESHOLD:
             return
 
-        pattern_name = detection.get("name") or detection.get("pattern") or "Unknown"
+        pattern_name = detection.get("name") or detection.get(
+            "pattern") or "Unknown"
         explanation = detection.get("explanation", "")
         action = detection.get("action", "Validate before trading.")
         timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
 
         alert = {
-            "symbol": symbol,
-            "pattern": pattern_name,
-            "confidence": f"{confidence:.0%}" if isinstance(confidence, float) else str(confidence),
-            "price": f"{last_price:.2f}" if isinstance(last_price, (float, int)) else str(last_price),
-            "time": timestamp,
-            "explanation": explanation,
-            "action": action
+            "symbol":
+            symbol,
+            "pattern":
+            pattern_name,
+            "confidence":
+            f"{confidence:.0%}"
+            if isinstance(confidence, float) else str(confidence),
+            "price":
+            f"{last_price:.2f}" if isinstance(last_price,
+                                              (float,
+                                               int)) else str(last_price),
+            "time":
+            timestamp,
+            "explanation":
+            explanation,
+            "action":
+            action
         }
 
         app_state["alerts"].insert(0, alert)
@@ -255,32 +290,46 @@ class AlertSystem:
             pass
 
         # optional notify to console and Slack
-        print(f"🚨 ALERT: {symbol} {pattern_name} ({alert['confidence']}) @ {alert['price']} — {timestamp}")
+        print(
+            f"🚨 ALERT: {symbol} {pattern_name} ({alert['confidence']}) @ {alert['price']} — {timestamp}"
+        )
         # Slack webhook
         slack_url = os.getenv("SLACK_WEBHOOK_URL")
         if slack_url:
             try:
                 import requests
-                payload = {"text": f"TX ALERT — {symbol} {pattern_name} {alert['confidence']} @ {alert['price']}\n{explanation}"}
+                payload = {
+                    "text":
+                    f"TX ALERT — {symbol} {pattern_name} {alert['confidence']} @ {alert['price']}\n{explanation}"
+                }
                 requests.post(slack_url, json=payload, timeout=5)
             except Exception:
                 pass
+
 
 # -------------------------
 # Engine
 # -------------------------
 class TXEngine:
+
     def __init__(self):
         self.scan_id = 0
         # instantiate services if available
         self.router = DataRouter(TXConfig) if DataRouter is not None else None
-        self.trader = PaperTrader() if (PaperTrader is not None and TXConfig.ENABLE_PAPER_TRADING) else None
+        self.trader = PaperTrader() if (
+            PaperTrader is not None
+            and TXConfig.ENABLE_PAPER_TRADING) else None
         self.recent_alerts = {}
         # start router background updater if available
-        if self.router is not None and hasattr(self.router, "start_alpha_vantage_loop"):
+        if self.router is not None and hasattr(self.router,
+                                               "start_alpha_vantage_loop"):
             try:
-                threading.Thread(target=self.router.start_alpha_vantage_loop, args=(TXConfig.BACKEND_SCAN_INTERVAL,), daemon=True).start()
-                print("✅ AlphaVantage/stock background updater started (DataRouter).")
+                threading.Thread(target=self.router.start_alpha_vantage_loop,
+                                 args=(TXConfig.BACKEND_SCAN_INTERVAL, ),
+                                 daemon=True).start()
+                print(
+                    "✅ AlphaVantage/stock background updater started (DataRouter)."
+                )
             except Exception as e:
                 print("⚠️ Could not start router alpha loop:", e)
 
@@ -332,10 +381,12 @@ class TXEngine:
                 continue
 
             try:
-                last_price = candles[-1].get("close") or candles[-1].get("price")
+                last_price = candles[-1].get("close") or candles[-1].get(
+                    "price")
                 # auto sell if SL/TP
                 if self.trader:
-                    sell_trade = self.trader.check_auto_sell(symbol, last_price)
+                    sell_trade = self.trader.check_auto_sell(
+                        symbol, last_price)
                     if sell_trade:
                         sell_trade["time"] = scan_time
                         app_state["paper_trades"].insert(0, sell_trade)
@@ -343,7 +394,11 @@ class TXEngine:
                 # pattern detection
                 if detect_all_patterns is None:
                     # detectors missing
-                    results.append({"symbol": symbol, "status": "no_detectors", "price": last_price})
+                    results.append({
+                        "symbol": symbol,
+                        "status": "no_detectors",
+                        "price": last_price
+                    })
                     continue
 
                 detections = detect_all_patterns(candles)
@@ -354,7 +409,9 @@ class TXEngine:
                     name = d.get("name")
                     if conf is None or name is None:
                         continue
-                    if conf >= TXConfig.ALERT_CONFIDENCE_THRESHOLD and (not TXConfig.PATTERN_WATCHLIST or name in TXConfig.PATTERN_WATCHLIST):
+                    if conf >= TXConfig.ALERT_CONFIDENCE_THRESHOLD and (
+                            not TXConfig.PATTERN_WATCHLIST
+                            or name in TXConfig.PATTERN_WATCHLIST):
                         if best is None or conf > best.get("confidence", 0):
                             best = d
 
@@ -368,22 +425,39 @@ class TXEngine:
                         self.recent_alerts[alert_key] = now_ts
 
                     results.append({
-                        "symbol": symbol,
-                        "status": "pattern",
-                        "pattern": best.get("name"),
-                        "confidence": round(best.get("confidence", 0), 4),
-                        "price": last_price
+                        "symbol":
+                        symbol,
+                        "status":
+                        "pattern",
+                        "pattern":
+                        best.get("name"),
+                        "confidence":
+                        round(best.get("confidence", 0), 4),
+                        "price":
+                        last_price
                     })
 
                     # automatic paper buy if enabled (conservative)
                     if self.trader:
-                        trade = self.trader.buy(symbol, last_price, best.get("name"), best.get("confidence"), amount_usd=50)
+                        trade = self.trader.buy(symbol,
+                                                last_price,
+                                                best.get("name"),
+                                                best.get("confidence"),
+                                                amount_usd=50)
                         trade["time"] = scan_time
                         app_state["paper_trades"].insert(0, trade)
                 else:
-                    results.append({"symbol": symbol, "status": "no_pattern", "price": last_price})
+                    results.append({
+                        "symbol": symbol,
+                        "status": "no_pattern",
+                        "price": last_price
+                    })
             except Exception as e:
-                results.append({"symbol": symbol, "status": "error", "message": str(e)})
+                results.append({
+                    "symbol": symbol,
+                    "status": "error",
+                    "message": str(e)
+                })
 
         # consolidate: prefer pattern over no_data
         consolidated = {}
@@ -394,7 +468,8 @@ class TXEngine:
                 consolidated[s] = r
             else:
                 # prioritize pattern
-                if r.get("status") == "pattern" and current.get("status") != "pattern":
+                if r.get("status") == "pattern" and current.get(
+                        "status") != "pattern":
                     consolidated[s] = r
 
         app_state["last_scan"] = {
@@ -404,8 +479,10 @@ class TXEngine:
         }
         return app_state["last_scan"]
 
+
 # create engine instance (global)
 engine = TXEngine()
+
 
 # Background scanner loop
 def background_scan_loop():
@@ -416,7 +493,9 @@ def background_scan_loop():
             print("⚠️ Scan loop error:", e)
         time.sleep(TXConfig.BACKEND_SCAN_INTERVAL)
 
+
 threading.Thread(target=background_scan_loop, daemon=True).start()
+
 
 # -------------------------
 # Routes / API
@@ -424,7 +503,8 @@ threading.Thread(target=background_scan_loop, daemon=True).start()
 @app.route("/")
 def dashboard():
     visitor_id = track_visit(request)
-    resp = make_response(render_template_string("""
+    resp = make_response(
+        render_template_string("""
     <!doctype html>
     <html>
     <head><meta name="viewport" content="width=device-width,initial-scale=1"><title>TX Copilot</title></head>
@@ -435,10 +515,14 @@ def dashboard():
       <p>Visit <code>/api/scan</code> and <code>/api/portfolio</code> for JSON endpoints.</p>
     </body>
     </html>
-    """, now=datetime.utcnow().isoformat(), scan_id=app_state["last_scan"].get("id"), scan_time=app_state["last_scan"].get("time")))
+    """,
+                               now=datetime.utcnow().isoformat(),
+                               scan_id=app_state["last_scan"].get("id"),
+                               scan_time=app_state["last_scan"].get("time")))
     # set visitor cookie if missing
-    resp.set_cookie("visitor_id", visitor_id, max_age=60*60*24*30)
+    resp.set_cookie("visitor_id", visitor_id, max_age=60 * 60 * 24 * 30)
     return resp
+
 
 @app.route("/api/scan", methods=["GET"])
 def api_scan():
@@ -446,7 +530,8 @@ def api_scan():
     visitor_id = request.cookies.get("visitor_id")
     refresh = TXConfig.DEFAULT_USER_REFRESH
     if visitor_id:
-        v = db.get('visitors', {}).get(visitor_id) if isinstance(db.get('visitors', {}), dict) else None
+        v = db.get('visitors', {}).get(visitor_id) if isinstance(
+            db.get('visitors', {}), dict) else None
         if v and v.get('refresh_interval'):
             refresh = int(v.get('refresh_interval'))
     # include a lightweight portfolio snapshot summary
@@ -455,7 +540,8 @@ def api_scan():
         if engine and engine.trader:
             # get market prices then compute portfolio snapshot
             market_prices = engine.get_market_prices()
-            portfolio_snapshot = engine.trader.get_portfolio_value(market_prices)
+            portfolio_snapshot = engine.trader.get_portfolio_value(
+                market_prices)
     except Exception:
         portfolio_snapshot = {}
 
@@ -468,6 +554,7 @@ def api_scan():
         "refresh_seconds": refresh
     }
     return jsonify(result)
+
 
 @app.route("/api/set-refresh", methods=["POST"])
 def api_set_refresh():
@@ -483,48 +570,71 @@ def api_set_refresh():
     v['last_seen'] = datetime.utcnow().isoformat()
     db['visitors'][visitor_id] = v
     resp = jsonify({"status": "ok", "refresh_seconds": v['refresh_interval']})
-    resp.set_cookie("visitor_id", visitor_id, max_age=60*60*24*30)
+    resp.set_cookie("visitor_id", visitor_id, max_age=60 * 60 * 24 * 30)
     return resp
+
 
 # Paper trades endpoints
 @app.route("/api/paper-trades", methods=["GET"])
 def get_paper_trades():
     return jsonify({"paper_trades": app_state["paper_trades"]})
 
+
 @app.route("/api/paper-trades", methods=["POST"])
 def place_paper_trade():
     if not engine or not engine.trader:
-        return jsonify({"status": "error", "message": "Paper trading disabled"}), 400
+        return jsonify({
+            "status": "error",
+            "message": "Paper trading disabled"
+        }), 400
     data = request.json or {}
     try:
         symbol = data.get("symbol")
         side = (data.get("side") or "buy").lower()
-        price = float(data.get("price")) if data.get("price") is not None else None
+        price = float(
+            data.get("price")) if data.get("price") is not None else None
         pattern = data.get("pattern", "Manual")
         confidence = float(data.get("confidence", 1.0))
         qty = data.get("qty")
         amount_usd = data.get("amount_usd")
 
         if not symbol or price is None:
-            return jsonify({"status": "error", "message": "Missing symbol or price"}), 400
+            return jsonify({
+                "status": "error",
+                "message": "Missing symbol or price"
+            }), 400
 
         if side == "buy":
             if qty is not None:
-                trade = engine.trader.buy(symbol, price, pattern, confidence, qty=float(qty))
+                trade = engine.trader.buy(symbol,
+                                          price,
+                                          pattern,
+                                          confidence,
+                                          qty=float(qty))
             elif amount_usd is not None:
-                trade = engine.trader.buy(symbol, price, pattern, confidence, amount_usd=float(amount_usd))
+                trade = engine.trader.buy(symbol,
+                                          price,
+                                          pattern,
+                                          confidence,
+                                          amount_usd=float(amount_usd))
             else:
                 trade = engine.trader.buy(symbol, price, pattern, confidence)
         elif side == "sell":
             if qty is not None:
-                trade = engine.trader.sell(symbol, price, qty=float(qty), reason="manual")
+                trade = engine.trader.sell(symbol,
+                                           price,
+                                           qty=float(qty),
+                                           reason="manual")
             else:
                 trade = engine.trader.sell(symbol, price, reason="manual")
         else:
             return jsonify({"status": "error", "message": "Invalid side"}), 400
 
         if isinstance(trade, dict) and trade.get("error"):
-            return jsonify({"status": "error", "message": trade.get("message")}), 400
+            return jsonify({
+                "status": "error",
+                "message": trade.get("message")
+            }), 400
 
         trade["time"] = datetime.utcnow().strftime("%H:%M:%S")
         app_state["paper_trades"].insert(0, trade)
@@ -532,24 +642,35 @@ def place_paper_trade():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.route("/api/close-position", methods=["POST"])
 def api_close_position():
     if not engine or not engine.trader:
-        return jsonify({"status": "error", "message": "Paper trading disabled"}), 400
+        return jsonify({
+            "status": "error",
+            "message": "Paper trading disabled"
+        }), 400
     data = request.json or {}
     try:
         symbol = data.get("symbol")
         price = float(data.get("price"))
         if not symbol or price is None:
-            return jsonify({"status": "error", "message": "Missing symbol or price"}), 400
+            return jsonify({
+                "status": "error",
+                "message": "Missing symbol or price"
+            }), 400
         closed = engine.trader.close_position(symbol, price)
         if not closed:
-            return jsonify({"status": "error", "message": "No open position"}), 404
+            return jsonify({
+                "status": "error",
+                "message": "No open position"
+            }), 404
         closed["time"] = datetime.utcnow().strftime("%H:%M:%S")
         app_state["paper_trades"].insert(0, closed)
         return jsonify({"status": "success", "trade": closed})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 # portfolio endpoint
 @app.route("/api/portfolio", methods=["GET"])
@@ -561,9 +682,13 @@ def api_portfolio():
             snapshot["market_prices"] = prices
             return jsonify(snapshot)
         else:
-            return jsonify({"status": "error", "message": "Trading engine not available"}), 500
+            return jsonify({
+                "status": "error",
+                "message": "Trading engine not available"
+            }), 500
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 # logs / detections
 @app.route("/api/logs/detections", methods=["GET"])
@@ -575,6 +700,7 @@ def api_logs_detections():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.route("/api/logs/trades", methods=["GET"])
 def api_logs_trades():
     try:
@@ -583,6 +709,7 @@ def api_logs_trades():
         return jsonify({"trades": []})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 # simple detection helper endpoints
 @app.route("/api/get_latest_detection_id", methods=["GET"])
@@ -594,6 +721,7 @@ def api_get_latest_detection_id():
         return jsonify({"detection_id": detections[-1]['id']})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route("/api/log_outcome", methods=["POST"])
 def api_log_outcome():
@@ -610,13 +738,18 @@ def api_log_outcome():
                 dets[i]["verified"] = True
                 db["detections"] = dets
                 return jsonify({"status": "ok"})
-        return jsonify({"status": "error", "message": "detection_not_found"}), 404
+        return jsonify({
+            "status": "error",
+            "message": "detection_not_found"
+        }), 404
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route("/api/get_active_alerts", methods=["GET"])
 def api_get_active_alerts():
     return jsonify({"alerts": app_state["alerts"]})
+
 
 @app.route("/api/handle_alert_response", methods=["POST"])
 def api_handle_alert_response():
@@ -628,6 +761,7 @@ def api_handle_alert_response():
         return jsonify({"status": "recorded", "action": action})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 # feedback endpoint (forwards to Slack webhook if configured)
 @app.route("/api/submit-feedback", methods=["POST"])
@@ -646,17 +780,26 @@ def api_submit_feedback():
             if r.status_code == 200:
                 return jsonify({"status": "ok"})
             else:
-                return jsonify({"status": "error", "message": "slack_failed"}), 500
+                return jsonify({
+                    "status": "error",
+                    "message": "slack_failed"
+                }), 500
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
     else:
         # store feedback locally (append to file)
         try:
             with open("feedback_log.jsonl", "a") as f:
-                f.write(json.dumps({"who": who, "feedback": feedback, "ts": datetime.utcnow().isoformat()}) + "\n")
+                f.write(
+                    json.dumps({
+                        "who": who,
+                        "feedback": feedback,
+                        "ts": datetime.utcnow().isoformat()
+                    }) + "\n")
             return jsonify({"status": "ok", "note": "stored_locally"})
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
+
 
 # -------------------------
 # Optional backup helper (safe: only runs if TOKEN present)
@@ -679,9 +822,12 @@ def backup_to_github():
         # Minimal safe git push (only if environment supports it)
         if not os.path.exists(".git"):
             os.system("git init")
-        os.system(f"git add tx_backup.json && git commit -m 'auto backup' || true")
+        os.system(
+            f"git add tx_backup.json && git commit -m 'auto backup' || true")
         os.system(f"git remote remove origin || true")
-        os.system(f"git remote add origin https://{token}@github.com/{repo}.git || true")
+        os.system(
+            f"git remote add origin https://{token}@github.com/{repo}.git || true"
+        )
         os.system("git push -u origin main --force || true")
         print("✅ backup_to_github completed (best-effort).")
         return True
@@ -689,11 +835,13 @@ def backup_to_github():
         print("⚠️ backup_to_github failed:", e)
         return False
 
+
 @app.route("/api/backup", methods=["POST"])
 def api_backup():
     if backup_to_github():
         return jsonify({"status": "ok"})
     return jsonify({"status": "error", "message": "backup_failed"}), 500
+
 
 # -------------------------
 # Health endpoint
@@ -701,8 +849,6 @@ def api_backup():
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "time": datetime.utcnow().isoformat()})
-
-
 
 
 # -------------------------
