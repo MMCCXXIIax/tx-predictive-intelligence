@@ -5,7 +5,6 @@ import time
 import threading
 import uuid
 from datetime import datetime, timedelta
-from typing import Dict
 
 from flask import Flask, request, jsonify, make_response, render_template_string
 from flask_cors import CORS
@@ -41,23 +40,42 @@ except Exception as e:
     PaperTrader = None
     print("⚠️ Warning: services.paper_trader not found or failed to import:",
           e)
+# Replace ALL existing CORS configurations with this:
 
-# Flask app
 app = Flask(__name__)
 
-# Allowed origins: add lovableproject domain and allow others via env
-# In main.py (~line 36), update DEFAULT_ALLOWED:
-DEFAULT_ALLOWED = [
-    "https://tx-trade-whisperer.lovable.app",  # Production frontend
-    "https://preview--tx-trade-whisperer.lovable.app",  # Preview deployments
-    "http://localhost:3000",  # For local development
-]
+# 1. Strict CORS for API routes
+CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "https://tx-trade-whisperer.lovable.app",  # Production
+                "https://preview--tx-trade-whisperer.lovable.app"  # Previews
+            ],
+            "methods": ["GET", "POST", "OPTIONS"],
+            "supports_credentials":
+            True
+        }
+    })
 
-extra = os.getenv("CORS_EXTRA_ORIGINS", "")
-if extra:
-    DEFAULT_ALLOWED += [o.strip() for o in extra.split(",") if o.strip()]
 
-CORS(app, origins=DEFAULT_ALLOWED)
+# 2. Backup header injection (VERY IMPORTANT)
+@app.after_request
+def inject_cors_headers(response):
+    if request.path.startswith('/api/'):
+        response.headers[
+            'Access-Control-Allow-Origin'] = 'https://tx-trade-whisperer.lovable.app'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
+
+
+#extra = os.getenv("CORS_EXTRA_ORIGINS", "")
+#if extra:
+#   DEFAULT_ALLOWED += [o.strip() for o in extra.split(",") if o.strip()]
+
+#CORS(app, origins=DEFAULT_ALLOWED)
 
 # -------------------------
 # Lightweight MockDB fallback (works in Replit / local)
@@ -823,8 +841,8 @@ def backup_to_github():
         if not os.path.exists(".git"):
             os.system("git init")
         os.system(
-            f"git add tx_backup.json && git commit -m 'auto backup' || true")
-        os.system(f"git remote remove origin || true")
+            "git add tx_backup.json && git commit -m 'auto backup' || true")
+        os.system("git remote remove origin || true")
         os.system(
             f"git remote add origin https://{token}@github.com/{repo}.git || true"
         )
@@ -858,10 +876,16 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     host = os.environ.get("HOST", "0.0.0.0")
     print("🚀 Starting TX server — production mode")
-    print(f"Allowed CORS origins: {DEFAULT_ALLOWED}")
+    #  print(f"Allowed CORS origins: {DEFAULT_ALLOWED}")
     if waitress_serve:
         # Use waitress for production-like serving
         waitress_serve(app, host=host, port=port)
     else:
         # fallback: Flask built-in (not ideal for high-load production)
         app.run(host=host, port=port, debug=False)
+
+#curl -I "https://tx-predictive-intelligence.vercel.app/api/scan"
+
+# Commit with a clear message
+#git commit -m "FIX: Strict CORS for production domain"
+#git push
