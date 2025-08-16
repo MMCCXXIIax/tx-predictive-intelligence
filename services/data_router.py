@@ -36,7 +36,7 @@ class DataRouter:
             print(f"⚠️ Unknown asset type for symbol: {symbol}")
             return []
 
-    def start_alpha_vantage_loop(self, refresh_interval=60):
+    def start_alpha_vantage_loop(self, refresh_interval=120):
         def refresh_loop():
             while True:
                 print("🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...")
