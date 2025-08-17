@@ -633,14 +633,34 @@ def get_latest_detection_id():
 
 @app.route("/api/log_outcome", methods=["POST"])
 def api_log_outcome():
-    cur.execute("""
-    UPDATE detections
-    SET outcome = %s, verified = TRUE
-    WHERE id = %s
-""", (outcome, det_id))
-if cur.rowcount:
-    return jsonify({"status": "ok"})
-return jsonify({"status": "error", "message": "detection_not_found"}), 404
+    try:
+        data = (request.get_json() or {})
+        det_id = data.get("detection_id")
+        outcome = data.get("outcome")
+
+        if not det_id or not outcome:
+            return jsonify({"status": "error", "message": "missing fields"}), 400
+
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("""
+                    UPDATE detections
+                    SET outcome = :outcome, verified = TRUE
+                    WHERE id = :id
+                """),
+                {"outcome": outcome, "id": det_id}
+            )
+            conn.commit()
+
+        if result.rowcount and result.rowcount > 0:
+            return jsonify({"status": "ok"})
+        else:
+            return jsonify({"status": "error", "message": "detection_not_found"}), 404
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 
 @app.route("/api/get_active_alerts", methods=["GET"])
 def api_get_active_alerts():
