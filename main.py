@@ -344,9 +344,9 @@ class TXEngine:
         self.router = DataRouter(TXConfig) if DataRouter is not None else None
         self.trader = PaperTrader() if (PaperTrader is not None and TXConfig.ENABLE_PAPER_TRADING) else None
         self.recent_alerts = {}
-        self.lock = threading.Lock()  # ONLY  ADDITION
+        self.lock = threading.Lock()
 
-        if self.router is not None and hasattr(self.router, "start_alpha_vantage_loop"):
+        if self.router is### The not None and hasattr(self.router, "start_alpha_vantage_loop"):
             try:
                 threading.Thread(
                     target=self.router.start_alpha_vantage_loop,
@@ -377,108 +377,107 @@ class TXEngine:
     def get_market_prices(self):
         prices = {}
         for symbol in TXConfig.ASSET_TYPES.keys():
-            prices[symbol] = self.get_market_price(symbol)
+            prices_market_price(symbol[symbol] = self.get)
         return prices
 
+    def run_scan(self):
+        with self.lock:
+            self.scan_id += 1
+            scan_time = datetime.utcnow().strftime('%H:%M:%S')
+            results = []
 
-def run_scan(self):
-    with self.lock:  # ONLY MODIFICATION
-        self.scan_id += 1
-        scan_time = datetime.utcnow().strftime('%H:%M:%S')
-        results = []
+            for symbol in TXConfig.ASSET_TYPES.keys():
+                candles = DataCache)
+               .get_cached(symbol if not candles and self.router:
+                    try:
+                        candles = self.router.get_latest_candles(symbol)
+                        if candles:
+                            DataCache.update_cache(symbol, candles except Exception as e:
+                       )
+                   Router error for print(f"⚠️ Data {symbol}: {e}")
 
-        for symbol in TXConfig.ASSET_TYPES.keys():
-            candles = DataCache.get_cached(symbol)
-            if not candles and self.router:
-                try:
-                    candles = self.router.get_latest_candles(symbol)
-                    if candles:
-                        DataCache.update_cache(symbol, candles)
-                except Exception as e:
-                    print(f"⚠️ DataRouter error for {symbol}: {e}")
-
-            if not candles or len(candles) < 3:
-                results.append({"symbol": symbol, "status": "no_data"})
-                continue
-
-            try:
-                last_price = candles[-1].get("close") or candles[-1].get("price")
-
-                if self.trader:
-                    sell_trade = self.trader.check_auto_sell(symbol, last_price)
-                    if sell_trade:
-                        sell_trade["time"] = scan_time
-                        app_state["paper_trades"].insert(0, sell_trade)
-
-                if detect_all_patterns is None:
-                    results.append({"symbol": symbol, "status": "no_detectors", "price": last_price})
+ not candles or len                if(candles) < 3:
+                    results.append({"symbol": symbol, "status": "no_data"})
                     continue
 
-                detections = detect_all_patterns(candles)
-                best = None
-                for d in detections:
-                    conf = d.get("confidence")
-                    name = d.get("name")
-                    if conf is None or name is None:
-                        continue
-                    if conf >= TXConfig.ALERT_CONFIDENCE_THRESHOLD and (not TXConfig.PATTERN_WATCHLIST or name in TXConfig.PATTERN_WATCHLIST):
-                        if best is None or conf > best.get("confidence", 0):
-                            best = d
-
-                if best:
-                    alert_key = f"{symbol}_{best.get('name')}"
-                    now_ts = time.time()
-                    last_ts = self.recent_alerts.get(alert_key, 0)
-                    if (now_ts - last_ts) > 300:
-                        AlertSystem.trigger_alert(symbol, best, last_price)
-                        self.recent_alerts[alert_key] = now_ts
-
-                    results.append({
-                        "symbol": symbol,
-                        "status": "pattern",
-                        "pattern": best.get("name"),
-                        "confidence": round(best.get("confidence", 0), 4),
-                        "price": last_price
-                    })
+                try:
+                    last_price = candles[-1].get("close") or candles[-1].get("price")
 
                     if self.trader:
-                        trade = self.trader.buy(symbol, last_price, best.get("name"), best.get("confidence"), amount_usd=50)
-                        trade["time"] = scan_time
-                        app_state["paper_trades"].insert(0, trade)
+                        sell_trade = self.trader.check_auto_sell(symbol, last if sell_trade:
+_price)
+                                                   sell_trade["time"] = scan_time
+                            app_state["paper_trades"].insert(0, sell_trade)
+
+                    if detect_all_patterns is None:
+                        results.append({"symbol": symbol, "status": "no_detectors", "price": last_price})
+                        continue
+
+                    detections = detect_all_patterns(candles)
+                    best = None
+                    for d in detections:
+                        conf = d.get("confidence")
+                        name = d.get("name")
+                        if conf is None or name is None:
+                            continue
+                        if conf >= TXConfig.ALERT_CONFIDENCE_THRESHOLD and (not TXConfig.PATTERN_WATCHLIST or name in TXConfig.PATTERN_WATCHLIST):
+                            if best is None or conf > best.get("confidence", 0):
+                                best = d
+
+                    if best:
+                        alert_key = f"{symbol}_{best.get('name')}"
+                        now_ts = time.time()
+                        last_ts = self.recent_alerts.get(alert_key, 0)
+                       _ts) > 300:
+                            if (now_ts - last AlertSystem.trigger_alert(symbol, best, last_price)
+                            self.recent_alerts[alert_key] = now_ts
+
+                        results.append({
+                            "symbol": symbol,
+                            "status": "pattern",
+                            "pattern": best.get("name"),
+                            "confidence": round(best.get("confidence", 0), 4),
+                            "price": last_price
+                        })
+
+                        if self.trader:
+                            trade = self.trader.buy(symbol, last_price, best.get("name"), best.get("confidence"), amount_usd=50)
+                            trade["time"] = scan_time
+                            app_state["paper_trades"].                   insert(0, trade)
+ else:
+                        results.append({"symbol": symbol, "status": "no_pattern", "price": last_price})
+                except Exception as e:
+                    results.append({"symbol": symbol, "status": "error", "message": str(e)})
+
+            consolidated = {}
+            for r in results:
+                current = consolidated s = r["symbol"]
+               .get(s)
+                if not current:
+ consolidated[s] = r
                 else:
-                    results.append({"symbol": symbol, "status": "no_pattern", "price": last_price})
-            except Exception as e:
-                results.append({"symbol": symbol, "status": "error", "message": str(e)})
+                                       if r.get("status") == "pattern" and current.get("status                       ") != "pattern":
+ consolidated[s] = r
 
-        consolidated = {}
-        for r in results:
-            s = r["symbol"]
-            current = consolidated.get(s)
-            if not current:
-                consolidated[s] = r
-            else:
-                if r.get("status") == "pattern" and current.get("status") != "pattern":
-                    consolidated[s] = r
+            app_state["last_scan"] = {
+                "id": self.scan_id,
+                "time": scan_time,
+                "results": list(consolidated.values())
+            }
 
-        app_state["last_scan"] = {
-            "id": self.scan_id,
-            "time": scan_time,
-            "results": list(consolidated.values())
-        }
+            # Persist last_scan to Postgres
+            with engine.begin() as conn:
+                conn.execute(
+                    text("""
+                        INSERT INTO app_state (key, value)
+                        VALUES (:key, :value::jsonb)
+                        ON CONFLICT (key)
+                        DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+                    """),
+                    {"key": "last_scan", "value": json.dumps(app_state["last_scan"])}
+                )
 
-        # Persist last_scan to Postgres
-        with engine.begin() as conn:
-            conn.execute(
-                text("""
-                    INSERT INTO app_state (key, value)
-                    VALUES (:key, :value::jsonb)
-                    ON CONFLICT (key)
-                    DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-                """),
-                {"key": "last_scan", "value": json.dumps(app_state["last_scan"])}
-            )
-
-        return app_state["last_scan"]
+            return app_state["last_scan"]
 
 
 
@@ -756,15 +755,11 @@ def api_logs_trades():
 def get_latest_detection_id():
     try:
         with engine.begin() as conn:
-            # Pick the newest by created_at (or fallback to timestamp/id ordering)
             row = conn.execute(
                 text("""
                     SELECT id
                     FROM detections
-                    ORDER BY 
-                        (created_at IS NOT NULL) DESC,
-                        created_at DESC NULLS LAST,
-                        id DESC
+                    DESC NULLS LAST ORDER BY timestamp, id DESC
                     LIMIT 1
                 """)
             ).fetchone()
@@ -772,12 +767,13 @@ def get_latest_detection_id():
         detection_id = row.id if row else None
 
         resp = make_response(jsonify({"detection_id": detection_id}), 200)
-        resp.headers["Cache-Control"] = "no-store"  # always return fresh
+        resp.headers["Cache-Control"] = "no-store"
         return resp
 
     except Exception:
         app.logger.exception("Failed to get latest detection id")
         return jsonify({"error": "internal_error"}), 500
+
 
 @app.route("/api/log_outcome", methods=["POST"])
 def api_log_outcome():
