@@ -484,19 +484,19 @@ def run_scan(self):
 
 # YOUR ORIGINAL background_scan_loop with improved timing
 # -------------------------
-# Background scan runner (robust start)
+# Background scan runner (Flask 3–safe, start-once)
 # -------------------------
 SCANNER_STARTED = False
 SCANNER_THREAD = None
 
 def background_scan_loop():
-    tx_engine = TXEngine()  # avoid shadowing the global SQLAlchemy 'engine'
+    tx_engine = TXEngine()  # don't shadow the global SQLAlchemy 'engine'
     print("✅ background_scan_loop: thread running")
     while True:
         start_time = time.time()
         try:
             scan = tx_engine.run_scan()
-            # Lightweight heartbeat so you can see it working
+            # Heartbeat so you can see it in Render logs
             print(f"🛰️ scan #{scan.get('id')} at {scan.get('time')} with {len(scan.get('results', []))} results")
             elapsed = time.time() - start_time
             sleep_time = max(1, TXConfig.BACKEND_SCAN_INTERVAL - elapsed)
@@ -511,7 +511,11 @@ def start_background_scanner():
     global SCANNER_STARTED, SCANNER_THREAD
     if SCANNER_STARTED:
         return
-    SCANNER_THREAD = threading.Thread(target=background_scan_loop, daemon=True, name="tx-scan-loop")
+    SCANNER_THREAD = threading.Thread(
+        target=background_scan_loop,
+        daemon=True,
+        name="tx-scan-loop"
+    )
     SCANNER_THREAD.start()
     SCANNER_STARTED = True
     print("✅ Background scan thread started")
@@ -519,14 +523,23 @@ def start_background_scanner():
 # Start on import (covers most servers)
 start_background_scanner()
 
-# Also start on first request (covers lazy-import scenarios, restarts, and some WSGI hosts)
+# Flask 3.x: before_first_request was removed. Use before_request with guard.
 @app.before_request
 def _ensure_scanner():
     start_background_scanner()
 
+
 # -------------------------
 # YOUR ORIGINAL API ROUTES (100% PRESERVED)
 # -------------------------
+@app.get("/api/debug_scan")
+def debug_scan():
+    tx_engine = TXEngine()
+    scan = tx_engine.run_scan()
+    # Mirror background behavior
+    app_state["last_scan"] = scan
+    return jsonify({"debug_scan": scan})
+
 
 @app.route("/")
 def dashboard():
