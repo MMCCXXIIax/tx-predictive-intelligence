@@ -346,7 +346,7 @@ class TXEngine:
         self.recent_alerts = {}
         self.lock = threading.Lock()
 
-        if self.router is### The not None and hasattr(self.router, "start_alpha_vantage_loop"):
+        if self.router is not None and hasattr(self.router, "start_alpha_vantage_loop"):
             try:
                 threading.Thread(
                     target=self.router.start_alpha_vantage_loop,
