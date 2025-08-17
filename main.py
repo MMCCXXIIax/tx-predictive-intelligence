@@ -439,11 +439,12 @@ def dashboard():
 def api_scan():
     visitor_id = request.cookies.get("visitor_id")
     refresh = TXConfig.DEFAULT_USER_REFRESH
+
     if visitor_id:
-    cur.execute("SELECT refresh_interval FROM visitors WHERE id = %s", (visitor_id,))
-    row = cur.fetchone()
-    if row and row.get('refresh_interval'):
-        refresh = int(row['refresh_interval'])
+        cur.execute("SELECT refresh_interval FROM visitors WHERE id = %s", (visitor_id,))
+        row = cur.fetchone()
+        if row and row.get('refresh_interval'):
+            refresh = int(row['refresh_interval'])
 
     portfolio_snapshot = {}
     try:
@@ -461,6 +462,8 @@ def api_scan():
         "portfolio": portfolio_snapshot,
         "refresh_seconds": refresh
     })
+
+
 
 @app.post("/api/set-refresh")
 def api_set_refresh():
