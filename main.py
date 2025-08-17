@@ -16,42 +16,44 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from sqlalchemy import create_engine, text
 
+load_dotenv()
 
+# Pull DATABASE_URL from env (works locally and on Render)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-conn.autocommit = True
-cur = conn.cursor()
+# Create one shared engine (connection pool managed by SQLAlchemy)
+engine = create_engine(DATABASE_URL)
 
-# Bootstrap your tables if they don't exist
-cur.execute("""
-CREATE TABLE IF NOT EXISTS visitors (
-    id UUID PRIMARY KEY,
-    first_seen TIMESTAMP,
-    last_seen TIMESTAMP,
-    user_agent TEXT,
-    ip TEXT,
-    visit_count INT,
-    refresh_interval INT
-);
-""")
+# Bootstrap tables if they don't exist
+with engine.connect() as conn:
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS visitors (
+            id UUID PRIMARY KEY,
+            first_seen TIMESTAMP,
+            last_seen TIMESTAMP,
+            user_agent TEXT,
+            ip TEXT,
+            visit_count INT,
+            refresh_interval INT
+        );
+    """))
 
-cur.execute("""
-CREATE TABLE IF NOT EXISTS detections (
-    id UUID PRIMARY KEY,
-    timestamp TIMESTAMP,
-    symbol TEXT,
-    pattern TEXT,
-    confidence FLOAT,
-    price NUMERIC,
-    outcome TEXT,
-    verified BOOLEAN
-);
-""")
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS detections (
+            id UUID PRIMARY KEY,
+            timestamp TIMESTAMP,
+            pattern TEXT,
+            confidence FLOAT symbol TEXT,
+           ,
+            price NUMERIC,
+            outcome TEXT,
+            verified BOOLEAN
+        );
+    """))
 
-# Load .env EXACTLY as you had it
-load_dotenv()
+    conn.commit()
 
 # Your original imports with error handling preserved exactly
 try:
