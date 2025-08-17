@@ -472,9 +472,8 @@ with engine.begin() as conn:
             DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
         """),
         {"key": "last_scan", "value": json.dumps(app_state["last_scan"])}
-    )  # ADDED FOR PERSISTENCE
-
-return app_state["last_scan"]
+    )  # ADDED FOR PERSISTENCE 
+    return app_state["last_scan"]
 # YOUR ORIGINAL background_scan_loop with improved timing
 def background_scan_loop():
     engine = TXEngine()
