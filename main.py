@@ -483,22 +483,46 @@ def run_scan(self):
 
 
 # YOUR ORIGINAL background_scan_loop with improved timing
+# -------------------------
+# Background scan runner (robust start)
+# -------------------------
+SCANNER_STARTED = False
+SCANNER_THREAD = None
+
 def background_scan_loop():
-    engine = TXEngine()
+    tx_engine = TXEngine()  # avoid shadowing the global SQLAlchemy 'engine'
+    print("✅ background_scan_loop: thread running")
     while True:
         start_time = time.time()
         try:
-            engine.run_scan()
+            scan = tx_engine.run_scan()
+            # Lightweight heartbeat so you can see it working
+            print(f"🛰️ scan #{scan.get('id')} at {scan.get('time')} with {len(scan.get('results', []))} results")
             elapsed = time.time() - start_time
             sleep_time = max(1, TXConfig.BACKEND_SCAN_INTERVAL - elapsed)
-            if sleep_time < 1:  # Prevent tight loops if scans take too long
+            if sleep_time < 1:
                 print(f"⚠️ Scan took {elapsed:.1f}s (longer than interval)")
             time.sleep(sleep_time)
         except Exception as e:
             print("⚠️ Scan loop crashed:", e)
-            time.sleep(min(30, TXConfig.BACKEND_SCAN_INTERVAL))  # Cap wait time
-# Start scanner thread
-threading.Thread(target=background_scan_loop, daemon=True).start()
+            time.sleep(min(30, TXConfig.BACKEND_SCAN_INTERVAL))
+
+def start_background_scanner():
+    global SCANNER_STARTED, SCANNER_THREAD
+    if SCANNER_STARTED:
+        return
+    SCANNER_THREAD = threading.Thread(target=background_scan_loop, daemon=True, name="tx-scan-loop")
+    SCANNER_THREAD.start()
+    SCANNER_STARTED = True
+    print("✅ Background scan thread started")
+
+# Start on import (covers most servers)
+start_background_scanner()
+
+# Also start on first request (covers lazy-import scenarios, restarts, and some WSGI hosts)
+@app.before_first_request
+def _ensure_scanner():
+    start_background_scanner()
 
 # -------------------------
 # YOUR ORIGINAL API ROUTES (100% PRESERVED)
