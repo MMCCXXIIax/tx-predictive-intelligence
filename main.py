@@ -1,18 +1,54 @@
 # YOUR COMPLETE ORIGINAL main.py WITH ONLY THE MINIMAL FIXES REQUIRED
 # (All your logic, naming, and structure preserved exactly as you wrote it)
-
+# --- Standard library ---
 import os
 import json
 import time
 import threading
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
-import psutil
 
-from flask import Flask, request, jsonify, make_response, render_template_string
+# --- Third‑party libraries ---
+import psutil
+from flask import Flask, request, jsonify, make_response, render_template_string, current_app as app
 from flask_cors import CORS
 from dotenv import load_dotenv
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+conn.autocommit = True
+cur = conn.cursor()
+
+# Bootstrap your tables if they don't exist
+cur.execute("""
+CREATE TABLE IF NOT EXISTS visitors (
+    id UUID PRIMARY KEY,
+    first_seen TIMESTAMP,
+    last_seen TIMESTAMP,
+    user_agent TEXT,
+    ip TEXT,
+    visit_count INT,
+    refresh_interval INT
+);
+""")
+
+cur.execute("""
+CREATE TABLE IF NOT EXISTS detections (
+    id UUID PRIMARY KEY,
+    timestamp TIMESTAMP,
+    symbol TEXT,
+    pattern TEXT,
+    confidence FLOAT,
+    price NUMERIC,
+    outcome TEXT,
+    verified BOOLEAN
+);
+""")
 
 # Load .env EXACTLY as you had it
 load_dotenv()
@@ -103,40 +139,33 @@ def track_visit(req) -> str:
     visitor_id = req.cookies.get("visitor_id")
     if not visitor_id:
         visitor_id = str(uuid.uuid4())
-        db['visitors'][visitor_id] = {
-            'first_seen': datetime.utcnow().isoformat(),
-            'last_seen': datetime.utcnow().isoformat(),
-            'user_agent': req.headers.get('User-Agent', ''),
-            'ip': req.remote_addr,
-            'visit_count': 1,
-            'refresh_interval': TXConfig.DEFAULT_USER_REFRESH
-        }
-        db['user_count'] = len(db['visitors'])
+        cur.execute("""
+            INSERT INTO visitors (id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval)
+            VALUES (%s, NOW(), NOW(), %s, %s, %s, %s)
+        """, (visitor_id, req.headers.get('User-Agent', ''), req.remote_addr, 1, TXConfig.DEFAULT_USER_REFRESH))
     else:
-        v = db['visitors'].get(visitor_id, None)
-        if v:
-            v['last_seen'] = datetime.utcnow().isoformat()
-            v['visit_count'] = v.get('visit_count', 0) + 1
-            db['visitors'][visitor_id] = v
+        cur.execute("SELECT * FROM visitors WHERE id = %s", (visitor_id,))
+        row = cur.fetchone()
+        if row:
+            cur.execute("""
+                UPDATE visitors
+                SET last_seen = NOW(), visit_count = visit_count + 1
+                WHERE id = %s
+            """, (visitor_id,))
+        else:
+            # First time we've seen this ID in Postgres
+            cur.execute("""
+                INSERT INTO visitors (id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval)
+                VALUES (%s, NOW(), NOW(), %s, %s, %s, %s)
+            """, (visitor_id, req.headers.get('User-Agent', ''), req.remote_addr, 1, TXConfig.DEFAULT_USER_REFRESH))
     return visitor_id
 
 def log_detection(symbol, pattern, confidence, price):
     detection_id = str(uuid.uuid4())
-    entry = {
-        'id': detection_id,
-        'timestamp': datetime.utcnow().isoformat(),
-        'symbol': symbol,
-        'pattern': pattern,
-        'confidence': float(confidence) if confidence is not None else None,
-        'price': price,
-        'outcome': None,
-        'verified': False
-    }
-    dets = db.get('detections', [])
-    dets.append(entry)
-    if len(dets) > 10000:
-        dets = dets[-10000:]
-    db['detections'] = dets
+    cur.execute("""
+        INSERT INTO detections (id, timestamp, symbol, pattern, confidence, price, outcome, verified)
+        VALUES (%s, NOW(), %s, %s, %s, %s, NULL, FALSE)
+    """, (detection_id, symbol, pattern, float(confidence) if confidence is not None else None, price))
     return detection_id
 
 # YOUR ORIGINAL DataCache CLASS (not modified)
@@ -409,9 +438,10 @@ def api_scan():
     visitor_id = request.cookies.get("visitor_id")
     refresh = TXConfig.DEFAULT_USER_REFRESH
     if visitor_id:
-        v = db.get('visitors', {}).get(visitor_id) if isinstance(db.get('visitors', {}), dict) else None
-        if v and v.get('refresh_interval'):
-            refresh = int(v.get('refresh_interval'))
+    cur.execute("SELECT refresh_interval FROM visitors WHERE id = %s", (visitor_id,))
+    row = cur.fetchone()
+    if row and row.get('refresh_interval'):
+        refresh = int(row['refresh_interval'])
 
     portfolio_snapshot = {}
     try:
@@ -430,21 +460,43 @@ def api_scan():
         "refresh_seconds": refresh
     })
 
-@app.route("/api/set-refresh", methods=["POST"])
+@app.post("/api/set-refresh")
 def api_set_refresh():
-    data = request.json or {}
-    secs = int(data.get("seconds", TXConfig.DEFAULT_USER_REFRESH))
-    visitor_id = request.cookies.get("visitor_id")
-    if not visitor_id:
-        visitor_id = str(uuid.uuid4())
-        db['visitors'][visitor_id] = {}
-    v = db['visitors'].get(visitor_id, {})
-    v['refresh_interval'] = int(max(5, min(3600, secs)))
-    v['last_seen'] = datetime.utcnow().isoformat()
-    db['visitors'][visitor_id] = v
-    resp = jsonify({"status": "ok", "refresh_seconds": v['refresh_interval']})
-    resp.set_cookie("visitor_id", visitor_id, max_age=60*60*24*30)
-    return resp
+    try:
+        # Parse & clamp
+        try:
+            secs = int(request.json.get("seconds", TXConfig.DEFAULT_USER_REFRESH))
+        except (ValueError, AttributeError):
+            secs = TXConfig.DEFAULT_USER_REFRESH
+
+        secs = max(5, min(3600, secs))
+
+        # Identify visitor
+        visitor_id = request.cookies.get("visitor_id") or str(uuid.uuid4())
+        visitor = db.setdefault("visitors", {}).get(visitor_id, {})
+
+        # Update
+        visitor.update({
+            "refresh_interval": secs,
+            "last_seen": datetime.now(timezone.utc).isoformat()
+        })
+        db["visitors"][visitor_id] = visitor
+
+        # Response
+        resp = make_response(jsonify({"status": "ok", "refresh_seconds": secs}), 200)
+        resp.set_cookie(
+            "visitor_id",
+            visitor_id,
+            max_age=60 * 60 * 24 * 30,
+            httponly=True,
+            secure=True,         # only over HTTPS
+            samesite="Lax"       # or "Strict" if cross‑site not needed
+        )
+        return resp
+
+    except Exception:
+        app.logger.exception("Failed to set refresh interval")
+        return jsonify({"error": "internal_error"}), 500
 
 @app.route("/api/paper-trades", methods=["GET"])
 def get_paper_trades():
@@ -532,9 +584,11 @@ def api_portfolio():
 @app.route("/api/logs/detections", methods=["GET"])
 def api_logs_detections():
     try:
-        return jsonify({"detections": list(reversed(db.get("detections", [])))})
+        cur.execute("SELECT * FROM detections ORDER BY timestamp DESC LIMIT 1000")
+        return jsonify({"detections": cur.fetchall()})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route("/api/logs/trades", methods=["GET"])
 def api_logs_trades():
@@ -546,35 +600,42 @@ def api_logs_trades():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route("/api/get_latest_detection_id", methods=["GET"])
-def api_get_latest_detection_id():
+@app.get("/api/detections/latest")
+def get_latest_detection_id():
     try:
-        detections = db.get("detections", [])
-        if not detections:
-            return jsonify({"error": "no_detections"}), 404
-        return jsonify({"detection_id": detections[-1]['id']})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        detections = db.get("detections") or []
+
+        # Choose the newest by created_at (fallback to insertion order if missing)
+        latest = None
+        if detections:
+            latest = max(
+                detections,
+                key=lambda d: (d.get("created_at") is not None, d.get("created_at"), d.get("id"))
+            )
+
+        if not latest or latest.get("id") is None:
+            resp = make_response(jsonify({"detection_id": None}), 200)
+        else:
+            resp = make_response(jsonify({"detection_id": latest["id"]}), 200)
+
+        # Freshness over speed: avoid stale caches
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+
+    except Exception:
+        app.logger.exception("Failed to get latest detection id")
+        return jsonify({"error": "internal_error"}), 500
 
 @app.route("/api/log_outcome", methods=["POST"])
 def api_log_outcome():
-    data = request.json or {}
-    det_id = data.get("detection_id")
-    outcome = data.get("outcome")
-    if not det_id or not outcome:
-        return jsonify({"status": "error", "message": "missing fields"}), 400
-
-    try:
-        for i, d in enumerate(db.get("detections", [])):
-            if d.get("id") == det_id:
-                dets = db.get("detections", [])
-                dets[i]["outcome"] = outcome
-                dets[i]["verified"] = True
-                db["detections"] = dets
-                return jsonify({"status": "ok"})
-        return jsonify({"status": "error", "message": "detection_not_found"}), 404
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+    cur.execute("""
+    UPDATE detections
+    SET outcome = %s, verified = TRUE
+    WHERE id = %s
+""", (outcome, det_id))
+if cur.rowcount:
+    return jsonify({"status": "ok"})
+return jsonify({"status": "error", "message": "detection_not_found"}), 404
 
 @app.route("/api/get_active_alerts", methods=["GET"])
 def api_get_active_alerts():
@@ -621,7 +682,7 @@ def api_submit_feedback():
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route("/api/backup", methods=["POST"])
+@app.post("/api/backup")
 def api_backup():
     try:
         token = os.getenv("TOKEN")
@@ -629,30 +690,63 @@ def api_backup():
         if not token or not repo:
             return jsonify({"status": "error", "message": "Backup not configured"}), 400
 
+        cur.execute("SELECT * FROM visitors")
+        visitors = cur.fetchall()
+
+        cur.execute("SELECT * FROM detections")
+        detections = cur.fetchall()
+
         with open("tx_backup.json", "w") as f:
             json.dump({
-                "visitors": db.get("visitors", {}),
-                "detections": db.get("detections", []),
+                "visitors": visitors,
+                "detections": detections,
                 "timestamp": datetime.utcnow().isoformat()
-            }, f)
+            }, f, default=str)
 
-        os.system(f"git add tx_backup.json && git commit -m 'backup' && git push https://{token}@github.com/{repo}.git main")
+        # safer than os.system
+        import subprocess
+        subprocess.run(["git", "add", "tx_backup.json"], check=True)
+        subprocess.run(["git", "commit", "-m", "backup"], check=True)
+        subprocess.run([
+            "git", "push",
+            f"https://{token}@github.com/{repo}.git", "main"
+        ], check=True)
+
         return jsonify({"status": "ok"})
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        app.logger.exception("Backup failed")
+        return jsonify({"status": "error", "message": "internal_error"}), 500
 
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "time": datetime.utcnow().isoformat()})
 
-@app.route("/api/debug")
-def debug():
-    return jsonify({
-        "last_scan_id": db.get("last_scan_id"),
-        "alpha_errors": sum("AlphaVantage" in l for l in open("logs.txt")),
-        "memory_usage": psutil.Process().memory_info().rss // 1024 // 1024
-    })
 
+@app.get("/api/debug")
+def debug():
+    try:
+        # Fetch last_scan_id
+        cur.execute("SELECT value FROM app_state WHERE key='last_scan_id'")
+        row = cur.fetchone()
+        last_scan_id = row[0] if row else None
+
+        # Count AlphaVantage errors in a logs table
+        cur.execute("""
+            SELECT COUNT(*) FROM error_logs
+            WHERE source = 'AlphaVantage'
+        """)
+        alpha_errors = cur.fetchone()[0]
+
+        memory_usage = psutil.Process().memory_info().rss // 1024 // 1024
+
+        return jsonify({
+            "last_scan_id": last_scan_id,
+            "alpha_errors": alpha_errors,
+            "memory_usage": memory_usage
+        })
+    except Exception as e:
+        app.logger.exception("Debug route failed")
+        return jsonify({"status": "error", "message": "internal_error"}), 500
 
 
 if __name__ == "__main__":
