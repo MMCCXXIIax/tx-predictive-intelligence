@@ -534,12 +534,19 @@ def _ensure_scanner():
 # -------------------------
 @app.get("/api/debug_scan")
 def debug_scan():
-    tx_engine = TXEngine()
-    scan = tx_engine.run_scan()
-    # Mirror background behavior
-    app_state["last_scan"] = scan
-    return jsonify({"debug_scan": scan})
-
+    try:
+        print("⚡ Running debug_scan()")
+        tx_engine = TXEngine()
+        scan = tx_engine.run_scan()
+        app_state["last_scan"] = scan
+        print(f"✅ debug_scan success: id={scan.get('id')} with {len(scan.get('results', []))} results")
+        return jsonify({"debug_scan": scan})
+    except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
+        print("❌ debug_scan error:", e)
+        print(tb)
+        return jsonify({"error": str(e), "trace": tb}), 500
 
 @app.route("/")
 def dashboard():
