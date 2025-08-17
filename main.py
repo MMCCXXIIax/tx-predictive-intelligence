@@ -387,7 +387,14 @@ class TXEngine:
             results = []
 
             for symbol in TXConfig.ASSET_TYPES.keys():
-                candles = DataCache)
+                candles = DataCache.get_cached(symbol)
+if not candles and self.router:
+    try:
+        candles = self.router.get_latest_candles(symbol)
+        if candles:
+            DataCache.update_cache(symbol, candles)
+    except Exception as e:
+        print(f"⚠️ DataRouter error for {symbol}: {e}")
                .get_cached(symbol if not candles and self.router:
                     try:
                         candles = self.router.get_latest_candles(symbol)
