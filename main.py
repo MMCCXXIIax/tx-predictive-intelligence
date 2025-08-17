@@ -377,7 +377,7 @@ class TXEngine:
     def get_market_prices(self):
         prices = {}
         for symbol in TXConfig.ASSET_TYPES.keys():
-            prices_market_price(symbol[symbol] = self.get)
+            prices_market_price(symbol[symbol] == self.get)
         return prices
 
     def run_scan(self):
