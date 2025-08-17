@@ -42,7 +42,7 @@ app = Flask(__name__)
 # YOUR ORIGINAL CORS CONFIGURATION (only fixed syntax)
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["https://tx-trade-whisperer.lovable.app"],
+        "origins": ["https://tx-trade-whisperer.lovable.app/"],
         "methods": ["GET", "POST", "OPTIONS"],
         "supports_credentials": True
     }
