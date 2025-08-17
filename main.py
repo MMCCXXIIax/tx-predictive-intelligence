@@ -269,7 +269,7 @@ class DataCache:
         if data.get("timestamp"):
             try:
                 cache_time = datetime.strptime(data["timestamp"], '%Y-%m-%d %H:%M:%S')
-                if datetime.utcnow() - cache_time < timedelta(seconds=TXConfig.CACHE_DURATION):
+                if datetime.now(timezone.utc) - cache_time < timedelta(seconds=TXConfig.CACHE_DURATION):
                     return data.get("candles", [])
             except Exception:
                 return data.get("candles", [])
@@ -280,7 +280,7 @@ class DataCache:
         cache = DataCache.load_cache()
         cache[symbol] = {
             "candles": candles,
-            "timestamp": datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
         }
         DataCache.save_cache(cache)
 
@@ -297,7 +297,7 @@ class AlertSystem:
         pattern_name = detection.get("name") or detection.get("pattern") or "Unknown"
         explanation = detection.get("explanation", "")
         action = detection.get("action", "Validate before trading.")
-        timestamp = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
         alert = {
             "symbol": symbol,
@@ -383,7 +383,7 @@ class TXEngine:
     def run_scan(self):
         with self.lock:
             self.scan_id += 1
-            scan_time = datetime.utcnow().strftime('%H:%M:%S')
+            scan_time = datetime.now(timezone.utc).strftime('%H:%M:%S')
             results = []
 
             for symbol in TXConfig.ASSET_TYPES.keys():
@@ -583,7 +583,7 @@ def dashboard():
       <p>Visit <code>/api/scan</code> and <code>/api/portfolio</code> for JSON endpoints.</p>
     </body>
     </html>
-    """, now=datetime.utcnow().isoformat(), scan_id=app_state["last_scan"].get("id"), scan_time=app_state["last_scan"].get("time")))
+    """, now=datetime.now(timezone.utc).isoformat(), scan_id=app_state["last_scan"].get("id"), scan_time=app_state["last_scan"].get("time")))
     resp.set_cookie("visitor_id", visitor_id, max_age=60*60*24*30)
     return resp
 
@@ -707,7 +707,7 @@ def place_paper_trade():
         if isinstance(trade, dict) and trade.get("error"):
             return jsonify({"status": "error", "message": trade.get("message")}), 400
 
-        trade["time"] = datetime.utcnow().strftime("%H:%M:%S")
+        trade["time"] = datetime.now(timezone.utc).strftime("%H:%M:%S")
         app_state["paper_trades"].insert(0, trade)
         return jsonify({"status": "success", "trade": trade})
     except Exception as e:
@@ -730,7 +730,7 @@ def api_close_position():
         if not closed:
             return jsonify({"status": "error", "message": "No open position"}), 404
 
-        closed["time"] = datetime.utcnow().strftime("%H:%M:%S")
+        closed["time"] = datetime.now(timezone.utc).strftime("%H:%M:%S")
         app_state["paper_trades"].insert(0, closed)
         return jsonify({"status": "success", "trade": closed})
     except Exception as e:
@@ -866,7 +866,7 @@ def api_submit_feedback():
                 f.write(json.dumps({
                     "who": who, 
                     "feedback": feedback, 
-                    "ts": datetime.utcnow().isoformat()
+                    "ts": datetime.now(timezone.utc).isoformat()
                 }) + "\n")
             return jsonify({"status": "ok", "note": "stored_locally"})
         except Exception as e:
