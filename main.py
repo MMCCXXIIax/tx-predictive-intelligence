@@ -455,12 +455,15 @@ class TXEngine:
                     if r.get("status") == "pattern" and current.get("status") != "pattern":
                         consolidated[s] = r
 
+            
             app_state["last_scan"] = {
-                "id": self.scan_id,
-                "time": scan_time,
-                "results": list(consolidated.values())
-            }
-            with engine.begin() as conn:
+    "id": self.scan_id,
+    "time": scan_time,
+    "results": list(consolidated.values())
+}
+
+# Correct indentation starts here
+with engine.begin() as conn:
     conn.execute(
         text("""
             INSERT INTO app_state (key, value)
@@ -469,9 +472,9 @@ class TXEngine:
             DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
         """),
         {"key": "last_scan", "value": json.dumps(app_state["last_scan"])}
-    ) # ADDED FOR PERSISTENCE
-            return app_state["last_scan"]
+    )  # ADDED FOR PERSISTENCE
 
+return app_state["last_scan"]
 # YOUR ORIGINAL background_scan_loop with improved timing
 def background_scan_loop():
     engine = TXEngine()
