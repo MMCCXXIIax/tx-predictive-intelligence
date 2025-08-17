@@ -520,7 +520,7 @@ def start_background_scanner():
 start_background_scanner()
 
 # Also start on first request (covers lazy-import scenarios, restarts, and some WSGI hosts)
-@app.before_first_request
+@app.before_request
 def _ensure_scanner():
     start_background_scanner()
 
