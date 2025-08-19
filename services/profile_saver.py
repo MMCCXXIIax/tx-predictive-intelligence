@@ -1,30 +1,11 @@
-# services/profile_saver.py
 import os
 import requests
 from sqlalchemy import text
-from main import engine  # <-- now importing from your actual main.py
-
-import os
-from sqlalchemy import create_engine
-
-DATABASE_URL = os.environ.get("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL is not set")
-
-# Recommended for Postgres on cloud poolers
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=5,
-    max_overflow=5,
-    future=True,
-)
+from services.db import engine
 
 SAVE_PROFILE_MODE = os.getenv("SAVE_PROFILE_MODE", "db").lower()
-
-SUPABASE_URL = os.getenvSUPABASE_SERVICE("SUPABASE_URL")
-_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 def save_profile(_session_unused, user_id, name, email, mode_value):
     """Save profile via DB (raw SQL) or Supabase REST. First arg kept for compatibility."""
@@ -32,7 +13,6 @@ def save_profile(_session_unused, user_id, name, email, mode_value):
         return _save_via_db(user_id, name, email, mode_value)
     else:
         return _save_via_rest(user_id, name, email, mode_value)
-
 
 def _save_via_db(user_id, name, email, mode_value):
     """Upsert into profiles table via raw SQL."""
@@ -56,7 +36,6 @@ def _save_via_db(user_id, name, email, mode_value):
     except Exception as e:
         return {"status": "error", "message": str(e), "method": "db"}
 
-
 def _save_via_rest(user_id, name, email, mode_value):
     """Upsert via Supabase PostgREST."""
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
@@ -65,7 +44,6 @@ def _save_via_rest(user_id, name, email, mode_value):
             "message": "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
             "method": "rest"
         }
-
     headers = {
         "apikey": SUPABASE_SERVICE_ROLE_KEY,
         "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
@@ -78,9 +56,8 @@ def _save_via_rest(user_id, name, email, mode_value):
         "email": email,
         "mode": mode_value
     }
-
-       requests.post try:
-           resp(
+    try:
+        resp = requests.post(
             f"{SUPABASE_URL}/rest/v1/profiles",
             headers=headers,
             json=payload,
