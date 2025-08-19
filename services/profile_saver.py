@@ -4,6 +4,22 @@ import requests
 from sqlalchemy import text
 from main import engine  # <-- now importing from your actual main.py
 
+import os
+from sqlalchemy import create_engine
+
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set")
+
+# Recommended for Postgres on cloud poolers
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=5,
+    future=True,
+)
+
 SAVE_PROFILE_MODE = os.getenv("SAVE_PROFILE_MODE", "db").lower()
 
 SUPABASE_URL = os.getenvSUPABASE_SERVICE("SUPABASE_URL")
@@ -63,7 +79,7 @@ def _save_via_rest(user_id, name, email, mode_value):
         "mode": mode_value
     }
 
-    = requests.post try:
+      requests.post try:
         resp(
             f"{SUPABASE_URL}/rest/v1/profiles",
             headers=headers,
