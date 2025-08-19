@@ -19,6 +19,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import NullPool
+from services.profile_saver import save_profile
 
 load_dotenv()
 
@@ -603,40 +604,16 @@ def dashboard():
     resp.set_cookie("visitor_id", visitor_id, max_age=60*60*24*30)
     return resp
 
-
-
 @app.route("/api/save-profile", methods=["POST"])
-def save_profile():
-    try:
-        data = request.get_json() or {}
-        user_id = data.get("id")  # should match auth.uid()
-        name = data.get("name")
-        email = data.get("email")
-        mode = data.get("mode", "demo")
+def save_profile_route():
+    data = request.json
+    user_id = data["id"]
+    name = data["name"]
+    email = data["email"]
+    mode_value = data.get("mode")
 
-        if not user_id or not name:
-            return jsonify({"status": "error", "message": "Missing required fields"}), 400
-
-        with engine.begin() as conn:
-            conn.execute(
-                text("""
-                    INSERT INTO profiles (id, name, email, mode)
-                    VALUES (:id, :name, :email, :mode)
-                    ON CONFLICT (id)
-                    DO UPDATE SET
-                        name = EXCLUDED.name,
-                        email = EXCLUDED.email,
-                        mode = EXCLUDED.mode,
-                        updated_at = NOW()
-                """),
-                {"id": user_id, "name": name, "email": email, "mode": mode}
-            )
-
-        return jsonify({"status": "ok"}), 200
-
-    except Exception as e:
-        app.logger.exception("Failed to save profile")
-        return jsonify({"status": "error", "message": str(e)}), 500
+    result = save_profile(db_session, user_id, name, email, mode_value)
+    return jsonify(result), (200 if result["status"] == "ok" else 500)
 
 
 @app.route("/api/scan", methods=["GET"])
