@@ -22,11 +22,11 @@ from sqlalchemy.pool import NullPool
 
 load_dotenv()
 
+# Existing DB setup
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL is not set in the environment")
 
-# Fix SQLAlchemy scheme if needed
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
 elif DATABASE_URL.startswith("postgresql://"):
@@ -34,7 +34,7 @@ elif DATABASE_URL.startswith("postgresql://"):
 
 engine = create_engine(
     DATABASE_URL,
-    poolclass=NullPool,             # Avoid pool-on-pool
+    poolclass=NullPool,
     pool_pre_ping=True,
     connect_args={
         "sslmode": "require",
@@ -42,6 +42,11 @@ engine = create_engine(
         "application_name": "tx-copilot-api"
     }
 )
+
+# New: Service role key for REST or admin ops
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+if not SUPABASE_SERVICE_ROLE_KEY:
+    raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY is missing from environment")
 
 # Bootstrap tables if not exist
 with engine.begin() as conn:  # auto-commit when block ends
