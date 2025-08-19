@@ -22,6 +22,17 @@ from sqlalchemy.pool import NullPool
 
 load_dotenv()
 
+SAVE_PROFILE_MODE = os.getenv("SAVE_PROFILE_MODE", "db").lower()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+if SAVE_PROFILE_MODE == "rest":
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise RuntimeError("REST mode requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY")
+
+print(f"[config] Save Profile Mode: {SAVE_PROFILE_MODE}")
+
 # Existing DB setup
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
