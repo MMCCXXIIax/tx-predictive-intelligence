@@ -24,6 +24,8 @@ from services.profile_saver import save_profile
 
 load_dotenv()
 
+app = Flask(__name__, static_folder="client/dist", static_url_path="")
+
 SAVE_PROFILE_MODE = os.getenv("SAVE_PROFILE_MODE", "db").lower()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -114,7 +116,6 @@ except Exception as e:
     print("⚠️ services.paper_trader import warning:", e)
 
 # Your original Flask app setup
-app = Flask(__name__)
 
 # YOUR ORIGINAL CORS CONFIGURATION (only fixed syntax)
 CORS(app, resources={
