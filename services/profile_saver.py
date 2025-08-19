@@ -2,7 +2,7 @@
 import os
 import requests
 from sqlalchemy import text
-from database import engine  # adjust import path if needed
+from main import engine  # adjust import path if needed
 
 SAVE_PROFILE_MODE = os.getenv("SAVE_PROFILE_MODE", "db").lower()
 
