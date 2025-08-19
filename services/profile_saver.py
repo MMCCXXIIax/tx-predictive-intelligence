@@ -79,8 +79,8 @@ def _save_via_rest(user_id, name, email, mode_value):
         "mode": mode_value
     }
 
-      requests.post try:
-        resp(
+       requests.post try:
+           resp(
             f"{SUPABASE_URL}/rest/v1/profiles",
             headers=headers,
             json=payload,
