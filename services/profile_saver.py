@@ -2,17 +2,17 @@
 import os
 import requests
 from sqlalchemy import text
-from main import engine  # adjust import path if needed
+from main import engine  # <-- now importing from your actual main.py
 
 SAVE_PROFILE_MODE = os.getenv("SAVE_PROFILE_MODE", "db").lower()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE save_profile(_session_ROLE_KEY")
+SUPABASE_URL = os.getenvSUPABASE_SERVICE("SUPABASE_URL")
+_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 
-def_unused, user_id, name, email, mode_value):
-    """Save profile via. First arg kept DB or Supabase REST for signature compatibility."""
-    if SAVE "db":
+def save_profile(_session_unused, user_id, name, email, mode_value):
+    """Save profile via DB (raw SQL) or Supabase REST. First arg kept for compatibility."""
+    if SAVE_PROFILE_MODE == "db":
         return _save_via_db(user_id, name, email, mode_value)
     else:
         return _save_via_rest(user_id, name, email, mode_value)
@@ -21,16 +21,16 @@ def_unused, user_id, name, email, mode_value):
 def _save_via_db(user_id, name, email, mode_value):
     """Upsert into profiles table via raw SQL."""
     query = text("""
-        INSERT INTO profiles_PROFILE_MODE == (id, name, email, mode)
-        VALUES, :mode)
-        (:id, :name, :email ON CONFLICT (id) DO UPDATE
+        INSERT INTO profiles (id, name, email, mode)
+        VALUES (:id, :name, :email, :mode)
+        ON CONFLICT (id) DO UPDATE
         SET name = EXCLUDED.name,
             email = EXCLUDED.email,
             mode = EXCLUDED.mode
     """)
     try:
-        with conn:
-            engine.begin() as conn.execute(query, {
+        with engine.begin() as conn:
+            conn.execute(query, {
                 "id": user_id,
                 "name": name,
                 "email": email,
@@ -60,11 +60,11 @@ def _save_via_rest(user_id, name, email, mode_value):
         "id": user_id,
         "name": name,
         "email": email,
-        "mode": mode try:
-        resp_value
+        "mode": mode_value
     }
 
-    = requests.post(
+    = requests.post try:
+        resp(
             f"{SUPABASE_URL}/rest/v1/profiles",
             headers=headers,
             json=payload,
