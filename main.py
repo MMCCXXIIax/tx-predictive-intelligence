@@ -612,7 +612,7 @@ def save_profile_route():
     email = data["email"]
     mode_value = data.get("mode")
 
-    result = save_profile(db_session, user_id, name, email, mode_value)
+    result = save_profile(None, user_id, name, email, mode_value)
     return jsonify(result), (200 if result["status"] == "ok" else 500)
 
 
