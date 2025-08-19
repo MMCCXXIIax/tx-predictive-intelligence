@@ -588,6 +588,41 @@ def dashboard():
     return resp
 
 
+
+@app.route("/api/save-profile", methods=["POST"])
+def save_profile():
+    try:
+        data = request.get_json() or {}
+        user_id = data.get("id")  # should match auth.uid()
+        name = data.get("name")
+        email = data.get("email")
+        mode = data.get("mode", "demo")
+
+        if not user_id or not name:
+            return jsonify({"status": "error", "message": "Missing required fields"}), 400
+
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    INSERT INTO profiles (id, name, email, mode)
+                    VALUES (:id, :name, :email, :mode)
+                    ON CONFLICT (id)
+                    DO UPDATE SET
+                        name = EXCLUDED.name,
+                        email = EXCLUDED.email,
+                        mode = EXCLUDED.mode,
+                        updated_at = NOW()
+                """),
+                {"id": user_id, "name": name, "email": email, "mode": mode}
+            )
+
+        return jsonify({"status": "ok"}), 200
+
+    except Exception as e:
+        app.logger.exception("Failed to save profile")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route("/api/scan", methods=["GET"])
 def api_scan():
     visitor_id = request.cookies.get("visitor_id")
