@@ -14,6 +14,7 @@ from typing import Dict, List, Optional
 import psutil
 from flask import Flask, request, jsonify, make_response, render_template_string, current_app as app
 from flask_cors import CORS
+from flask import send_from_directory
 from dotenv import load_dotenv
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -981,6 +982,21 @@ def debug():
         app.logger.exception("Debug route failed")
         return jsonify({"status": "error", "message": "internal_error"}), 500
 
+
+
+@app.route("/")
+def index():
+    return send_from_directory(app.static_folder, "index.html")
+
+@app.route("/<path:path>")
+def serve_spa(path):
+    import os
+    full_path = os.path.join(app.static_folder, path)
+    if os.path.isfile(full_path):
+        return send_from_directory(app.static_folder, path)
+    if path.startswith("api/"):  # Don’t intercept API calls
+        return jsonify({"error": "Not found"}), 404
+    return send_from_directory(app.static_folder, "index.html")
 
 
 if __name__ == "__main__":
