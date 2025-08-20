@@ -29,7 +29,7 @@ catch { Fail "Supabase API not reachable at $endpoint" }
 # 3. GraphQL introspection for custom table
 $gqlQuery = @"
 {
-  __type(name: "users") {
+  __type(name: "profiles") {
     name
     fields { name }
   }
@@ -47,9 +47,9 @@ try {
 catch { Fail "GraphQL query failed." }
 
 if (-not $graphql.data.__type) {
-    Fail "'users' type not found — did migrations run?"
+    Fail "'profiles' type not found — did migrations run?"
 }
-Write-Host "✅ 'users' table present in GraphQL schema." -ForegroundColor Green
+Write-Host "✅ 'profiles' table present in GraphQL schema." -ForegroundColor Green
 
 # 4. Migration folder sanity check
 if (-Not (Test-Path $goldenSchema)) {
