@@ -14,8 +14,9 @@ function Fail($msg) {
 }
 
 # 1. Docker Desktop running
-if (-not (Get-Process -Name "com.docker.desktop" -ErrorAction SilentlyContinue)) {
-    Fail "Docker Desktop is not running."
+if (-not (docker info --format '{{.ServerVersion}}' 2>$null)) {
+    Write-Host "Docker Engine is not running."
+    exit 1
 }
 Write-Host "✅ Docker Desktop is running." -ForegroundColor Green
 
