@@ -29,11 +29,12 @@ catch { Fail "Supabase API not reachable at $endpoint" }
 # 3. GraphQL introspection for custom table (profiles)
 $gqlQuery = @"
 {
-  __type(name: "profiles") {
+  __type(name: 'profiles') {
     name
     fields { name }
   }
-}"@
+}
+"@
 
 $body = @{ query = $gqlQuery } | ConvertTo-Json -Compress
 
