@@ -26,11 +26,22 @@ try {
 }
 catch { Fail "Supabase API not reachable at $endpoint" }
 
+
 # 3. GraphQL introspection for custom table
-$body = @{ query = "{ __type(name: \"users\") { name fields { name } } }" } | ConvertTo-Json -Compress
+$gqlQuery = @"
+{
+  __type(name: "users") {
+    name
+    fields { name }
+  }
+}
+"@
+
+$body = @{ query = $gqlQuery } | ConvertTo-Json -Compress
+
 try {
     $graphql = Invoke-RestMethod -Uri $endpoint -Method Post -Headers @{
-        "apikey" = $apikey
+        "apikey"       = $apikey
         "Content-Type" = "application/json"
     } -Body $body
 }
@@ -40,14 +51,7 @@ if (-not $graphql.data.__type) {
     Fail "'users' type not found — did migrations run?"
 }
 Write-Host "✅ 'users' table present in GraphQL schema." -ForegroundColor Green
-
-# 4. Migration folder sanity check
-if (-Not (Test-Path $goldenSchema)) {
-    Write-Host "⚠ Golden schema not found, skipping DB diff."
-} else {
-    $latestMigration = Get-ChildItem .\migrations\*.sql | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($latestMigration) {
-        Write-Host "✅ Latest migration: $($latestMigration.Name)" -ForegroundColor Green
+# 3. GraphQL introspection for custom tabl
     } else {
         Write-Host "⚠ No migration files found." -ForegroundColor Yellow
     }
