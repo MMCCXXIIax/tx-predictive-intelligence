@@ -33,8 +33,7 @@ $gqlQuery = @"
     name
     fields { name }
   }
-}
-"@
+}"@
 
 $body = @{ query = $gqlQuery } | ConvertTo-Json -Compress
 
