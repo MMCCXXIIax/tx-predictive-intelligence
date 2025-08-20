@@ -47,7 +47,7 @@ try {
 catch { Fail "GraphQL query failed." }
 
 if (-not $graphql.data.__type) {
-    Fail "'profiles' type not found — did migrations run?"
+    Fail "profiles' type not found — did migrations run?"
 }
 Write-Host "✅ 'profiles' table present in GraphQL schema." -ForegroundColor Green
 
