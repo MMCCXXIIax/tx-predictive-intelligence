@@ -1,10 +1,11 @@
 # scripts/check-local.ps1
 # Purpose: One-stop health check for local Supabase + GraphQL + migrations
+# Author: AKILI's DevOps brain-in-a-file
 
 # --- CONFIG ---
 $endpoint     = "http://127.0.0.1:54321/graphql/v1"
 $apikey       = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxcmVsZmRtZHJ3d3hyZm9jbHpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1MTU1MDAsImV4cCI6MjA3MDA5MTUwMH0.Uebb9Xk8AESgapG95JbX0LoxlO-XCFUlTn6nrXCe1c8"
-$goldenSchema = ".\db\golden_schema.sql"
+$goldenSchema = ".\migrations\schema_V1_0_beta.sql"
 
 Write-Host "=== Local Stack Health Check ===" -ForegroundColor Cyan
 
@@ -39,9 +40,7 @@ for ($i = 1; $i -le $maxRetries; $i++) {
             $graphqlHealthy = $true
             break
         }
-    } catch {
-        # ignore and retry
-    }
+    } catch {}
     Write-Host "⏳ GraphQL not ready yet... retry $i/$maxRetries"
     Start-Sleep -Seconds $delaySeconds
 }
@@ -72,33 +71,45 @@ if (-not $graphql.data.__type) {
 }
 Write-Host "✅ 'profiles' table present in GraphQL schema." -ForegroundColor Green
 
-# 4. Migration status check inside DB container
-Write-Host "`n📜 Checking migrations..."
-try {
-    $migrationStatus = docker exec supabase_db_tx-predictive-intelligence psql -U postgres -d postgres -tAc "
-        SELECT COUNT(*) FROM supabase_migrations.schema_migrations WHERE NOT applied;" 2>$null
-
-    if ($migrationStatus -eq 0) {
-        Write-Host "✅ All migrations applied."
-    } else {
-        Fail "$migrationStatus unapplied migration(s) detected."
-    }
-} catch {
-    Fail "Could not verify migrations: $_"
-}
-
-# 5. Optional: migration folder sanity check
+# 4. Golden schema diff check + optional auto-apply
 if (-Not (Test-Path $goldenSchema)) {
-    Write-Host "⚠ Golden schema not found, skipping DB diff."
+    Write-Host "⚠ Golden schema file not found at $goldenSchema"
 } else {
-    $latestMigration = Get-ChildItem .\migrations\*.sql -ErrorAction SilentlyContinue |
-        Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($latestMigration) {
-        Write-Host "✅ Latest migration file: $($latestMigration.Name)" -ForegroundColor Green
-    } else {
-        Write-Host "⚠ No migration files found." -ForegroundColor Yellow
+    Write-Host "`n📊 Comparing live DB schema to golden file..."
+    try {
+        $tempDump = "temp_schema.sql"
+        docker exec supabase_db_tx-predictive-intelligence pg_dump `
+            -U postgres `
+            --schema-only `
+            --no-owner `
+            --no-privileges postgres | Out-File $tempDump -Encoding UTF8
+
+        $diff = Compare-Object (Get-Content $tempDump) (Get-Content $goldenSchema)
+
+        if ($diff) {
+            Write-Host "⚠ Database schema differs from golden reference." -ForegroundColor Yellow
+            $choice = Read-Host "Apply golden schema now? (y/N)"
+            if ($choice -match '^[Yy]$') {
+                try {
+                    Write-Host "📥 Applying $goldenSchema to DB..."
+                    docker exec -i supabase_db_tx-predictive-intelligence psql `
+                        -U postgres -d postgres < $goldenSchema
+                    Write-Host "✅ Schema updated to golden reference." -ForegroundColor Green
+                } catch {
+                    Fail "Error applying golden schema: $_"
+                }
+            } else {
+                Fail "Schema drift detected. Aborting."
+            }
+        } else {
+            Write-Host "✅ Database schema matches golden file." -ForegroundColor Green
+        }
+
+        Remove-Item $tempDump -ErrorAction SilentlyContinue
+    } catch {
+        Fail "Could not perform schema diff: $_"
     }
 }
 
-Write-Host "`n=== All checks passed! ===" -ForegroundColor Cyan
+Write-Host "`n=== All checks (and fixes) complete! ===" -ForegroundColor Cyan
 exit 0
