@@ -3,7 +3,7 @@
 
 # --- CONFIG ---
 $endpoint = "http://127.0.0.1:54321/graphql/v1"
-$apikey   = "<your anon key from `supabase start`>"
+$apikey   = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxcmVsZmRtZHJ3d3hyZm9jbHpwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ1MTU1MDAsImV4cCI6MjA3MDA5MTUwMH0.Uebb9Xk8AESgapG95JbX0LoxlO-XCFUlTn6nrXCe1c8"
 $goldenSchema = ".\db\golden_schema.sql"
 
 Write-Host "=== Local Stack Health Check ===" -ForegroundColor Cyan
