@@ -507,20 +507,23 @@ class TXEngine:
                 "results": list(consolidated.values())
             }
 
-            # Persist last_scan to Postgres
             with engine.begin() as conn:
                 stmt = text("""
-    INSERT INTO app_state (key, value)
-    VALUES (:key, :value::jsonb)
-    ON CONFLICT (key)
-    DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-""").bindparams(
-    bindparam("key", type_=str),
-    bindparam("value", type_=str)
-)
-conn.execute(stmt, {"key": "last_scan", "value": json.dumps(app_state["last_scan"])})
-
-            return app_state["last_scan"]
+        INSERT INTO app_state (key, value)
+        VALUES (:key, :value::jsonb)
+        ON CONFLICT (key)
+        DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+    """).bindparams(
+        bindparam("key", type_=str),
+        bindparam("value", type_=str)
+    )
+    conn.execute(
+        stmt,
+        {"key": "last_scan", "value": json.dumps(app_state["last_scan"])}
+    )
+                
+                
+           return app_state["last_scan"]
 
 
 
