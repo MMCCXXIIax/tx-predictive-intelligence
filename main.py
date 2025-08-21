@@ -508,7 +508,7 @@ class TXEngine:
             }
 
             with engine.begin() as conn:
-                stmt = text("""
+    stmt = text("""
         INSERT INTO app_state (key, value)
         VALUES (:key, :value::jsonb)
         ON CONFLICT (key)
@@ -521,7 +521,7 @@ class TXEngine:
         stmt,
         {"key": "last_scan", "value": json.dumps(app_state["last_scan"])}
     )
-                 return app_state["last_scan"]
+    return app_state["last_scan"]
 
 
 
