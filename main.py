@@ -134,44 +134,6 @@ CORS(app, resources={
     }
 })
 
-# ... (existing code, routes, etc.)
-
-@app.route("/api/profile", methods=["GET"])
-def get_profile():
-    visitor_id = request.cookies.get("visitor_id")
-    if not visitor_id:
-        return jsonify({"error": "No visitor_id cookie"}), 401
-
-    # Try to fetch profile from visitors table (adjust fields as necessary)
-    try:
-        with engine.begin() as conn:
-            row = conn.execute(
-                text("""
-                    SELECT id, name, email, mode, last_seen, visit_count, refresh_interval
-                    FROM visitors WHERE id = :id
-                """),
-                {"id": visitor_id}
-            ).fetchone()
-
-        if not row:
-            return jsonify({"error": "Profile not found"}), 404
-
-        # Return all available profile information
-        return jsonify({
-            "id": row.id,
-            "name": row.name,
-            "email": row.email,
-            "mode": row.mode,
-            "last_seen": row.last_seen,
-            "visit_count": row.visit_count,
-            "refresh_interval": row.refresh_interval
-        })
-
-    except Exception as e:
-        return jsonify({"error": "Server error", "details": str(e)}), 500
-
-# ... (other routes and main block)
-
 # YOUR EXACT DATABASE SETUP (Replit/MockDB)
 try:
     from replit import db
