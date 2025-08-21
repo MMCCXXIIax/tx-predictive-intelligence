@@ -119,13 +119,58 @@ except Exception as e:
 # Your original Flask app setup
 
 # YOUR ORIGINAL CORS CONFIGURATION (only fixed syntax)
+# ... (existing imports and code above)
+
+# Ensure CORS is set up to allow cookies from your frontend
+
 CORS(app, resources={
     r"/api/*": {
-        "origins": ["https://tx-tradingx.onrender.com"],
+        "origins": [
+            "https://tx-tradingx.onrender.com",
+            "http://localhost:3000"
+        ],
         "methods": ["GET", "POST", "OPTIONS"],
         "supports_credentials": True
     }
 })
+
+# ... (existing code, routes, etc.)
+
+@app.route("/api/profile", methods=["GET"])
+def get_profile():
+    visitor_id = request.cookies.get("visitor_id")
+    if not visitor_id:
+        return jsonify({"error": "No visitor_id cookie"}), 401
+
+    # Try to fetch profile from visitors table (adjust fields as necessary)
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(
+                text("""
+                    SELECT id, name, email, mode, last_seen, visit_count, refresh_interval
+                    FROM visitors WHERE id = :id
+                """),
+                {"id": visitor_id}
+            ).fetchone()
+
+        if not row:
+            return jsonify({"error": "Profile not found"}), 404
+
+        # Return all available profile information
+        return jsonify({
+            "id": row.id,
+            "name": row.name,
+            "email": row.email,
+            "mode": row.mode,
+            "last_seen": row.last_seen,
+            "visit_count": row.visit_count,
+            "refresh_interval": row.refresh_interval
+        })
+
+    except Exception as e:
+        return jsonify({"error": "Server error", "details": str(e)}), 500
+
+# ... (other routes and main block)
 
 # YOUR EXACT DATABASE SETUP (Replit/MockDB)
 try:
@@ -614,6 +659,42 @@ def dashboard():
     """, now=datetime.now(timezone.utc).isoformat(), scan_id=app_state["last_scan"].get("id"), scan_time=app_state["last_scan"].get("time")))
     resp.set_cookie("visitor_id", visitor_id, max_age=60*60*24*30)
     return resp
+
+
+@app.route("/api/profile", methods=["GET"])
+def get_profile():
+    visitor_id = request.cookies.get("visitor_id")
+    if not visitor_id:
+        return jsonify({"error": "No visitor_id cookie"}), 401
+
+    # Try to fetch profile from visitors table (adjust fields as necessary)
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(
+                text("""
+                    SELECT id, name, email, mode, last_seen, visit_count, refresh_interval
+                    FROM visitors WHERE id = :id
+                """),
+                {"id": visitor_id}
+            ).fetchone()
+
+        if not row:
+            return jsonify({"error": "Profile not found"}), 404
+
+        # Return all available profile information
+        return jsonify({
+            "id": row.id,
+            "name": row.name,
+            "email": row.email,
+            "mode": row.mode,
+            "last_seen": row.last_seen,
+            "visit_count": row.visit_count,
+            "refresh_interval": row.refresh_interval
+        })
+
+    except Exception as e:
+        return jsonify({"error": "Server error", "details": str(e)}), 500
+
 
 @app.route("/api/save-profile", methods=["POST"])
 def save_profile_route():
