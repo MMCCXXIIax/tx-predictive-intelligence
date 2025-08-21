@@ -501,14 +501,15 @@ class TXEngine:
                     if r.get("status") == "pattern" and current.get("status") != "pattern":
                         consolidated[s] = r
 
-            app_state["last_scan"] = {
-                "id": self.scan_id,
-                "time": scan_time,
-                "results": list(consolidated.values())
-            }
+            
+                app_state["last_scan"] = {
+    "id": self.scan_id,
+    "time": scan_time,
+    "results": list(consolidated.values())
+}
 
-            def save_last_scan(app_state):
-                with engine.begin() as conn:
+def save_last_scan(app_state):
+    with engine.begin() as conn:
         stmt = text("""
             INSERT INTO app_state (key, value)
             VALUES (:key, :value::jsonb)
@@ -524,8 +525,7 @@ class TXEngine:
             {"key": "last_scan", "value": json.dumps(app_state["last_scan"])}
         )
 
-        return app_state["last_scan"]
-                
+    return app_state["last_scan"]
                 
     
 
