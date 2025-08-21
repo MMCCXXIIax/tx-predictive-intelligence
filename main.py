@@ -21,6 +21,7 @@ from psycopg2.extras import RealDictCursor
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import NullPool
 from services.profile_saver import save_profile
+from sqlalchemy import bindparam
 
 load_dotenv()
 
@@ -508,15 +509,16 @@ class TXEngine:
 
             # Persist last_scan to Postgres
             with engine.begin() as conn:
-                conn.execute(
-                    text("""
-                        INSERT INTO app_state (key, value)
-                        VALUES (:key, :value::jsonb)
-                        ON CONFLICT (key)
-                        DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-                    """),
-                    {"key": "last_scan", "value": json.dumps(app_state["last_scan"])}
-                )
+                stmt = text("""
+    INSERT INTO app_state (key, value)
+    VALUES (:key, :value::jsonb)
+    ON CONFLICT (key)
+    DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+""").bindparams(
+    bindparam("key", type_=str),
+    bindparam("value", type_=str)
+)
+conn.execute(stmt, {"key": "last_scan", "value": json.dumps(app_state["last_scan"])})
 
             return app_state["last_scan"]
 
