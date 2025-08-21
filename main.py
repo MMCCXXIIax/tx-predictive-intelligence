@@ -508,7 +508,7 @@ class TXEngine:
             }
 
             def save_last_scan(app_state):
-    with engine.begin() as conn:
+                with engine.begin() as conn:
         stmt = text("""
             INSERT INTO app_state (key, value)
             VALUES (:key, :value::jsonb)
@@ -525,6 +525,9 @@ class TXEngine:
         )
 
         return app_state["last_scan"]
+                
+                
+    
 
 
 
