@@ -522,7 +522,7 @@ class TXEngine:
         {"key": "last_scan", "value": json.dumps(app_state["last_scan"])}
     )
                 
-                return app_state["last_scan"]
+            return app_state["last_scan"]
 
 
 
