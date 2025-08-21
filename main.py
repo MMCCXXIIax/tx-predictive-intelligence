@@ -507,21 +507,24 @@ class TXEngine:
                 "results": list(consolidated.values())
             }
 
-            with engine.begin() as conn:
-    stmt = text("""
-        INSERT INTO app_state (key, value)
-        VALUES (:key, :value::jsonb)
-        ON CONFLICT (key)
-        DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-    """).bindparams(
-        bindparam("key", type_=str),
-        bindparam("value", type_=str)
-    )
-    conn.execute(
-        stmt,
-        {"key": "last_scan", "value": json.dumps(app_state["last_scan"])}
-    )
-    return app_state["last_scan"]
+            def save_last_scan(app_state):
+    with engine.begin() as conn:
+        stmt = text("""
+            INSERT INTO app_state (key, value)
+            VALUES (:key, :value::jsonb)
+            ON CONFLICT (key)
+            DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+        """).bindparams(
+            bindparam("key", type_=str),
+            bindparam("value", type_=str)
+        )
+
+        conn.execute(
+            stmt,
+            {"key": "last_scan", "value": json.dumps(app_state["last_scan"])}
+        )
+
+        return app_state["last_scan"]
 
 
 
