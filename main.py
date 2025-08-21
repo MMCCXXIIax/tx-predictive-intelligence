@@ -629,13 +629,15 @@ def get_profile():
     if not visitor_id:
         return jsonify({"error": "No visitor_id cookie"}), 401
 
-    # Try to fetch profile from visitors table (adjust fields as necessary)
     try:
         with engine.begin() as conn:
             row = conn.execute(
                 text("""
-                    SELECT id, name, email, mode, last_seen, visit_count, refresh_interval
-                    FROM visitors WHERE id = :id
+                    SELECT 
+                        id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval,
+                        name, email, mode
+                    FROM visitors
+                    WHERE id = :id
                 """),
                 {"id": visitor_id}
             ).fetchone()
@@ -643,15 +645,18 @@ def get_profile():
         if not row:
             return jsonify({"error": "Profile not found"}), 404
 
-        # Return all available profile information
+        # Return all available info from your visitors table
         return jsonify({
             "id": row.id,
+            "first_seen": row.first_seen,
+            "last_seen": row.last_seen,
+            "user_agent": row.user_agent,
+            "ip": row.ip,
+            "visit_count": row.visit_count,
+            "refresh_interval": row.refresh_interval,
             "name": row.name,
             "email": row.email,
-            "mode": row.mode,
-            "last_seen": row.last_seen,
-            "visit_count": row.visit_count,
-            "refresh_interval": row.refresh_interval
+            "mode": row.mode
         })
 
     except Exception as e:
@@ -659,15 +664,31 @@ def get_profile():
 
 
 @app.route("/api/save-profile", methods=["POST"])
-def save_profile_route():
-    data = request.json
-    user_id = data["id"]
-    name = data["name"]
-    email = data["email"]
-    mode_value = data.get("mode")
+def save_profile():
+    visitor_id = request.cookies.get("visitor_id")
+    if not visitor_id:
+        return jsonify({"error": "No visitor_id cookie"}), 401
 
-    result = save_profile(None, user_id, name, email, mode_value)
-    return jsonify(result), (200 if result["status"] == "ok" else 500)
+    data = request.get_json()
+    name = data.get("name")
+    email = data.get("email")
+    mode = data.get("mode")
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text("""
+                    UPDATE visitors
+                    SET name = :name, email = :email, mode = :mode
+                    WHERE id = :id
+                """),
+                {"name": name, "email": email, "mode": mode, "id": visitor_id}
+            )
+
+        return jsonify({"message": "Profile updated successfully"})
+
+    except Exception as e:
+        return jsonify({"error": "Server error", "details": str(e)}), 500
 
 
 @app.route("/api/scan", methods=["GET"])
