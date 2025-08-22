@@ -667,16 +667,20 @@ def get_profile():
 def save_profile():
     visitor_id = request.cookies.get("visitor_id")
     if not visitor_id:
-        return jsonify({"error": "No visitor_id cookie"}), 401
+        return jsonify({"status": "error", "message": "No visitor_id cookie"}), 401
 
     data = request.get_json()
     name = data.get("name")
     email = data.get("email")
     mode = data.get("mode")
 
+    # Basic validation
+    if not all([name, email, mode]):
+        return jsonify({"status": "error", "message": "Missing required fields"}), 400
+
     try:
         with engine.begin() as conn:
-            conn.execute(
+            result = conn.execute(
                 text("""
                     UPDATE visitors
                     SET name = :name, email = :email, mode = :mode
@@ -684,11 +688,14 @@ def save_profile():
                 """),
                 {"name": name, "email": email, "mode": mode, "id": visitor_id}
             )
+            # Check if any row was actually updated
+            if result.rowcount == 0:
+                return jsonify({"status": "error", "message": "Profile not found"}), 404
 
-        return jsonify({"message": "Profile updated successfully"})
+        return jsonify({"status": "ok"}), 200
 
     except Exception as e:
-        return jsonify({"error": "Server error", "details": str(e)}), 500
+        return jsonify({"status": "error", "message": f"Server error: {str(e)}"}), 500
 
 
 @app.route("/api/scan", methods=["GET"])
