@@ -670,75 +670,70 @@ def is_valid_uuid(val):
     except ValueError:
         return False
 
+
+
+from flask import request, jsonify
+from services.profile_saver import save_profile
+from supabase import create_client
+import os
+
+# Initialize Supabase client (service role key for server-side ops)
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+supabase = create_client(supabase_url, supabase_service_key)
+
 @app.route("/api/save-profile", methods=["POST"])
-def save_profile():
-    visitor_id = request.cookies.get("visitor_id")
-    if not visitor_id:
-        return jsonify({"status": "error", "message": "No visitor_id cookie"}), 401
-
-    if not is_valid_uuid(visitor_id):
-        return jsonify({"status": "error", "message": "Invalid visitor_id format"}), 400
-    data = request.get_json()
-    name = data.get("name")
-    email = data.get("email")
-    mode = data.get("mode")
-
-    # Basic validation
-    if not all([name, email, mode]):
-        return jsonify({"status": "error", "message": "Missing required fields"}), 400
-
+def api_save_profile():
     try:
-        with engine.begin() as conn:
-            result = conn.execute(
-                text("""
-                    UPDATE visitors
-                    SET name = :name, email = :email, mode = :mode
-                    WHERE id = :id
-                """),
-                {"name": name, "email": email, "mode": mode, "id": visitor_id}
-            )
-            # Check if any row was actually updated
-            if result.rowcount == 0:
-                return jsonify({"status": "error", "message": "Profile not found"}), 404
+        data = request.get_json(force=True)
+
+        # Validate required fields
+        required_fields = ["id", "name", "email", "mode"]
+        missing = [f for f in required_fields if not data.get(f)]
+        if missing:
+            return jsonify({
+                "status": "error",
+                "message": f"Missing required fields: {', '.join(missing)}"
+            }), 400
+
+        user_id = data["id"]
+        name = data["name"].strip()
+        email = data["email"].strip()
+        mode_value = data["mode"].strip().lower()
+
+        # Enforce allowed modes (matches DB constraint)
+        if mode_value not in ("demo", "live"):
+            return jsonify({
+                "status": "error",
+                "message": f"Invalid mode '{mode_value}'. Must be 'demo' or 'live'."
+            }), 400
+
+        # Verify user exists in auth.users (protects FK constraint)
+        auth_user = supabase.table("users", schema="auth").select("id").eq("id", user_id).execute()
+        if not auth_user.data:
+            return jsonify({
+                "status": "error",
+                "message": "User not found in auth.users. Please log in again."
+            }), 404
+
+        # Save profile (DB or REST depending on SAVE_PROFILE_MODE)
+        result = save_profile(None, user_id, name, email, mode_value)
+
+        if result.get("status") != "ok":
+            return jsonify({
+                "status": "error",
+                "message": result.get("message", "Unknown error saving profile")
+            }), 500
 
         return jsonify({"status": "ok"}), 200
 
     except Exception as e:
-        return jsonify({"status": "error", "message": f"Server error: {str(e)}"}), 500
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
 
 
-@app.route("/api/scan", methods=["GET"])
-def api_scan():
-    visitor_id = request.cookies.get("visitor_id")
-    refresh = TXConfig.DEFAULT_USER_REFRESH
-
-    # Get refresh interval from DB if visitor_id exists
-    if visitor_id:
-        with engine.begin() as conn:
-            row = conn.execute(
-                text("SELECT refresh_interval FROM visitors WHERE id = :id"),
-                {"id": visitor_id}
-            ).fetchone()
-            if row and row.refresh_interval:
-                refresh = int(row.refresh_interval)
-
-    # Try to build portfolio snapshot
-    portfolio_snapshot = {}
-    try:
-        if hasattr(TXEngine(), 'trader') and TXEngine().trader:
-            market_prices = TXEngine().get_market_prices()
-            portfolio_snapshot = TXEngine().trader.get_portfolio_value(market_prices)
-    except Exception:
-        portfolio_snapshot = {}
-
-    return jsonify({
-        "last_scan": app_state["last_scan"],
-        "alerts": app_state["alerts"],
-        "paper_trades": app_state["paper_trades"],
-        "last_signal": app_state.get("last_signal"),
-        "portfolio": portfolio_snapshot,
-        "refresh_seconds": refresh
-    })
 
 @app.post("/api/set-refresh")
 def api_set_refresh():
