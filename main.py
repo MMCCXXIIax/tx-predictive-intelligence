@@ -663,12 +663,21 @@ def get_profile():
         return jsonify({"error": "Server error", "details": str(e)}), 500
 
 
+def is_valid_uuid(val):
+    try:
+        uuid.UUID(str(val))
+        return True
+    except ValueError:
+        return False
+
 @app.route("/api/save-profile", methods=["POST"])
 def save_profile():
     visitor_id = request.cookies.get("visitor_id")
     if not visitor_id:
         return jsonify({"status": "error", "message": "No visitor_id cookie"}), 401
 
+    if not is_valid_uuid(visitor_id):
+        return jsonify({"status": "error", "message": "Invalid visitor_id format"}), 400
     data = request.get_json()
     name = data.get("name")
     email = data.get("email")
