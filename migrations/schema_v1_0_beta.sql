@@ -10,18 +10,18 @@ DROP TABLE IF EXISTS public.error_logs CASCADE;
 -- CREATE TABLES
 -- ========================
 
--- 1. visitors: tracked by dashboard + refresh interval + richer profile fields
+-- 1. visitors: linked to Supabase Auth users
 CREATE TABLE public.visitors (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   first_seen timestamptz NOT NULL DEFAULT now(),
   last_seen timestamptz NOT NULL DEFAULT now(),
   user_agent text,
   ip text,
   visit_count int NOT NULL DEFAULT 1,
   refresh_interval int NOT NULL DEFAULT 120,
-  name text,           -- New: user's name
-  email text,          -- New: user's email
-  mode text            -- New: custom mode (can be NULL or enum)
+  name text,
+  email text,
+  mode text CHECK (mode IN ('demo', 'live'))
 );
 
 CREATE INDEX idx_visitors_last_seen ON public.visitors (last_seen);
@@ -63,8 +63,6 @@ CREATE INDEX idx_error_logs_created_at ON public.error_logs (created_at);
 -- ========================
 -- OPTIONAL: SEED DATA
 -- ========================
-
--- Seed app_state with a defined starting row
 INSERT INTO public.app_state (key, value)
 VALUES ('last_scan', '{}'::jsonb)
 ON CONFLICT (key) DO NOTHING;
@@ -72,40 +70,30 @@ ON CONFLICT (key) DO NOTHING;
 -- ========================
 -- RLS POLICIES FOR visitors
 -- ========================
-
--- Enable Row Level Security
 ALTER TABLE public.visitors ENABLE ROW LEVEL SECURITY;
 
--- Allow users to SELECT their own row (id matches auth.uid())
 CREATE POLICY "Allow self select" ON public.visitors
-    FOR SELECT USING (auth.uid()::uuid = id);
+    FOR SELECT USING (auth.uid() = id);
 
--- Allow users to UPDATE their own row
 CREATE POLICY "Allow self update" ON public.visitors
-    FOR UPDATE USING (auth.uid()::uuid = id);
+    FOR UPDATE USING (auth.uid() = id);
 
--- Allow users to INSERT their own row (id matches auth.uid())
 CREATE POLICY "Allow self insert" ON public.visitors
-    FOR INSERT WITH CHECK (auth.uid()::uuid = id);
+    FOR INSERT WITH CHECK (auth.uid() = id);
 
--- Allow users to DELETE their own row
 CREATE POLICY "Allow self delete" ON public.visitors
-    FOR DELETE USING (auth.uid()::uuid = id);
+    FOR DELETE USING (auth.uid() = id);
 
 -- ========================
--- RLS POLICIES FOR detections (optional, example)
+-- RLS POLICIES FOR detections
 -- ========================
-
 ALTER TABLE public.detections ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow all select" ON public.detections
     FOR SELECT USING (true);
 
 -- ========================
--- RLS POLICIES FOR app_state & error_logs (admin only, example)
+-- RLS POLICIES FOR app_state & error_logs
 -- ========================
-
 ALTER TABLE public.app_state ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.error_logs ENABLE ROW LEVEL SECURITY;
-
--- (No open policies: only service role/admin can access these tables)
