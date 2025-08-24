@@ -701,6 +701,13 @@ def api_save_profile():
         email = data["email"].strip()
         mode_value = data["mode"].strip().lower()
 
+        if not is_valid_uuid(user_id):
+            return jsonify({
+        "status": "error",
+        "message": "Invalid user ID format"
+    }), 400
+
+
         # Enforce allowed modes (matches DB constraint)
         if mode_value not in ("demo", "live"):
             return jsonify({
@@ -724,6 +731,7 @@ def api_save_profile():
                 "status": "error",
                 "message": result.get("message", "Unknown error saving profile")
             }), 500
+            app.logger.error(f"Profile save failed: {result}")
 
         return jsonify({"status": "ok"}), 200
 
