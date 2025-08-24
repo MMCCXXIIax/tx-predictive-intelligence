@@ -195,6 +195,18 @@ def track_visit(req) -> str:
     with engine.begin() as conn:
         if not visitor_id:
             visitor_id = str(uuid.uuid4())
+
+            # 1. Ensure a matching user exists
+            conn.execute(
+                text("""
+                    INSERT INTO users (id, created_at)
+                    VALUES (:id, NOW())
+                    ON CONFLICT (id) DO NOTHING
+                """),
+                {"id": visitor_id}
+            )
+
+            # 2. Insert into visitors
             conn.execute(
                 text("""
                     INSERT INTO visitors (
@@ -210,6 +222,7 @@ def track_visit(req) -> str:
                     "refresh": refresh_interval
                 }
             )
+
         else:
             row = conn.execute(
                 text("SELECT 1 FROM visitors WHERE id = :id"),
@@ -229,6 +242,15 @@ def track_visit(req) -> str:
                 # First time we've seen this ID in Postgres
                 conn.execute(
                     text("""
+                        INSERT INTO users (id, created_at)
+                        VALUES (:id, NOW())
+                        ON CONFLICT (id) DO NOTHING
+                    """),
+                    {"id": visitor_id}
+                )
+
+                conn.execute(
+                    text("""
                         INSERT INTO visitors (
                             id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval
                         )
@@ -244,6 +266,7 @@ def track_visit(req) -> str:
                 )
 
     return visitor_id
+
 
 def log_detection(symbol, pattern, confidence, price):
     detection_id = str(uuid.uuid4())
