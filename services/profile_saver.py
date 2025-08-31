@@ -7,20 +7,25 @@ SAVE_PROFILE_MODE = os.getenv("SAVE_PROFILE_MODE", "db").lower()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-def save_profile(_session_unused, user_id, name, email, mode_value):
+def save_profile(_session_unused, user_id, username, name, email, mode_value):
     """Save profile via DB (raw SQL) or Supabase REST. First arg kept for compatibility."""
-    if SAVE_PROFILE_MODE == "db":
-        return _save_via_db(user_id, name, email, mode_value)
-    else:
-        return _save_via_rest(user_id, name, email, mode_value)
+    # Auto-generate username if missing
+    if not username:
+        username = name or (email.split("@")[0] if email else None) or f"user_{user_id[:8]}"
 
-def _save_via_db(user_id, name, email, mode_value):
+    if SAVE_PROFILE_MODE == "db":
+        return _save_via_db(user_id, username, name, email, mode_value)
+    else:
+        return _save_via_rest(user_id, username, name, email, mode_value)
+
+def _save_via_db(user_id, username, name, email, mode_value):
     """Upsert into profiles table via raw SQL."""
     query = text("""
-        INSERT INTO profiles (id, name, email, mode)
-        VALUES (:id, :name, :email, :mode)
+        INSERT INTO profiles (id, username, name, email, mode)
+        VALUES (:id, :username, :name, :email, :mode)
         ON CONFLICT (id) DO UPDATE
-        SET name = EXCLUDED.name,
+        SET username = EXCLUDED.username,
+            name = EXCLUDED.name,
             email = EXCLUDED.email,
             mode = EXCLUDED.mode
     """)
@@ -28,6 +33,7 @@ def _save_via_db(user_id, name, email, mode_value):
         with engine.begin() as conn:
             conn.execute(query, {
                 "id": user_id,
+                "username": username,
                 "name": name,
                 "email": email,
                 "mode": mode_value
@@ -36,7 +42,7 @@ def _save_via_db(user_id, name, email, mode_value):
     except Exception as e:
         return {"status": "error", "message": str(e), "method": "db"}
 
-def _save_via_rest(user_id, name, email, mode_value):
+def _save_via_rest(user_id, username, name, email, mode_value):
     """Upsert via Supabase PostgREST."""
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
         return {
@@ -52,6 +58,7 @@ def _save_via_rest(user_id, name, email, mode_value):
     }
     payload = {
         "id": user_id,
+        "username": username,
         "name": name,
         "email": email,
         "mode": mode_value
