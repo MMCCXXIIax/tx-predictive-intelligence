@@ -719,17 +719,16 @@ def api_save_profile():
                 "message": f"Missing required fields: {', '.join(missing)}"
             }), 400
 
-        user_id = data["id"]
+        user_id = data["id"].strip()
         name = data["name"].strip()
         email = data["email"].strip()
         mode_value = data["mode"].strip().lower()
 
         if not is_valid_uuid(user_id):
             return jsonify({
-        "status": "error",
-        "message": "Invalid user ID format"
-    }), 400
-
+                "status": "error",
+                "message": "Invalid user ID format"
+            }), 400
 
         # Enforce allowed modes (matches DB constraint)
         if mode_value not in ("demo", "live"):
@@ -737,6 +736,11 @@ def api_save_profile():
                 "status": "error",
                 "message": f"Invalid mode '{mode_value}'. Must be 'demo' or 'live'."
             }), 400
+
+        # Auto-generate username if not provided
+        username = data.get("username")
+        if not username:
+            username = name or email.split("@")[0] or f"user_{user_id[:8]}"
 
         # Verify user exists in auth.users (protects FK constraint)
         auth_user = supabase.table("users", schema="auth").select("id").eq("id", user_id).execute()
@@ -746,15 +750,15 @@ def api_save_profile():
                 "message": "User not found in auth.users. Please log in again."
             }), 404
 
-        # Save profile (DB or REST depending on SAVE_PROFILE_MODE)
-        result = save_profile(None, user_id, name, email, mode_value)
+        # Save profile (now includes username)
+        result = save_profile(None, user_id, username, name, email, mode_value)
 
         if result.get("status") != "ok":
+            app.logger.error(f"Profile save failed: {result}")
             return jsonify({
                 "status": "error",
                 "message": result.get("message", "Unknown error saving profile")
             }), 500
-            app.logger.error(f"Profile save failed: {result}")
 
         return jsonify({"status": "ok"}), 200
 
@@ -763,6 +767,7 @@ def api_save_profile():
             "status": "error",
             "message": str(e)
         }), 500
+
 
 
 
