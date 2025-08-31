@@ -749,6 +749,7 @@ def api_save_profile():
             }), 404
 
         # Save profile (now includes username)
+        app.logger.info(f"Saving profile: id={user_id}, username={username}, name={name}, email={email}, mode={mode_value}")
         result = save_profile(None, user_id, username, name, email, mode_value)
 
         if result.get("status") != "ok":
