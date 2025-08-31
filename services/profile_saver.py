@@ -8,7 +8,7 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 def save_profile(_session_unused, user_id, username, name, email, mode_value):
-    """Save profile via DB (raw SQL) or Supabase REST. First arg kept for compatibility."""
+    """Save profile via DB (raw SQL) or Supabase REST."""
     # Auto-generate username if missing
     if not username:
         username = name or (email.split("@")[0] if email else None) or f"user_{user_id[:8]}"
