@@ -730,7 +730,7 @@ def api_save_profile():
                 "message": "Invalid user ID format"
             }), 400
 
-        # Enforce allowed modes (matches DB constraint)
+        # Enforce allowed modes
         if mode_value not in ("demo", "live"):
             return jsonify({
                 "status": "error",
@@ -738,11 +738,9 @@ def api_save_profile():
             }), 400
 
         # Auto-generate username if not provided
-        username = data.get("username")
-        if not username:
-            username = name or email.split("@")[0] or f"user_{user_id[:8]}"
+        username = data.get("username") or name or email.split("@")[0] or f"user_{user_id[:8]}"
 
-        # Verify user exists in auth.users (protects FK constraint)
+        # Verify user exists in auth.users
         auth_user = supabase.table("users", schema="auth").select("id").eq("id", user_id).execute()
         if not auth_user.data:
             return jsonify({
@@ -767,6 +765,7 @@ def api_save_profile():
             "status": "error",
             "message": str(e)
         }), 500
+
 
 
 
