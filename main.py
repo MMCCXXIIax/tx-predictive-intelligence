@@ -126,7 +126,7 @@ except Exception as e:
 CORS(app, resources={
     r"/api/*": {
         "origins": [
-            "https://tx-tradingx.onrender.com/",
+            "https://tx-tradingx.onrender.com",
             "http://localhost:3000"
         ],
         "methods": ["GET", "POST", "OPTIONS"],
