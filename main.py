@@ -706,66 +706,38 @@ supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 supabase = create_client(supabase_url, supabase_service_key)
 
 @app.route("/api/save-profile", methods=["POST"])
-def api_save_profile():
+def save_profile(client, user_id, username, name, email, mode):
+    """
+    Insert or update a profile row in Supabase.
+    Always sets username and email with safe fallbacks.
+    Returns {"status": "ok"} or {"status": "error", "message": "..."}
+    """
+
     try:
-        data = request.get_json(force=True)
+        # Fallbacks to avoid constraint violations
+        safe_username = username or name or (email.split("@")[0] if email else None) or f"user_{user_id[:8]}"
+        safe_email = email or "placeholder@example.com"
+        safe_mode = mode if mode in ("demo", "live") else "demo"
 
-        # Validate required fields
-        required_fields = ["id", "name", "email", "mode"]
-        missing = [f for f in required_fields if not data.get(f)]
-        if missing:
-            return jsonify({
-                "status": "error",
-                "message": f"Missing required fields: {', '.join(missing)}"
-            }), 400
+        # Use the provided client or default to global supabase
+        sb = client or supabase
 
-        user_id = data["id"].strip()
-        name = data["name"].strip()
-        email = data["email"].strip()
-        mode_value = data["mode"].strip().lower()
+        # Perform UPSERT
+        result = sb.table("profiles").upsert({
+            "id": user_id,
+            "username": safe_username,
+            "name": name,
+            "email": safe_email,
+            "mode": safe_mode
+        }).execute()
 
-        if not is_valid_uuid(user_id):
-            return jsonify({
-                "status": "error",
-                "message": "Invalid user ID format"
-            }), 400
+        if getattr(result, "error", None):
+            return {"status": "error", "message": str(result.error)}
 
-        # Enforce allowed modes
-        if mode_value not in ("demo", "live"):
-            return jsonify({
-                "status": "error",
-                "message": f"Invalid mode '{mode_value}'. Must be 'demo' or 'live'."
-            }), 400
-
-        # Auto-generate username if not provided
-        username = data.get("username") or name or email.split("@")[0] or f"user_{user_id[:8]}"
-
-        # Verify user exists in auth.users
-        auth_user = supabase.table("users", schema="auth").select("id").eq("id", user_id).execute()
-        if not auth_user.data:
-            return jsonify({
-                "status": "error",
-                "message": "User not found in auth.users. Please log in again."
-            }), 404
-
-        # Save profile (now includes username)
-        app.logger.info(f"Saving profile: id={user_id}, username={username}, name={name}, email={email}, mode={mode_value}")
-        result = save_profile(None, user_id, username, name, email, mode_value)
-
-        if result.get("status") != "ok":
-            app.logger.error(f"Profile save failed: {result}")
-            return jsonify({
-                "status": "error",
-                "message": result.get("message", "Unknown error saving profile")
-            }), 500
-
-        return jsonify({"status": "ok"}), 200
+        return {"status": "ok"}
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        return {"status": "error", "message": str(e)}
 
 
 
