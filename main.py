@@ -858,18 +858,55 @@ def api_close_position():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.route("/api/portfolio", methods=["GET"])
 def api_portfolio():
     try:
+        # Get user_id from query params or session/auth
+        user_id = request.args.get("user_id")
+        if not user_id:
+            return jsonify({"status": "error", "message": "Missing user_id"}), 400
+
+        # 1️⃣ Try Supabase first
+        db_result = supabase.table("portfolio").select("*").eq("user_id", user_id).execute()
+        if getattr(db_result, "error", None):
+            app.logger.error(f"Supabase portfolio query error: {db_result.error}")
+        elif db_result.data:
+            return jsonify({
+                "source": "supabase",
+                "portfolio": db_result.data
+            }), 200
+
+        # 2️⃣ Fall back to TXEngine if DB is empty
         engine = TXEngine()
         if hasattr(engine, 'trader') and engine.trader:
             prices = engine.get_market_prices()
             snapshot = engine.trader.get_portfolio_value(prices)
             snapshot["market_prices"] = prices
-            return jsonify(snapshot)
-        return jsonify({"status": "error", "message": "Trading engine not available"}), 500
+            return jsonify({
+                "source": "engine",
+                "portfolio": snapshot
+            }), 200
+
+        # 3️⃣ Final fallback — empty portfolio
+        return jsonify({
+            "source": "empty",
+            "portfolio": {
+                "balance": 0.0,
+                "invested": 0.0,
+                "open_positions": {},
+                "total_equity": 0.0,
+                "realized_pnl": 0.0,
+                "unrealized_pnl": 0.0,
+                "market_prices": {}
+            }
+        }), 200
+
     except Exception as e:
+        app.logger.error(f"Portfolio API error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
 
 @app.route("/api/logs/detections", methods=["GET"])
 def api_logs_detections():
