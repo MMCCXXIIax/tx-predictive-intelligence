@@ -538,6 +538,23 @@ class TXEngine:
     "results": list(consolidated.values())
 }
 
+
+
+@app.route("/api/scan", methods=["GET"])
+def api_scan():
+    try:
+        tx_engine = TXEngine()
+        scan = tx_engine.run_scan()
+        return jsonify({
+            "last_scan": scan,
+            "alerts": app_state.get("alerts", []),
+            "paper_trades": app_state.get("paper_trades", []),
+            "last_signal": app_state.get("last_signal")
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 def save_last_scan(app_state):
     with engine.begin() as conn:
         stmt = text("""
