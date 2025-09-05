@@ -2,6 +2,9 @@ import os
 import requests
 from sqlalchemy import text
 from services.db import engine
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Mode: "db" (direct SQL) or "rest" (Supabase PostgREST)
 SAVE_PROFILE_MODE = os.getenv("SAVE_PROFILE_MODE", "db").lower()
