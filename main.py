@@ -749,15 +749,22 @@ def api_save_profile():
         if not is_valid_uuid(user_id):
             return jsonify({"status": "error", "message": "Invalid user ID format"}), 400
 
-        if mode_value == "live":
-            mode_value = "broker"  # Remove if DB constraint now allows 'live'
+        if mode_value not in ("demo", "live"):
+            return jsonify({"status": "error", "message": "Invalid mode. Must be 'demo' or 'live'."}), 400
 
         username = (data.get("username") or name or email.split("@")[0] or f"user_{user_id[:8]}").strip()
 
-        # Check user exists
+        # Ensure user exists in auth.users
         auth_user = supabase.table("users", schema="auth").select("id").eq("id", user_id).execute()
         if not auth_user.data:
-            return jsonify({"status": "error", "message": "User not found in auth.users"}), 404
+            app.logger.info(f"User {user_id} not found in auth.users — inserting.")
+            supabase.table("users", schema="auth").insert({"id": user_id, "email": email}).execute()
+
+        # Ensure user exists in public.users (for visitors FK)
+        public_user = supabase.table("users").select("id").eq("id", user_id).execute()
+        if not public_user.data:
+            app.logger.info(f"User {user_id} not found in public.users — inserting.")
+            supabase.table("users").insert({"id": user_id}).execute()
 
         # Save profile
         profile_result = save_profile(None, user_id, username, name, email, mode_value)
@@ -765,6 +772,19 @@ def api_save_profile():
 
         if not profile_result or profile_result.get("status") != "ok":
             return jsonify({"status": "error", "message": profile_result.get("message", "Unknown error")}), 500
+
+        # Seed visitors row if missing
+        visitors_check = supabase.table("visitors").select("id").eq("id", user_id).execute()
+        if not visitors_check.data:
+            visitor_insert = supabase.table("visitors").insert({
+                "id": user_id,
+                "ip": request.remote_addr,
+                "name": name,
+                "email": email,
+                "mode": mode_value
+            }).execute()
+            if getattr(visitor_insert, "error", None):
+                app.logger.error("Visitor seed failed: %s", visitor_insert.error)
 
         # Seed portfolio if empty
         portfolio_check = supabase.table("portfolio").select("id").eq("user_id", user_id).execute()
@@ -785,7 +805,6 @@ def api_save_profile():
         app.logger.error("ERROR in /api/save-profile: %s", e)
         app.logger.error(traceback.format_exc())
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 
 
