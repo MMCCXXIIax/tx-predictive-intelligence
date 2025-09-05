@@ -127,6 +127,16 @@ CORS(app, resources={
     r"/api/*": {
         "origins": [
             "https://tx-tradingx.onrender.com",
+            "https://tx-tradingx.onrender.com/auth-loading",
+            "https://23172b0b-3460-43d6-96ee-0ae883210c36.lovableproject.com/**",
+            "https://23172b0b-3460-43d6-96ee-0ae883210c36.sandbox.lovable.dev/**",
+            "https://id-preview--23172b0b-3460-43d6-96ee-0ae883210c36.lovable.app/**",
+            "https://id-preview--23172b0b-3460-43d6-96ee-0ae883210c36.preview.lovable.dev/**",
+            "https://preview--tx-trade-whisperer.preview.lovable.dev/**",
+            "https://tx-trade-whisperer.lovable.app/**",
+            "https://tx-tradingx.onrender.com/auth-loading",
+            "https://tx-predictive-intelligence.onrender.com",
+            "https://tx-tradingx.onrender.com",
             "http://localhost:3000"
         ],
         "methods": ["GET", "POST", "OPTIONS"],
