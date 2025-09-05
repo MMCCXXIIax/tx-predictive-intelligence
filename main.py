@@ -7,6 +7,9 @@ from services.profile_saver import save_profile
 from services.db import engine
 from supabase import create_client
 from psycopg2 import errors as pg_errors
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
