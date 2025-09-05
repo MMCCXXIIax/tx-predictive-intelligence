@@ -540,7 +540,7 @@ class TXEngine:
 
 
 
-@app.route("/api/scan", methods=["GET"])
+@app.route("/api/scan", methods=["GET" , "POST"])
 def api_scan():
     try:
         tx_engine = TXEngine()
@@ -628,7 +628,7 @@ def _ensure_scanner():
 # -------------------------
 # YOUR ORIGINAL API ROUTES (100% PRESERVED)
 # -------------------------
-@app.get("/api/debug_scan")
+@app.route("/api/debug_scan", methods=["GET" , "POST"])
 def debug_scan():
     try:
         print("⚡ Running debug_scan()")
@@ -663,7 +663,7 @@ def dashboard():
     return resp
 
 
-@app.route("/api/profile", methods=["GET"])
+@app.route("/api/profile", methods=["GET" , "POST"])
 def get_profile():
     visitor_id = request.cookies.get("visitor_id")
     if not visitor_id:
@@ -723,7 +723,7 @@ supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 supabase = create_client(supabase_url, supabase_service_key)
 
 
-@app.route("/api/save-profile", methods=["POST"])
+@app.route("/api/save-profile", methods=["GET" , "POST"])
 def api_save_profile():
     try:
         data = request.get_json(force=True)
@@ -796,7 +796,7 @@ def api_save_profile():
 
 
 
-@app.post("/api/set-refresh")
+@app.route("/api/set-refresh", methods=["GET" , "POST"])
 def api_set_refresh():
     try:
         # Parse & clamp user-provided seconds
@@ -841,11 +841,11 @@ def api_set_refresh():
         app.logger.exception("Failed to set refresh interval")
         return jsonify({"error": "internal_error"}), 500
 
-@app.route("/api/paper-trades", methods=["GET"])
+@app.route("/api/paper-trades", methods=["GET" , "POST"])
 def get_paper_trades():
     return jsonify({"paper_trades": app_state["paper_trades"]})
 
-@app.route("/api/paper-trades", methods=["POST"])
+@app.route("/api/paper-trades", methods=["GET" , "POST"])
 def place_paper_trade():
     if not hasattr(TXEngine(), 'trader') or not TXEngine().trader:
         return jsonify({"status": "error", "message": "Paper trading disabled"}), 400
@@ -888,7 +888,7 @@ def place_paper_trade():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route("/api/close-position", methods=["POST"])
+@app.route("/api/close-position", methods=["GET" , "POST"])
 def api_close_position():
     if not hasattr(TXEngine(), 'trader') or not TXEngine().trader:
         return jsonify({"status": "error", "message": "Paper trading disabled"}), 400
@@ -912,7 +912,7 @@ def api_close_position():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-@app.route("/api/portfolio", methods=["GET"])
+@app.route("/api/portfolio", methods=["GET" , "POST"])
 def api_portfolio():
     try:
         # Get user_id from query params or session/auth
@@ -961,7 +961,7 @@ def api_portfolio():
 
 
 
-@app.route("/api/logs/detections", methods=["GET"])
+@app.route("/api/logs/detections", methods=["GET" , "POST"])
 def api_logs_detections():
     try:
         with engine.begin() as conn:
@@ -975,7 +975,7 @@ def api_logs_detections():
         app.logger.exception("Failed to fetch detection logs")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route("/api/logs/trades", methods=["GET"])
+@app.route("/api/logs/trades", methods=["GET" , "POST"])
 def api_logs_trades():
     try:
         engine = TXEngine()
@@ -985,7 +985,7 @@ def api_logs_trades():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.get("/api/detections/latest")
+@app.route("/api/detections/latest", methods=["GET" , "POST"])
 def get_latest_detection_id():
     try:
         with engine.begin() as conn:
@@ -1009,7 +1009,7 @@ def get_latest_detection_id():
         return jsonify({"error": "internal_error"}), 500
 
 
-@app.route("/api/log_outcome", methods=["POST"])
+@app.route("/api/log_outcome", methods=["GET" , "POST"])
 def api_log_outcome():
     try:
         data = request.get_json(silent=True) or {}
@@ -1039,11 +1039,11 @@ def api_log_outcome():
         return jsonify({"status": "error", "message": "internal_error"}), 500
 
 
-@app.route("/api/get_active_alerts", methods=["GET"])
+@app.route("/api/get_active_alerts", methods=["GET" , "POST"])
 def api_get_active_alerts():
     return jsonify({"alerts": app_state["alerts"]})
 
-@app.route("/api/handle_alert_response", methods=["POST"])
+@app.route("/api/handle_alert_response", methods=["GET" , "POST"])
 def api_handle_alert_response():
     try:
         data = request.get_json() or {}
@@ -1053,7 +1053,7 @@ def api_handle_alert_response():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route("/api/submit-feedback", methods=["POST"])
+@app.route("/api/submit-feedback", methods=["GET" , "POST"])
 def api_submit_feedback():
     data = request.json or {}
     feedback = data.get("feedback")
@@ -1085,7 +1085,7 @@ def api_submit_feedback():
             return jsonify({"status": "error", "message": str(e)}), 500
 
 
-@app.post("/api/backup")
+@app.route("/api/backup", methods=["GET" , "POST"])
 def api_backup():
     try:
         token = os.getenv("TOKEN")
@@ -1171,7 +1171,7 @@ def debug():
 def index():
     return send_from_directory(app.static_folder, "index.html")
 
-@app.route("/<path:path>")
+@app.route("/<path:path>", methods=["GET" , "POST"])
 def serve_spa(path):
     import os
     full_path = os.path.join(app.static_folder, path)
