@@ -732,76 +732,59 @@ supabase_url = os.getenv("SUPABASE_URL")
 supabase_service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 supabase = create_client(supabase_url, supabase_service_key)
 
-
-@app.route("/api/save-profile", methods=["GET" , "POST"])
+@app.route("/api/save-profile", methods=["POST"])
 def api_save_profile():
     try:
-        data = request.get_json(force=True)
-
-        # Validate required fields
-        required_fields = ["id", "name", "email", "mode"]
-        missing = [f for f in required_fields if not data.get(f)]
+        data = request.get_json(force=True) or {}
+        required = ["id", "name", "email", "mode"]
+        missing = [k for k in required if not data.get(k)]
         if missing:
-            return jsonify({
-                "status": "error",
-                "message": f"Missing required fields: {', '.join(missing)}"
-            }), 400
+            return jsonify({"status": "error", "message": f"Missing: {', '.join(missing)}"}), 400
 
-        user_id = data["id"].strip()
-        name = data["name"].strip()
-        email = data["email"].strip()
-        mode_value = data["mode"].strip().lower()
+        user_id = str(data["id"]).strip()
+        name = str(data["name"]).strip()
+        email = str(data["email"]).strip().lower()
+        mode_value = str(data["mode"]).strip().lower()
 
         if not is_valid_uuid(user_id):
-            return jsonify({
-                "status": "error",
-                "message": "Invalid user ID format"
-            }), 400
+            return jsonify({"status": "error", "message": "Invalid user ID format"}), 400
 
-        if mode_value not in ("demo", "live"):
-            return jsonify({
-                "status": "error",
-                "message": f"Invalid mode '{mode_value}'. Must be 'demo' or 'live'."
-            }), 400
+        if mode_value == "live":
+            mode_value = "broker"  # Remove if DB constraint now allows 'live'
 
-        username = data.get("username") or name or email.split("@")[0] or f"user_{user_id[:8]}"
+        username = (data.get("username") or name or email.split("@")[0] or f"user_{user_id[:8]}").strip()
 
-        # Verify user exists in auth.users
+        # Check user exists
         auth_user = supabase.table("users", schema="auth").select("id").eq("id", user_id).execute()
         if not auth_user.data:
-            return jsonify({
-                "status": "error",
-                "message": "User not found in auth.users. Please log in again."
-            }), 404
+            return jsonify({"status": "error", "message": "User not found in auth.users"}), 404
 
-        # 1️⃣ Save profile (upsert)
+        # Save profile
         profile_result = save_profile(None, user_id, username, name, email, mode_value)
-        if profile_result.get("status") != "ok":
-            return jsonify({
-                "status": "error",
-                "message": profile_result.get("message", "Unknown error saving profile")
-            }), 500
+        app.logger.info("Profile save result: %s", profile_result)
 
-        # 2️⃣ Seed starter portfolio if none exists
+        if not profile_result or profile_result.get("status") != "ok":
+            return jsonify({"status": "error", "message": profile_result.get("message", "Unknown error")}), 500
+
+        # Seed portfolio if empty
         portfolio_check = supabase.table("portfolio").select("id").eq("user_id", user_id).execute()
         if not portfolio_check.data:
             seed_result = supabase.table("portfolio").insert({
                 "user_id": user_id,
-                "asset": "bitcoin",       # starter asset
-                "quantity": 10,        # starter quantity
-                "avg_price": 150.00    # starter avg price
+                "asset": "bitcoin",
+                "quantity": 10,
+                "avg_price": 150.00
             }).execute()
-
             if getattr(seed_result, "error", None):
-                app.logger.error(f"Portfolio seed failed: {seed_result.error}")
+                app.logger.error("Portfolio seed failed: %s", seed_result.error)
 
         return jsonify({"status": "ok"}), 200
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        import traceback
+        app.logger.error("ERROR in /api/save-profile: %s", e)
+        app.logger.error(traceback.format_exc())
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 
