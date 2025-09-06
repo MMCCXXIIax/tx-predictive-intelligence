@@ -577,7 +577,7 @@ def api_save_profile():
         username = (data.get("username") or name or (email.split("@")[0] if email else "") or f"user_{user_id[:8]}").strip()
 
         # Ensure user exists in auth.users
-        auth_user = supabase.table("users", schema="auth").select("id").eq("id", user_id).execute()
+        auth_user = supabase.table("auth.users").select("id").eq("id", user_id).execute()
         if not getattr(auth_user, "data", None):
             app.logger.info(f"User {user_id} not found in auth.users — inserting.")
             supabase.table("users", schema="auth").insert({"id": user_id, "email": email}).execute()
