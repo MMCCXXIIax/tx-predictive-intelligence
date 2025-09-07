@@ -47,8 +47,8 @@ load_dotenv()
 # --- Flask app ---
 app = Flask(__name__, static_folder="client/dist", static_url_path="")
 
-# --- CORS (explicit) ---
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+# --- CORS (fixed to include all routes) ---
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
 
 # --- Configuration ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -78,8 +78,6 @@ class TXConfig:
         "Dark Cloud Cover", "Doji", "Marubozu"
     ]
     ENABLE_PAPER_TRADING = os.getenv("ENABLE_PAPER_TRADING", "true").lower() in ("1", "true", "yes")
-
-    # Restore this so DataRouter doesn't crash
     DEFAULT_USER_REFRESH = int(os.getenv("DEFAULT_USER_REFRESH", "120"))
 
 # --- Bootstrap only essential tables (no users/visitors/profiles/portfolio) ---
@@ -164,11 +162,12 @@ class DataCache:
         data = cache.get(symbol, {})
         if data.get("timestamp"):
             try:
-                cache_time = datetime.strptime(data["timestamp"], '%Y-%m-%d %H:%M:%S')
-                if datetime.now(timezone.utc).isoformat() - cache_time < timedelta(seconds=TXConfig.CACHE_DURATION):
+                cache_time = datetime.fromisoformat(data["timestamp"])
+                now = datetime.now(timezone.utc)
+                if (now - cache_time) < timedelta(seconds=TXConfig.CACHE_DURATION):
                     return data.get("candles", [])
             except Exception:
-                return data.get("candles", [])
+                pass
         return []
 
     @staticmethod
@@ -176,7 +175,7 @@ class DataCache:
         cache = DataCache.load_cache()
         cache[symbol] = {
             "candles": candles,
-            "timestamp": datetime.now(timezone.utc).isoformat().strftime('%Y-%m-%d %H:%M:%S')
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         DataCache.save_cache(cache)
 
@@ -193,7 +192,7 @@ class AlertSystem:
         pattern_name = detection.get("name") or detection.get("pattern") or "Unknown"
         explanation = detection.get("explanation", "")
         action = detection.get("action", "Validate before trading.")
-        timestamp = datetime.now(timezone.utc).isoformat().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
         alert = {
             "symbol": symbol,
@@ -270,7 +269,7 @@ class TXEngine:
     def run_scan(self):
         with self.lock:
             self.scan_id += 1
-            scan_time = datetime.now(timezone.utc).isoformat().strftime('%H:%M:%S')
+            scan_time = datetime.now(timezone.utc).strftime('%H:%M:%S')
             results = []
 
             for symbol in TXConfig.ASSET_TYPES.keys():
@@ -377,12 +376,14 @@ class TXEngine:
             app_state["last_scan"] = scan_payload
             return scan_payload
 
+# --- Global engine instance for efficiency ---
+tx_engine = TXEngine()
+
 # --- Background scanner ---
 SCANNER_STARTED = False
 SCANNER_THREAD = None
 
 def background_scan_loop():
-    tx_engine = TXEngine()
     print("✅ background_scan_loop: thread running")
     while True:
         start_time = time.time()
@@ -467,7 +468,6 @@ def api_get_active_alerts():
 @app.route("/api/scan", methods=["GET"])
 def api_scan():
     try:
-        tx_engine = TXEngine()
         scan = tx_engine.run_scan()
         return jsonify({
             "last_scan": scan,
@@ -534,7 +534,6 @@ def api_log_outcome():
 @app.route("/api/paper-trades", methods=["GET"])
 def api_get_paper_trades():
     try:
-        tx_engine = TXEngine()
         if hasattr(tx_engine, 'trader') and tx_engine.trader and hasattr(tx_engine.trader, "get_positions"):
             return jsonify({"positions": tx_engine.trader.get_positions()}), 200
         # Optional: also return persisted paper_trades
@@ -560,7 +559,6 @@ def api_place_paper_trade():
         if not symbol:
             return jsonify({"status": "error", "message": "missing symbol"}), 400
 
-        tx_engine = TXEngine()
         if hasattr(tx_engine, "trader") and tx_engine.trader:
             price = tx_engine.get_market_price(symbol)
             if price is None:
@@ -592,7 +590,6 @@ def api_close_position():
         if not symbol:
             return jsonify({"status": "error", "message": "missing symbol"}), 400
 
-        tx_engine = TXEngine()
         if hasattr(tx_engine, "trader") and tx_engine.trader:
             price = tx_engine.get_market_price(symbol)
             if price is None:
@@ -609,7 +606,6 @@ def api_close_position():
 @app.route("/api/trading-stats", methods=["GET"])
 def api_trading_stats():
     try:
-        tx_engine = TXEngine()
         if hasattr(tx_engine, "trader") and tx_engine.trader and hasattr(tx_engine.trader, "get_stats"):
             stats = tx_engine.trader.get_stats()
             return jsonify({"stats": stats}), 200
@@ -724,7 +720,7 @@ def serve_spa(path):
     full_path = os.path.join(app.static_folder, path)
     if os.path.isfile(full_path):
         return send_from_directory(app.static_folder, path)
-    if path.startswith("api/"):  # Don’t intercept API calls
+    if path.startswith("api/"):  # Don't intercept API calls
         return jsonify({"error": "Not found"}), 404
     return send_from_directory(app.static_folder, "index.html")
 
