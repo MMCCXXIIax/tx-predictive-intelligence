@@ -581,14 +581,18 @@ def api_save_profile():
         if not auth_user.data:
             #ddd
             app.logger.info(f"User {user_id} not found in auth.users — inserting.")
-            supabase.table("users", schema="auth").insert({"id": user_id, "email": email}).execute()
+            insert_result = supabase.table("users", schema="auth").insert({"id": user_id, "email": email}).execute()
+            app.logger.info(f"Insert into auth.users result: {insert_result}")
+           
 
         # Ensure user exists in public.users (if you have that table for FKs)
+
         public_user = supabase.table("users").select("id").eq("id", user_id).execute()
         if not public_user.data:
             # empty list means no match
             app.logger.info(f"User {user_id} not found in public.users — inserting.")
-            supabase.table("users").insert({"id": user_id}).execute()
+            insert_result = supabase.table("users").insert({"id": user_id}).execute()
+            app.logger.info(f"Insert into public.users result: {insert_result}")      
 
         # Save profile via chosen mode (db or rest)
         profile_result = save_profile(None, user_id, username, name, email, mode_value)
