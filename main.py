@@ -1,5 +1,7 @@
 # --- Standard library ---
 import os
+import csv
+import io
 import json
 import subprocess
 import time
@@ -10,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 # --- Third‑party libraries ---
 import psutil
-from flask import Flask, request, jsonify, make_response, send_from_directory
+from flask import Flask, request, jsonify, make_response, send_from_directory, Response
 from flask_cors import CORS
 from dotenv import load_dotenv
 from sqlalchemy import text, bindparam
@@ -95,7 +97,15 @@ class TXConfig:
     ]
     ENABLE_PAPER_TRADING = os.getenv("ENABLE_PAPER_TRADING", "true").lower() in ("1", "true", "yes")
 
-# --- Bootstrap minimal tables if missing (visitors/app_state/detections) ---
+# --- In-memory state ---
+app_state = {
+    "last_scan": {"id": 0, "time": None, "results": []},
+    "alerts": [],
+    "paper_trades": [],
+    "last_signal": None
+}
+
+# --- Bootstrap minimal tables if missing (for local dev only; prod uses managed schema) ---
 with engine.begin() as conn:
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS visitors (
@@ -130,14 +140,19 @@ with engine.begin() as conn:
             verified BOOLEAN
         )
     """))
-
-# --- In-memory state ---
-app_state = {
-    "last_scan": {"id": 0, "time": None, "results": []},
-    "alerts": [],
-    "paper_trades": [],
-    "last_signal": None
-}
+    # Optional: simple paper trades table if you want to persist positions
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS paper_trades (
+            id UUID PRIMARY KEY,
+            user_id UUID,
+            symbol TEXT,
+            side TEXT,
+            qty NUMERIC,
+            price NUMERIC,
+            opened_at TIMESTAMP DEFAULT NOW(),
+            closed_at TIMESTAMP
+        )
+    """))
 
 # --- Helpers ---
 def is_valid_uuid(val):
@@ -146,6 +161,19 @@ def is_valid_uuid(val):
         return True
     except ValueError:
         return False
+
+def ensure_user_exists_sql(conn, user_id, email=None):
+    # public.users (FK anchor)
+    conn.execute(
+        text("""INSERT INTO public.users (id) VALUES (:id) ON CONFLICT (id) DO NOTHING"""),
+        {"id": user_id}
+    )
+    # auth.users (optional, helpful for profiles)
+    if email:
+        conn.execute(
+            text("""INSERT INTO auth.users (id, email) VALUES (:id, :email) ON CONFLICT (id) DO NOTHING"""),
+            {"id": user_id, "email": email}
+        )
 
 def track_visit(req) -> str:
     visitor_id = req.cookies.get("visitor_id")
@@ -156,6 +184,8 @@ def track_visit(req) -> str:
     with engine.begin() as conn:
         if not visitor_id:
             visitor_id = str(uuid.uuid4())
+            # FK-safe: ensure user exists before inserting into visitors
+            ensure_user_exists_sql(conn, visitor_id, None)
             conn.execute(
                 text("""
                     INSERT INTO visitors (id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval)
@@ -180,6 +210,8 @@ def track_visit(req) -> str:
                     {"id": visitor_id}
                 )
             else:
+                # FK-safe on recreate
+                ensure_user_exists_sql(conn, visitor_id, None)
                 conn.execute(
                     text("""
                         INSERT INTO visitors (id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval)
@@ -288,7 +320,6 @@ class AlertSystem:
             pass
 
         print(f"🚨 ALERT: {symbol} {pattern_name} ({alert['confidence']}) @ {alert['price']} — {timestamp}")
-
 
 # --- Engine ---
 class TXEngine:
@@ -489,8 +520,16 @@ start_background_scanner()
 def _ensure_scanner():
     start_background_scanner()
 
-# --- API routes ---
-@app.route("/api/scan", methods=["GET", "POST"])
+# =========================================================
+# API routes (frontend-aligned)
+# =========================================================
+
+# --- Core Detection & Alerts ---
+@app.route("/api/get_active_alerts", methods=["GET"])
+def api_get_active_alerts():
+    return jsonify({"alerts": app_state.get("alerts", [])})
+
+@app.route("/api/scan", methods=["GET"])
 def api_scan():
     try:
         tx_engine = TXEngine()
@@ -502,37 +541,245 @@ def api_scan():
             "last_signal": app_state.get("last_signal")
         })
     except Exception as e:
+        app.logger.exception("scan error")
         return jsonify({"error": str(e)}), 500
 
-def save_last_scan(state):
-    with engine.begin() as conn:
-        stmt = text("""
-            INSERT INTO app_state (key, value)
-            VALUES (:key, :value::jsonb)
-            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-        """).bindparams(
-            bindparam("key", type_=str),
-            bindparam("value", type_=str)
-        )
-        conn.execute(stmt, {"key": "last_scan", "value": json.dumps(state["last_scan"])})
-    return state["last_scan"]
-
-@app.route("/api/debug_scan", methods=["GET", "POST"])
-def debug_scan():
+@app.route("/api/handle_alert_response", methods=["POST"])
+def api_handle_alert_response():
     try:
-        print("⚡ Running debug_scan()")
-        tx_engine = TXEngine()
-        scan = tx_engine.run_scan()
-        app_state["last_scan"] = scan
-        print(f"✅ debug_scan success: id={scan.get('id')} with {len(scan.get('results', []))} results")
-        return jsonify({"debug_scan": scan})
+        data = request.get_json() or {}
+        action = data.get("action", "IGNORE")
+        return jsonify({"status": "recorded", "action": action})
     except Exception as e:
-        tb = traceback.format_exc()
-        print("❌ debug_scan error:", e)
-        print(tb)
-        return jsonify({"error": str(e), "trace": tb}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route("/api/profile", methods=["GET", "POST"])
+# Alias expected by frontend
+@app.route("/api/get_latest_detection_id", methods=["GET"])
+def get_latest_detection_id_alias():
+    return get_latest_detection_id()
+
+# Already implemented core
+@app.route("/api/detections/latest", methods=["GET", "POST"])
+def get_latest_detection_id():
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(
+                text("""
+                    SELECT id
+                    FROM detections
+                    ORDER BY timestamp DESC NULLS LAST, id DESC
+                    LIMIT 1
+                """)
+            ).fetchone()
+        detection_id = row[0] if row else None
+        resp = make_response(jsonify({"detection_id": detection_id}), 200)
+        resp.headers["Cache-Control"] = "no-store"
+        return resp
+    except Exception:
+        app.logger.exception("Failed to get latest detection id")
+        return jsonify({"error": "internal_error"}), 500
+
+@app.route("/api/log_outcome", methods=["POST"])
+def api_log_outcome():
+    try:
+        data = request.get_json(silent=True) or {}
+        det_id = data.get("detection_id")
+        outcome = data.get("outcome")
+        if not det_id or not outcome:
+            return jsonify({"status": "error", "message": "missing fields"}), 400
+
+        with engine.begin() as conn:
+            result = conn.execute(
+                text("""
+                    UPDATE detections
+                    SET outcome = :outcome, verified = TRUE
+                    WHERE id = :id
+                """),
+                {"outcome": outcome, "id": det_id}
+            )
+
+        if result.rowcount > 0:
+            return jsonify({"status": "ok"})
+        else:
+            return jsonify({"status": "error", "message": "detection_not_found"}), 404
+    except Exception:
+        app.logger.exception("Failed to update detection outcome")
+        return jsonify({"status": "error", "message": "internal_error"}), 500
+
+# --- Paper Trading ---
+@app.route("/api/paper-trades", methods=["GET"])
+def api_get_paper_trades():
+    try:
+        # Prefer in-memory trader if available
+        tx_engine = TXEngine()
+        if hasattr(tx_engine, 'trader') and tx_engine.trader and hasattr(tx_engine.trader, "get_positions"):
+            positions = tx_engine.trader.get_positions()
+            return jsonify({"positions": positions}), 200
+
+        # Optional: pull from DB if you persist positions
+        with engine.begin() as conn:
+            rows = conn.execute(text("""
+                SELECT id, user_id, symbol, side, qty, price, opened_at, closed_at
+                FROM paper_trades
+                ORDER BY opened_at DESC NULLS LAST
+            """)).mappings().all()
+        return jsonify({"positions": [dict(r) for r in rows]}), 200
+    except Exception as e:
+        app.logger.exception("paper-trades GET failed")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/paper-trades", methods=["POST"])
+def api_place_paper_trade():
+    try:
+        data = request.get_json(force=True) or {}
+        user_id = data.get("user_id")
+        symbol = data.get("symbol")
+        side = data.get("side", "buy").lower()
+        qty = data.get("qty", 1)
+
+        if not user_id or not is_valid_uuid(user_id) or not symbol:
+            return jsonify({"status": "error", "message": "missing or invalid fields"}), 400
+
+        # FK-safe user anchor if you persist to DB later
+        with engine.begin() as conn:
+            ensure_user_exists_sql(conn, user_id, None)
+
+        # Prefer trader if available
+        tx_engine = TXEngine()
+        if hasattr(tx_engine, "trader") and tx_engine.trader:
+            price = tx_engine.get_market_price(symbol)
+            if price is None:
+                return jsonify({"status": "error", "message": "no_price"}), 400
+            if side == "buy":
+                trade = tx_engine.trader.buy(symbol, price, "manual", 1.0, amount_usd=None, qty=qty)
+            else:
+                trade = tx_engine.trader.sell(symbol, price, "manual", 1.0, qty=qty)
+            return jsonify({"status": "ok", "trade": trade}), 200
+
+        # Stub fallback
+        return jsonify({"status": "ok", "trade": {"symbol": symbol, "side": side, "qty": qty}}), 200
+    except Exception as e:
+        app.logger.exception("paper-trades POST failed")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/close-position", methods=["POST"])
+def api_close_position():
+    try:
+        data = request.get_json(force=True) or {}
+        user_id = data.get("user_id")
+        symbol = data.get("symbol")
+        if not user_id or not is_valid_uuid(user_id) or not symbol:
+            return jsonify({"status": "error", "message": "missing fields"}), 400
+
+        tx_engine = TXEngine()
+        if hasattr(tx_engine, "trader") and tx_engine.trader:
+            price = tx_engine.get_market_price(symbol)
+            if price is None:
+                return jsonify({"status": "error", "message": "no_price"}), 400
+            result = tx_engine.trader.close(symbol, price)
+            return jsonify({"status": "ok", "result": result}), 200
+
+        return jsonify({"status": "ok", "result": "closed"}), 200
+    except Exception as e:
+        app.logger.exception("close-position failed")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/trading-stats", methods=["GET"])
+def api_trading_stats():
+    try:
+        # If trader exists, ask it for stats; else compute basic stats from paper_trades
+        tx_engine = TXEngine()
+        if hasattr(tx_engine, "trader") and tx_engine.trader and hasattr(tx_engine.trader, "get_stats"):
+            stats = tx_engine.trader.get_stats()
+            return jsonify({"stats": stats}), 200
+
+        with engine.begin() as conn:
+            rows = conn.execute(text("""
+                SELECT symbol, side, qty, price, opened_at, closed_at
+                FROM paper_trades
+            """)).mappings().all()
+        # Minimal stub stats
+        stats = {
+            "total_trades": len(rows),
+            "open_positions": sum(1 for r in rows if r["closed_at"] is None)
+        }
+        return jsonify({"stats": stats}), 200
+    except Exception as e:
+        app.logger.exception("trading-stats failed")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# --- Detection Logs & Analytics ---
+@app.route("/api/detection_stats", methods=["GET"])
+def api_detection_stats():
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(text("""
+                SELECT
+                    COUNT(*)::int AS total,
+                    SUM(CASE WHEN verified THEN 1 ELSE 0 END)::int AS verified_count
+                FROM detections
+            """)).mappings().fetchone()
+        return jsonify({"stats": dict(row) if row else {"total": 0, "verified_count": 0}}), 200
+    except Exception as e:
+        app.logger.exception("detection_stats failed")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/export_detection_logs", methods=["GET"])
+def api_export_detection_logs():
+    try:
+        with engine.begin() as conn:
+            rows = conn.execute(text("""
+                SELECT id, timestamp, symbol, pattern, confidence, price, outcome, verified
+                FROM detections
+                ORDER BY timestamp DESC NULLS LAST
+            """)).mappings().all()
+
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=["id","timestamp","symbol","pattern","confidence","price","outcome","verified"])
+        writer.writeheader()
+        for r in rows:
+            writer.writerow(dict(r))
+        csv_data = output.getvalue()
+        output.close()
+
+        return Response(
+            csv_data,
+            mimetype="text/csv",
+            headers={"Content-Disposition": "attachment; filename=detection_logs.csv"}
+        )
+    except Exception as e:
+        app.logger.exception("export_detection_logs failed")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# Frontend expects /api/detection_logs; map it to your existing logs
+@app.route("/api/detection_logs", methods=["GET"])
+def api_detection_logs_alias():
+    return api_logs_detections()
+
+@app.route("/api/logs/detections", methods=["GET", "POST"])
+def api_logs_detections():
+    try:
+        with engine.begin() as conn:
+            rows = conn.execute(
+                text("SELECT * FROM detections ORDER BY timestamp DESC NULLS LAST LIMIT 1000")
+            ).mappings().all()
+        return jsonify({"detections": [dict(r) for r in rows]})
+    except Exception as e:
+        app.logger.exception("Failed to fetch detection logs")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/logs/trades", methods=["GET", "POST"])
+def api_logs_trades():
+    try:
+        tx_engine = TXEngine()
+        if hasattr(tx_engine, 'trader') and tx_engine.trader:
+            return jsonify({"trades": tx_engine.trader.get_trade_log()})
+        return jsonify({"trades": []})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# --- User Profile ---
+@app.route("/api/profile", methods=["GET"])
 def get_profile():
     visitor_id = request.cookies.get("visitor_id")
     if not visitor_id:
@@ -576,33 +823,19 @@ def api_save_profile():
 
         username = (data.get("username") or name or (email.split("@")[0] if email else "") or f"user_{user_id[:8]}").strip()
 
-        # Ensure user exists in auth.users
-        auth_user = supabase.table("auth.users").select("id").eq("id", user_id).execute()
-        if not auth_user.data:
-            #ddd
-            app.logger.info(f"User {user_id} not found in auth.users — inserting.")
-            insert_result = supabase.table("users", schema="auth").insert({"id": user_id, "email": email}).execute()
-            app.logger.info(f"Insert into auth.users result: {insert_result}")
-           
+        # Ensure user exists (FK-safe) via SQL (fast, single transaction)
+        with engine.begin() as conn:
+            ensure_user_exists_sql(conn, user_id, email)
 
-        # Ensure user exists in public.users (if you have that table for FKs)
-
-        public_user = supabase.table("users").select("id").eq("id", user_id).execute()
-        if not public_user.data:
-            # empty list means no match
-            app.logger.info(f"User {user_id} not found in public.users — inserting.")
-            insert_result = supabase.table("users").insert({"id": user_id}).execute()
-            app.logger.info(f"Insert into public.users result: {insert_result}")      
-
-        # Save profile via chosen mode (db or rest)
+        # Save profile via your existing helper (kept intact)
         profile_result = save_profile(None, user_id, username, name, email, mode_value)
         app.logger.info("Profile save result: %s", profile_result)
         if not profile_result or profile_result.get("status") != "ok":
             return jsonify({"status": "error", "message": profile_result.get("message", "Unknown error")}), 500
 
-        # Seed visitors row if missing
+        # Seed visitors row if missing (Supabase client OK now that FK anchor exists)
         visitors_check = supabase.table("visitors").select("id").eq("id", user_id).execute()
-        if not getattr(visitors_check, "data", None):
+        if not visitors_check.data:
             supabase.table("visitors").insert({
                 "id": user_id,
                 "ip": request.remote_addr,
@@ -613,7 +846,7 @@ def api_save_profile():
 
         # Seed portfolio if empty
         portfolio_check = supabase.table("portfolio").select("id").eq("user_id", user_id).execute()
-        if not getattr(portfolio_check, "data", None):
+        if not portfolio_check.data:
             supabase.table("portfolio").insert({
                 "user_id": user_id,
                 "asset": "bitcoin",
@@ -628,7 +861,33 @@ def api_save_profile():
         app.logger.error(traceback.format_exc())
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route("/api/set-refresh", methods=["GET", "POST"])
+# --- Market data ---
+@app.route("/api/candles", methods=["GET"])
+def api_get_candles():
+    try:
+        symbol = request.args.get("symbol")
+        timeframe = request.args.get("timeframe", "5m")
+        if not symbol:
+            return jsonify({"status": "error", "message": "missing symbol"}), 400
+
+        # Prefer cache/router
+        candles = DataCache.get_cached(symbol)
+        if (not candles) and DataRouter is not None:
+            try:
+                router = DataRouter(TXConfig)
+                candles = router.get_latest_candles(symbol) or []
+                if candles:
+                    DataCache.update_cache(symbol, candles)
+            except Exception as e:
+                app.logger.warning(f"candles router error for {symbol}: {e}")
+
+        return jsonify({"symbol": symbol, "timeframe": timeframe, "candles": candles[:TXConfig.CANDLE_LIMIT]})
+    except Exception as e:
+        app.logger.exception("candles failed")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# --- Settings / refresh ---
+@app.route("/api/set-refresh", methods=["POST"])
 def api_set_refresh():
     try:
         try:
@@ -641,6 +900,8 @@ def api_set_refresh():
         now_iso = datetime.now(timezone.utc).isoformat()
 
         with engine.begin() as conn:
+            # FK-safe anchor
+            ensure_user_exists_sql(conn, visitor_id, None)
             conn.execute(
                 text("""
                     INSERT INTO visitors (id, refresh_interval, last_seen)
@@ -661,127 +922,8 @@ def api_set_refresh():
         app.logger.exception("Failed to set refresh interval")
         return jsonify({"error": "internal_error"}), 500
 
-@app.route("/api/portfolio", methods=["GET", "POST"])
-def api_portfolio():
-    try:
-        user_id = request.args.get("user_id")
-        if not user_id:
-            return jsonify({"status": "error", "message": "Missing user_id"}), 400
-
-        db_result = supabase.table("portfolio").select("*").eq("user_id", user_id).execute()
-        if getattr(db_result, "error", None):
-            app.logger.error(f"Supabase portfolio query error: {db_result.error}")
-        elif getattr(db_result, "data", None):
-            return jsonify({"source": "supabase", "portfolio": db_result.data}), 200
-
-        engine_tx = TXEngine()
-        if hasattr(engine_tx, 'trader') and engine_tx.trader:
-            prices = engine_tx.get_market_prices()
-            snapshot = engine_tx.trader.get_portfolio_value(prices)
-            snapshot["market_prices"] = prices
-            return jsonify({"source": "engine", "portfolio": snapshot}), 200
-
-        return jsonify({
-            "source": "empty",
-            "portfolio": {
-                "balance": 0.0,
-                "invested": 0.0,
-                "open_positions": {},
-                "total_equity": 0.0,
-                "realized_pnl": 0.0,
-                "unrealized_pnl": 0.0,
-                "market_prices": {}
-            }
-        }), 200
-
-    except Exception as e:
-        app.logger.error(f"Portfolio API error: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route("/api/logs/detections", methods=["GET", "POST"])
-def api_logs_detections():
-    try:
-        with engine.begin() as conn:
-            rows = conn.execute(
-                text("SELECT * FROM detections ORDER BY timestamp DESC NULLS LAST LIMIT 1000")
-            ).mappings().all()
-        return jsonify({"detections": [dict(r) for r in rows]})
-    except Exception as e:
-        app.logger.exception("Failed to fetch detection logs")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route("/api/logs/trades", methods=["GET", "POST"])
-def api_logs_trades():
-    try:
-        engine_tx = TXEngine()
-        if hasattr(engine_tx, 'trader') and engine_tx.trader:
-            return jsonify({"trades": engine_tx.trader.get_trade_log()})
-        return jsonify({"trades": []})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route("/api/detections/latest", methods=["GET", "POST"])
-def get_latest_detection_id():
-    try:
-        with engine.begin() as conn:
-            row = conn.execute(
-                text("""
-                    SELECT id
-                    FROM detections
-                    ORDER BY timestamp DESC NULLS LAST, id DESC
-                    LIMIT 1
-                """)
-            ).fetchone()
-        detection_id = row[0] if row else None
-        resp = make_response(jsonify({"detection_id": detection_id}), 200)
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
-    except Exception:
-        app.logger.exception("Failed to get latest detection id")
-        return jsonify({"error": "internal_error"}), 500
-
-@app.route("/api/log_outcome", methods=["GET", "POST"])
-def api_log_outcome():
-    try:
-        data = request.get_json(silent=True) or {}
-        det_id = data.get("detection_id")
-        outcome = data.get("outcome")
-        if not det_id or not outcome:
-            return jsonify({"status": "error", "message": "missing fields"}), 400
-
-        with engine.begin() as conn:
-            result = conn.execute(
-                text("""
-                    UPDATE detections
-                    SET outcome = :outcome, verified = TRUE
-                    WHERE id = :id
-                """),
-                {"outcome": outcome, "id": det_id}
-            )
-
-        if result.rowcount > 0:
-            return jsonify({"status": "ok"})
-        else:
-            return jsonify({"status": "error", "message": "detection_not_found"}), 404
-    except Exception:
-        app.logger.exception("Failed to update detection outcome")
-        return jsonify({"status": "error", "message": "internal_error"}), 500
-
-@app.route("/api/get_active_alerts", methods=["GET", "POST"])
-def api_get_active_alerts():
-    return jsonify({"alerts": app_state["alerts"]})
-
-@app.route("/api/handle_alert_response", methods=["GET", "POST"])
-def api_handle_alert_response():
-    try:
-        data = request.get_json() or {}
-        action = data.get("action", "IGNORE")
-        print(f"User alert response: {action}")
-        return jsonify({"status": "recorded", "action": action})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route("/api/submit-feedback", methods=["GET", "POST"])
+# --- Misc utility endpoints you already have ---
+@app.route("/api/submit-feedback", methods=["POST"])
 def api_submit_feedback():
     data = request.json or {}
     feedback = data.get("feedback")
@@ -809,7 +951,7 @@ def api_submit_feedback():
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route("/api/backup", methods=["GET", "POST"])
+@app.route("/api/backup", methods=["POST"])
 def api_backup():
     try:
         token = os.getenv("TOKEN")
@@ -845,13 +987,12 @@ def api_backup():
 def health():
     return jsonify({"status": "ok", "time": datetime.utcnow().isoformat()})
 
-
 # --- SPA serving ---
 @app.route("/")
 def index():
     visitor_id = track_visit(request)
     resp = make_response(send_from_directory(app.static_folder, "index.html"))
-    resp.set_cookie("visitor_id", visitor_id, max_age=60*60*24*30)
+    resp.set_cookie("visitor_id", visitor_id, max_age=60*60*24*30, httponly=True, secure=True, samesite="Lax")
     return resp
 
 @app.route("/<path:path>", methods=["GET", "POST"])
