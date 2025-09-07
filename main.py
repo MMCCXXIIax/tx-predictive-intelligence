@@ -89,6 +89,9 @@ class TXConfig:
     ]
     ENABLE_PAPER_TRADING = os.getenv("ENABLE_PAPER_TRADING", "true").lower() in ("1", "true", "yes")
 
+    # Restore this so DataRouter doesn't crash
+    DEFAULT_USER_REFRESH = int(os.getenv("DEFAULT_USER_REFRESH", "120"))
+
 # --- Bootstrap only essential tables (no users/visitors/profiles/portfolio) ---
 with engine.begin() as conn:
     conn.execute(text("""
