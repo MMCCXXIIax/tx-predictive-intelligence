@@ -63,8 +63,8 @@ class TXConfig:
         "bitcoin": "crypto",
         "ethereum": "crypto",
         "solana": "crypto",
-        "AAPL": "stock",
-        "TSLA": "stock"
+        #"AAPL": "stock",
+        #"TSLA": "stock"
     }
     BACKEND_SCAN_INTERVAL = int(os.getenv("BACKEND_SCAN_INTERVAL", "30"))
     CANDLE_LIMIT = int(os.getenv("CANDLE_LIMIT", "100"))
