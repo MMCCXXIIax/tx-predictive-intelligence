@@ -66,7 +66,7 @@ class TXConfig:
         #"AAPL": "stock",
         #"TSLA": "stock"
     }
-    BACKEND_SCAN_INTERVAL = int(os.getenv("BACKEND_SCAN_INTERVAL", "30"))
+    BACKEND_SCAN_INTERVAL = int(os.getenv("BACKEND_SCAN_INTERVAL", "180"))
     CANDLE_LIMIT = int(os.getenv("CANDLE_LIMIT", "100"))
     ALERT_CONFIDENCE_THRESHOLD = float(os.getenv("ALERT_CONFIDENCE_THRESHOLD", "0.85"))
     CACHE_FILE = "tx_cache.json"
@@ -78,7 +78,7 @@ class TXConfig:
         "Dark Cloud Cover", "Doji", "Marubozu"
     ]
     ENABLE_PAPER_TRADING = os.getenv("ENABLE_PAPER_TRADING", "true").lower() in ("1", "true", "yes")
-    DEFAULT_USER_REFRESH = int(os.getenv("DEFAULT_USER_REFRESH", "120"))
+    DEFAULT_USER_REFRESH = 180
 
 # --- Bootstrap only essential tables (no users/visitors/profiles/portfolio) ---
 with engine.begin() as conn:
