@@ -1,13 +1,10 @@
 flask>=3.0.0
 flask_cors
 gunicorn>=21.2.0
-gevent>=23.9.1
 requests>=2.31.0
-websocket-client>=1.6.4
 python-dotenv>=1.0.0
 werkzeug>=2.3.0
 waitress
-psutil
 SQLAlchemy>=2.0.0
 psycopg2>=2.9.0
 supabase
