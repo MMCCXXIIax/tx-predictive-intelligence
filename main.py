@@ -176,7 +176,6 @@ def ensure_user_exists_sql(conn, user_id, email=None):
         )
 
 
-
 def track_visit(req) -> str:
     visitor_id = req.cookies.get("visitor_id")
     user_agent = req.headers.get("User-Agent", "")
@@ -194,7 +193,7 @@ def track_visit(req) -> str:
             # Now insert into visitors
             conn.execute(
                 text("""
-                    INSERT INTO visitors (id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval)
+                    INSERT INTO public.visitors (id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval)
                     VALUES (:id, NOW(), NOW(), :ua, :ip, :count, :refresh)
                     ON CONFLICT (id) DO NOTHING
                 """),
@@ -202,14 +201,14 @@ def track_visit(req) -> str:
             )
         else:
             row = conn.execute(
-                text("SELECT 1 FROM visitors WHERE id = :id"),
+                text("SELECT 1 FROM public.visitors WHERE id = :id"),
                 {"id": visitor_id}
             ).fetchone()
 
             if row:
                 conn.execute(
                     text("""
-                        UPDATE visitors
+                        UPDATE public.visitors
                         SET last_seen = NOW(), visit_count = visit_count + 1
                         WHERE id = :id
                     """),
@@ -223,7 +222,7 @@ def track_visit(req) -> str:
                 )
                 conn.execute(
                     text("""
-                        INSERT INTO visitors (id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval)
+                        INSERT INTO public.visitors (id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval)
                         VALUES (:id, NOW(), NOW(), :ua, :ip, :count, :refresh)
                     """),
                     {"id": visitor_id, "ua": user_agent, "ip": ip_addr, "count": 1, "refresh": refresh_interval}
