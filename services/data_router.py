@@ -1,23 +1,22 @@
-# services/data_router.py
-
 import threading
 import time
 from services.crypto_data_services import CryptoDataService
 from services.alpha_data_services import AlphaDataService
-# currently (wrong if file is crypto_data_service.py):
-# from services.crypto_data_services import CryptoDataService
-
-# Use this (matches your file 
 
 
 class DataRouter:
     def __init__(self, config):
         self.config = config
+
+        # Fallback to 120 seconds if DEFAULT_USER_REFRESH is missing
+        refresh_interval = getattr(config, "DEFAULT_USER_REFRESH", 120)
+
         self.crypto_service = CryptoDataService(
             symbols=[s for s, t in config.ASSET_TYPES.items() if t == "crypto"],
-            refresh_interval=config.DEFAULT_USER_REFRESH,
+            refresh_interval=refresh_interval,
             candle_limit=config.CANDLE_LIMIT
         )
+
         self.alpha_service = AlphaDataService(candle_limit=config.CANDLE_LIMIT)
 
         # Store stock/forex symbols separately
