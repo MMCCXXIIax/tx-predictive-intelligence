@@ -11,18 +11,16 @@ import traceback
 from datetime import datetime, timedelta, timezone
 
 # --- Third‑party libraries ---
-import psutil
 from flask import Flask, request, jsonify, make_response, send_from_directory, Response
 from flask_cors import CORS
 from dotenv import load_dotenv
-from sqlalchemy import text, bindparam
+from sqlalchemy import text
 
 # --- Local services ---
-# Use the shared engine from services.db so it's consistent with profile_saver.py
+# Shared engine (same as other services) — used for detections and optional paper_trades
 from services.db import engine
-from services.profile_saver import save_profile
 
-# Optional imports with safety
+# Optional imports with safety (no user/profile writes anywhere)
 try:
     from detectors.ai_pattern_logic import detect_all_patterns
 except Exception as e:
@@ -41,7 +39,7 @@ except Exception as e:
     PaperTrader = None
     print("⚠️ services.paper_trader import warning:", e)
 
-# Supabase client (v2.x)
+# Supabase client (v2.x) — service role only (no per-user JWT)
 from supabase import create_client
 
 load_dotenv()
@@ -49,7 +47,7 @@ load_dotenv()
 # --- Flask app ---
 app = Flask(__name__, static_folder="client/dist", static_url_path="")
 
-# --- CORS (clean, explicit) ---
+# --- CORS (explicit) ---
 CORS(app, resources={
     r"/api/*": {
         "origins": [
@@ -63,8 +61,6 @@ CORS(app, resources={
 })
 
 # --- Configuration ---
-SAVE_PROFILE_MODE = os.getenv("SAVE_PROFILE_MODE", "db").lower()
-
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
@@ -72,9 +68,6 @@ if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
 
 supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-print(f"[config] Save Profile Mode: {SAVE_PROFILE_MODE}")
-
-# --- TXConfig ---
 class TXConfig:
     ASSET_TYPES = {
         "bitcoin": "crypto",
@@ -84,7 +77,6 @@ class TXConfig:
         "TSLA": "stock"
     }
     BACKEND_SCAN_INTERVAL = int(os.getenv("BACKEND_SCAN_INTERVAL", "30"))
-    DEFAULT_USER_REFRESH = int(os.getenv("DEFAULT_USER_REFRESH", "120"))
     CANDLE_LIMIT = int(os.getenv("CANDLE_LIMIT", "100"))
     ALERT_CONFIDENCE_THRESHOLD = float(os.getenv("ALERT_CONFIDENCE_THRESHOLD", "0.85"))
     CACHE_FILE = "tx_cache.json"
@@ -97,37 +89,8 @@ class TXConfig:
     ]
     ENABLE_PAPER_TRADING = os.getenv("ENABLE_PAPER_TRADING", "true").lower() in ("1", "true", "yes")
 
-# --- In-memory state ---
-app_state = {
-    "last_scan": {"id": 0, "time": None, "results": []},
-    "alerts": [],
-    "paper_trades": [],
-    "last_signal": None
-}
-
-# --- Bootstrap minimal tables if missing (for local dev only; prod uses managed schema) ---
+# --- Bootstrap only essential tables (no users/visitors/profiles/portfolio) ---
 with engine.begin() as conn:
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS visitors (
-            id UUID PRIMARY KEY,
-            first_seen TIMESTAMP,
-            last_seen TIMESTAMP,
-            user_agent TEXT,
-            ip TEXT,
-            visit_count INT,
-            refresh_interval INT,
-            name TEXT,
-            email TEXT,
-            mode TEXT
-        )
-    """))
-    conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS app_state (
-            key TEXT PRIMARY KEY,
-            value JSONB,
-            updated_at TIMESTAMP DEFAULT NOW()
-        )
-    """))
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS detections (
             id UUID PRIMARY KEY,
@@ -140,7 +103,6 @@ with engine.begin() as conn:
             verified BOOLEAN
         )
     """))
-    # Optional: simple paper trades table if you want to persist positions
     conn.execute(text("""
         CREATE TABLE IF NOT EXISTS paper_trades (
             id UUID PRIMARY KEY,
@@ -154,6 +116,14 @@ with engine.begin() as conn:
         )
     """))
 
+# --- In-memory state ---
+app_state = {
+    "last_scan": {"id": 0, "time": None, "results": []},
+    "alerts": [],
+    "paper_trades": [],  # in-memory feed from PaperTrader if available
+    "last_signal": None
+}
+
 # --- Helpers ---
 def is_valid_uuid(val):
     try:
@@ -161,76 +131,6 @@ def is_valid_uuid(val):
         return True
     except ValueError:
         return False
-
-def ensure_user_exists_sql(conn, user_id, email=None):
-    # public.users (FK anchor)
-    conn.execute(
-        text("""INSERT INTO public.users (id) VALUES (:id) ON CONFLICT (id) DO NOTHING"""),
-        {"id": user_id}
-    )
-    # auth.users (optional, helpful for profiles)
-    if email:
-        conn.execute(
-            text("""INSERT INTO auth.users (id, email) VALUES (:id, :email) ON CONFLICT (id) DO NOTHING"""),
-            {"id": user_id, "email": email}
-        )
-
-
-def track_visit(req) -> str:
-    visitor_id = req.cookies.get("visitor_id")
-    user_agent = req.headers.get("User-Agent", "")
-    ip_addr = req.remote_addr
-    refresh_interval = TXConfig.DEFAULT_USER_REFRESH
-
-    with engine.begin() as conn:
-        if not visitor_id:
-            visitor_id = str(uuid.uuid4())
-            # Insert into public.users first (FK anchor)
-            conn.execute(
-                text("INSERT INTO public.users (id) VALUES (:id) ON CONFLICT (id) DO NOTHING"),
-                {"id": visitor_id}
-            )
-            # Now insert into visitors
-            conn.execute(
-                text("""
-                    INSERT INTO public.visitors (id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval)
-                    VALUES (:id, NOW(), NOW(), :ua, :ip, :count, :refresh)
-                    ON CONFLICT (id) DO NOTHING
-                """),
-                {"id": visitor_id, "ua": user_agent, "ip": ip_addr, "count": 1, "refresh": refresh_interval}
-            )
-        else:
-            row = conn.execute(
-                text("SELECT 1 FROM public.visitors WHERE id = :id"),
-                {"id": visitor_id}
-            ).fetchone()
-
-            if row:
-                conn.execute(
-                    text("""
-                        UPDATE public.visitors
-                        SET last_seen = NOW(), visit_count = visit_count + 1
-                        WHERE id = :id
-                    """),
-                    {"id": visitor_id}
-                )
-            else:
-                # Ensure FK anchor exists
-                conn.execute(
-                    text("INSERT INTO public.users (id) VALUES (:id) ON CONFLICT (id) DO NOTHING"),
-                    {"id": visitor_id}
-                )
-                conn.execute(
-                    text("""
-                        INSERT INTO public.visitors (id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval)
-                        VALUES (:id, NOW(), NOW(), :ua, :ip, :count, :refresh)
-                    """),
-                    {"id": visitor_id, "ua": user_agent, "ip": ip_addr, "count": 1, "refresh": refresh_interval}
-                )
-
-    return visitor_id
-
-
 
 def log_detection(symbol, pattern, confidence, price):
     detection_id = str(uuid.uuid4())
@@ -245,7 +145,7 @@ def log_detection(symbol, pattern, confidence, price):
         )
     return detection_id
 
-# --- Cache ---
+# --- Cache for candles ---
 class DataCache:
     @staticmethod
     def load_cache():
@@ -476,7 +376,6 @@ class TXEngine:
                     if r.get("status") == "pattern" and current.get("status") != "pattern":
                         consolidated[s] = r
 
-            # Persist last_scan in memory
             scan_payload = {
                 "id": self.scan_id,
                 "time": scan_time,
@@ -485,7 +384,7 @@ class TXEngine:
             app_state["last_scan"] = scan_payload
             return scan_payload
 
-# --- Background scanner (start once) ---
+# --- Background scanner ---
 SCANNER_STARTED = False
 SCANNER_THREAD = None
 
@@ -523,7 +422,6 @@ def start_background_scanner():
     SCANNER_STARTED = True
     print("✅ Background scan thread started")
 
-# Start on import and guard on each request
 start_background_scanner()
 
 @app.before_request
@@ -531,10 +429,44 @@ def _ensure_scanner():
     start_background_scanner()
 
 # =========================================================
-# API routes (frontend-aligned)
+# Minimal UI
+# =========================================================
+@app.route("/")
+def index():
+    # No visitor tracking, no DB writes — just a simple status page
+    html = f"""
+    <!doctype html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>TX Beta</title>
+        <style>
+          body {{ font-family: Inter, system-ui, Arial, sans-serif; margin: 40px; color: #111; }}
+          .ok {{ color: #2ecc71; font-size: 24px; }}
+          .box {{ margin-top: 16px; padding: 12px 16px; border: 1px solid #eee; border-radius: 8px; }}
+          code {{ background: #f6f8fa; padding: 2px 6px; border-radius: 4px; }}
+        </style>
+      </head>
+      <body>
+        <div class="ok">✅ TX Beta is running</div>
+        <div class="box">
+          <div>Time: <code>{datetime.utcnow().isoformat()}</code></div>
+          <div>Scan loop: <code>enabled</code></div>
+          <div>Profile/visitor writes: <code>disabled</code></div>
+          <div>Auth: <code>Supabase Service Role</code></div>
+        </div>
+      </body>
+    </html>
+    """
+    resp = make_response(html, 200)
+    resp.headers["Content-Type"] = "text/html; charset=utf-8"
+    return resp
+
+# =========================================================
+# Frontend-aligned API
 # =========================================================
 
-# --- Core Detection & Alerts ---
+# Core Detection & Alerts
 @app.route("/api/get_active_alerts", methods=["GET"])
 def api_get_active_alerts():
     return jsonify({"alerts": app_state.get("alerts", [])})
@@ -563,14 +495,8 @@ def api_handle_alert_response():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# Alias expected by frontend
 @app.route("/api/get_latest_detection_id", methods=["GET"])
-def get_latest_detection_id_alias():
-    return get_latest_detection_id()
-
-# Already implemented core
-@app.route("/api/detections/latest", methods=["GET", "POST"])
-def get_latest_detection_id():
+def api_get_latest_detection_id():
     try:
         with engine.begin() as conn:
             row = conn.execute(
@@ -581,12 +507,9 @@ def get_latest_detection_id():
                     LIMIT 1
                 """)
             ).fetchone()
-        detection_id = row[0] if row else None
-        resp = make_response(jsonify({"detection_id": detection_id}), 200)
-        resp.headers["Cache-Control"] = "no-store"
-        return resp
+        return jsonify({"detection_id": row[0] if row else None}), 200
     except Exception:
-        app.logger.exception("Failed to get latest detection id")
+        app.logger.exception("get_latest_detection_id failed")
         return jsonify({"error": "internal_error"}), 500
 
 @app.route("/api/log_outcome", methods=["POST"])
@@ -597,7 +520,6 @@ def api_log_outcome():
         outcome = data.get("outcome")
         if not det_id or not outcome:
             return jsonify({"status": "error", "message": "missing fields"}), 400
-
         with engine.begin() as conn:
             result = conn.execute(
                 text("""
@@ -607,26 +529,22 @@ def api_log_outcome():
                 """),
                 {"outcome": outcome, "id": det_id}
             )
-
         if result.rowcount > 0:
             return jsonify({"status": "ok"})
         else:
             return jsonify({"status": "error", "message": "detection_not_found"}), 404
     except Exception:
-        app.logger.exception("Failed to update detection outcome")
+        app.logger.exception("log_outcome failed")
         return jsonify({"status": "error", "message": "internal_error"}), 500
 
-# --- Paper Trading ---
+# Paper Trading
 @app.route("/api/paper-trades", methods=["GET"])
 def api_get_paper_trades():
     try:
-        # Prefer in-memory trader if available
         tx_engine = TXEngine()
         if hasattr(tx_engine, 'trader') and tx_engine.trader and hasattr(tx_engine.trader, "get_positions"):
-            positions = tx_engine.trader.get_positions()
-            return jsonify({"positions": positions}), 200
-
-        # Optional: pull from DB if you persist positions
+            return jsonify({"positions": tx_engine.trader.get_positions()}), 200
+        # Optional: also return persisted paper_trades
         with engine.begin() as conn:
             rows = conn.execute(text("""
                 SELECT id, user_id, symbol, side, qty, price, opened_at, closed_at
@@ -642,19 +560,13 @@ def api_get_paper_trades():
 def api_place_paper_trade():
     try:
         data = request.get_json(force=True) or {}
-        user_id = data.get("user_id")
+        user_id = data.get("user_id")  # optional; trusted as-is in beta
         symbol = data.get("symbol")
-        side = data.get("side", "buy").lower()
+        side = (data.get("side") or "buy").lower()
         qty = data.get("qty", 1)
+        if not symbol:
+            return jsonify({"status": "error", "message": "missing symbol"}), 400
 
-        if not user_id or not is_valid_uuid(user_id) or not symbol:
-            return jsonify({"status": "error", "message": "missing or invalid fields"}), 400
-
-        # FK-safe user anchor if you persist to DB later
-        with engine.begin() as conn:
-            ensure_user_exists_sql(conn, user_id, None)
-
-        # Prefer trader if available
         tx_engine = TXEngine()
         if hasattr(tx_engine, "trader") and tx_engine.trader:
             price = tx_engine.get_market_price(symbol)
@@ -664,10 +576,17 @@ def api_place_paper_trade():
                 trade = tx_engine.trader.buy(symbol, price, "manual", 1.0, amount_usd=None, qty=qty)
             else:
                 trade = tx_engine.trader.sell(symbol, price, "manual", 1.0, qty=qty)
+            app_state["paper_trades"].insert(0, trade)
             return jsonify({"status": "ok", "trade": trade}), 200
 
-        # Stub fallback
-        return jsonify({"status": "ok", "trade": {"symbol": symbol, "side": side, "qty": qty}}), 200
+        # Persist minimally if trader not present (optional)
+        with engine.begin() as conn:
+            tid = str(uuid.uuid4())
+            conn.execute(text("""
+                INSERT INTO paper_trades (id, user_id, symbol, side, qty, price)
+                VALUES (:id, :user_id, :symbol, :side, :qty, 0)
+            """), {"id": tid, "user_id": user_id, "symbol": symbol, "side": side, "qty": qty})
+        return jsonify({"status": "ok", "trade": {"id": tid, "symbol": symbol, "side": side, "qty": qty}}), 200
     except Exception as e:
         app.logger.exception("paper-trades POST failed")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -676,10 +595,9 @@ def api_place_paper_trade():
 def api_close_position():
     try:
         data = request.get_json(force=True) or {}
-        user_id = data.get("user_id")
         symbol = data.get("symbol")
-        if not user_id or not is_valid_uuid(user_id) or not symbol:
-            return jsonify({"status": "error", "message": "missing fields"}), 400
+        if not symbol:
+            return jsonify({"status": "error", "message": "missing symbol"}), 400
 
         tx_engine = TXEngine()
         if hasattr(tx_engine, "trader") and tx_engine.trader:
@@ -689,6 +607,7 @@ def api_close_position():
             result = tx_engine.trader.close(symbol, price)
             return jsonify({"status": "ok", "result": result}), 200
 
+        # Stub fallback
         return jsonify({"status": "ok", "result": "closed"}), 200
     except Exception as e:
         app.logger.exception("close-position failed")
@@ -697,18 +616,17 @@ def api_close_position():
 @app.route("/api/trading-stats", methods=["GET"])
 def api_trading_stats():
     try:
-        # If trader exists, ask it for stats; else compute basic stats from paper_trades
         tx_engine = TXEngine()
         if hasattr(tx_engine, "trader") and tx_engine.trader and hasattr(tx_engine.trader, "get_stats"):
             stats = tx_engine.trader.get_stats()
             return jsonify({"stats": stats}), 200
 
+        # Minimal aggregate from persisted paper_trades
         with engine.begin() as conn:
             rows = conn.execute(text("""
                 SELECT symbol, side, qty, price, opened_at, closed_at
                 FROM paper_trades
             """)).mappings().all()
-        # Minimal stub stats
         stats = {
             "total_trades": len(rows),
             "open_positions": sum(1 for r in rows if r["closed_at"] is None)
@@ -718,7 +636,7 @@ def api_trading_stats():
         app.logger.exception("trading-stats failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# --- Detection Logs & Analytics ---
+# Detection Logs & Analytics
 @app.route("/api/detection_stats", methods=["GET"])
 def api_detection_stats():
     try:
@@ -761,117 +679,24 @@ def api_export_detection_logs():
         app.logger.exception("export_detection_logs failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# Frontend expects /api/detection_logs; map it to your existing logs
 @app.route("/api/detection_logs", methods=["GET"])
-def api_detection_logs_alias():
-    return api_logs_detections()
-
-@app.route("/api/logs/detections", methods=["GET", "POST"])
-def api_logs_detections():
+def api_detection_logs():
     try:
         with engine.begin() as conn:
             rows = conn.execute(
                 text("SELECT * FROM detections ORDER BY timestamp DESC NULLS LAST LIMIT 1000")
             ).mappings().all()
-        return jsonify({"detections": [dict(r) for r in rows]})
+        return jsonify({"logs": [dict(r) for r in rows]})
     except Exception as e:
-        app.logger.exception("Failed to fetch detection logs")
+        app.logger.exception("detection_logs failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route("/api/logs/trades", methods=["GET", "POST"])
-def api_logs_trades():
-    try:
-        tx_engine = TXEngine()
-        if hasattr(tx_engine, 'trader') and tx_engine.trader:
-            return jsonify({"trades": tx_engine.trader.get_trade_log()})
-        return jsonify({"trades": []})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-# --- User Profile ---
-@app.route("/api/profile", methods=["GET"])
-def get_profile():
-    visitor_id = request.cookies.get("visitor_id")
-    if not visitor_id:
-        return jsonify({"error": "No visitor_id cookie"}), 401
-    try:
-        with engine.begin() as conn:
-            row = conn.execute(
-                text("""
-                    SELECT id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval, name, email, mode
-                    FROM visitors
-                    WHERE id = :id
-                """),
-                {"id": visitor_id}
-            ).mappings().fetchone()
-
-        if not row:
-            return jsonify({"error": "Profile not found"}), 404
-
-        return jsonify(dict(row))
-    except Exception as e:
-        return jsonify({"error": "Server error", "details": str(e)}), 500
-
+# User Profile — disabled in beta (no DB writes)
 @app.route("/api/save-profile", methods=["POST"])
-def api_save_profile():
-    try:
-        data = request.get_json(force=True) or {}
-        required = ["id", "name", "email", "mode"]
-        missing = [k for k in required if not data.get(k)]
-        if missing:
-            return jsonify({"status": "error", "message": f"Missing: {', '.join(missing)}"}), 400
+def api_save_profile_disabled():
+    return jsonify({"status": "ok", "note": "Profile saving disabled in beta — Supabase Auth handles users."}), 200
 
-        user_id = str(data["id"]).strip()
-        name = str(data["name"]).strip()
-        email = str(data["email"]).strip().lower()
-        mode_value = str(data["mode"]).strip().lower()
-
-        if not is_valid_uuid(user_id):
-            return jsonify({"status": "error", "message": "Invalid user ID format"}), 400
-        if mode_value not in ("demo", "live"):
-            return jsonify({"status": "error", "message": "Invalid mode. Must be 'demo' or 'live'."}), 400
-
-        username = (data.get("username") or name or (email.split("@")[0] if email else "") or f"user_{user_id[:8]}").strip()
-
-        # Ensure user exists (FK-safe) via SQL (fast, single transaction)
-        with engine.begin() as conn:
-            ensure_user_exists_sql(conn, user_id, email)
-
-        # Save profile via your existing helper (kept intact)
-        profile_result = save_profile(None, user_id, username, name, email, mode_value)
-        app.logger.info("Profile save result: %s", profile_result)
-        if not profile_result or profile_result.get("status") != "ok":
-            return jsonify({"status": "error", "message": profile_result.get("message", "Unknown error")}), 500
-
-        # Seed visitors row if missing (Supabase client OK now that FK anchor exists)
-        visitors_check = supabase.table("visitors").select("id").eq("id", user_id).execute()
-        if not visitors_check.data:
-            supabase.table("visitors").insert({
-                "id": user_id,
-                "ip": request.remote_addr,
-                "name": name,
-                "email": email,
-                "mode": mode_value
-            }).execute()
-
-        # Seed portfolio if empty
-        portfolio_check = supabase.table("portfolio").select("id").eq("user_id", user_id).execute()
-        if not portfolio_check.data:
-            supabase.table("portfolio").insert({
-                "user_id": user_id,
-                "asset": "bitcoin",
-                "quantity": 10,
-                "avg_price": 150.00
-            }).execute()
-
-        return jsonify({"status": "ok"}), 200
-
-    except Exception as e:
-        app.logger.error("ERROR in /api/save-profile: %s", e)
-        app.logger.error(traceback.format_exc())
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-# --- Market data ---
+# Market Data
 @app.route("/api/candles", methods=["GET"])
 def api_get_candles():
     try:
@@ -880,7 +705,6 @@ def api_get_candles():
         if not symbol:
             return jsonify({"status": "error", "message": "missing symbol"}), 400
 
-        # Prefer cache/router
         candles = DataCache.get_cached(symbol)
         if (not candles) and DataRouter is not None:
             try:
@@ -896,115 +720,12 @@ def api_get_candles():
         app.logger.exception("candles failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# --- Settings / refresh ---
-@app.route("/api/set-refresh", methods=["POST"])
-def api_set_refresh():
-    try:
-        try:
-            secs = int((request.json or {}).get("seconds", TXConfig.DEFAULT_USER_REFRESH))
-        except (ValueError, TypeError):
-            secs = TXConfig.DEFAULT_USER_REFRESH
-        secs = max(5, min(3600, secs))
-
-        visitor_id = request.cookies.get("visitor_id") or str(uuid.uuid4())
-        now_iso = datetime.now(timezone.utc).isoformat()
-
-        with engine.begin() as conn:
-            # FK-safe anchor
-            ensure_user_exists_sql(conn, visitor_id, None)
-            conn.execute(
-                text("""
-                    INSERT INTO visitors (id, refresh_interval, last_seen)
-                    VALUES (:id, :refresh_interval, :last_seen)
-                    ON CONFLICT (id)
-                    DO UPDATE SET
-                        refresh_interval = EXCLUDED.refresh_interval,
-                        last_seen = EXCLUDED.last_seen
-                """),
-                {"id": visitor_id, "refresh_interval": secs, "last_seen": now_iso}
-            )
-
-        resp = make_response(jsonify({"status": "ok", "refresh_seconds": secs}), 200)
-        resp.set_cookie("visitor_id", visitor_id,
-                        max_age=60 * 60 * 24 * 30, httponly=True, secure=True, samesite="Lax")
-        return resp
-    except Exception:
-        app.logger.exception("Failed to set refresh interval")
-        return jsonify({"error": "internal_error"}), 500
-
-# --- Misc utility endpoints you already have ---
-@app.route("/api/submit-feedback", methods=["POST"])
-def api_submit_feedback():
-    data = request.json or {}
-    feedback = data.get("feedback")
-    who = data.get("account_details", "Anonymous")
-    if not feedback:
-        return jsonify({"status": "error", "message": "missing feedback"}), 400
-
-    slack_url = os.getenv("SLACK_WEBHOOK_URL")
-    if slack_url:
-        try:
-            import requests
-            payload = {"text": f"TX FEEDBACK from {who}:\n{feedback}"}
-            r = requests.post(slack_url, json=payload, timeout=5)
-            if r.status_code == 200:
-                return jsonify({"status": "ok"})
-            return jsonify({"status": "error", "message": "slack_failed"}), 500
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
-    else:
-        try:
-            with open("feedback_log.jsonl", "a") as f:
-                f.write(json.dumps({"who": who, "feedback": feedback,
-                                    "ts": datetime.now(timezone.utc).isoformat()}) + "\n")
-            return jsonify({"status": "ok", "note": "stored_locally"})
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route("/api/backup", methods=["POST"])
-def api_backup():
-    try:
-        token = os.getenv("TOKEN")
-        repo = os.getenv("BACKUP_REPO")
-        if not token or not repo:
-            return jsonify({"status": "error", "message": "Backup not configured"}), 400
-
-        with engine.begin() as conn:
-            visitors_rows = conn.execute(text("SELECT * FROM visitors")).mappings().all()
-            detections_rows = conn.execute(text("SELECT * FROM detections")).mappings().all()
-
-        visitors = [dict(r) for r in visitors_rows]
-        detections = [dict(r) for r in detections_rows]
-
-        ts = datetime.now(timezone.utc).isoformat()
-        snapshot = {"visitors": visitors, "detections": detections, "timestamp": ts}
-        with open("tx_backup.json", "w", encoding="utf-8") as f:
-            json.dump(snapshot, f, default=str, ensure_ascii=False, indent=2)
-
-        subprocess.run(["git", "add", "tx_backup.json"], check=True)
-        subprocess.run(["git", "commit", "-m", f"backup: {ts}"], check=True)
-        subprocess.run(["git", "push", f"https://{token}@github.com/{repo}.git", "HEAD:main"], check=True)
-
-        return jsonify({"status": "ok"})
-    except subprocess.CalledProcessError:
-        app.logger.exception("Git backup command failed")
-        return jsonify({"status": "error", "message": "internal_error"}), 500
-    except Exception:
-        app.logger.exception("Backup failed")
-        return jsonify({"status": "error", "message": "internal_error"}), 500
-
+# Health
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "time": datetime.utcnow().isoformat()})
 
-# --- SPA serving ---
-@app.route("/")
-def index():
-    visitor_id = track_visit(request)
-    resp = make_response(send_from_directory(app.static_folder, "index.html"))
-    resp.set_cookie("visitor_id", visitor_id, max_age=60*60*24*30, httponly=True, secure=True, samesite="Lax")
-    return resp
-
+# --- SPA static passthrough (optional; no visitor tracking) ---
 @app.route("/<path:path>", methods=["GET", "POST"])
 def serve_spa(path):
     full_path = os.path.join(app.static_folder, path)
@@ -1014,7 +735,7 @@ def serve_spa(path):
         return jsonify({"error": "Not found"}), 404
     return send_from_directory(app.static_folder, "index.html")
 
-# --- Route listing once at first request ---
+# --- Route listing once ---
 _routes_logged = False
 @app.before_request
 def _log_routes_once():
