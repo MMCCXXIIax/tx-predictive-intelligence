@@ -48,17 +48,7 @@ load_dotenv()
 app = Flask(__name__, static_folder="client/dist", static_url_path="")
 
 # --- CORS (explicit) ---
-CORS(app, resources={
-    r"/api/*": {
-        "origins": [
-            "https://tx-tradingx.onrender.com",
-            "https://tx-predictive-intelligence.onrender.com",
-            "http://localhost:3000"
-        ],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "supports_credentials": True
-    }
-})
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
 # --- Configuration ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
