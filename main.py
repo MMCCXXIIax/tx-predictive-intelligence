@@ -175,6 +175,8 @@ def ensure_user_exists_sql(conn, user_id, email=None):
             {"id": user_id, "email": email}
         )
 
+
+
 def track_visit(req) -> str:
     visitor_id = req.cookies.get("visitor_id")
     user_agent = req.headers.get("User-Agent", "")
@@ -184,8 +186,12 @@ def track_visit(req) -> str:
     with engine.begin() as conn:
         if not visitor_id:
             visitor_id = str(uuid.uuid4())
-            # FK-safe: ensure user exists before inserting into visitors
-            ensure_user_exists_sql(conn, visitor_id, None)
+            # Insert into public.users first (FK anchor)
+            conn.execute(
+                text("INSERT INTO public.users (id) VALUES (:id) ON CONFLICT (id) DO NOTHING"),
+                {"id": visitor_id}
+            )
+            # Now insert into visitors
             conn.execute(
                 text("""
                     INSERT INTO visitors (id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval)
@@ -210,8 +216,11 @@ def track_visit(req) -> str:
                     {"id": visitor_id}
                 )
             else:
-                # FK-safe on recreate
-                ensure_user_exists_sql(conn, visitor_id, None)
+                # Ensure FK anchor exists
+                conn.execute(
+                    text("INSERT INTO public.users (id) VALUES (:id) ON CONFLICT (id) DO NOTHING"),
+                    {"id": visitor_id}
+                )
                 conn.execute(
                     text("""
                         INSERT INTO visitors (id, first_seen, last_seen, user_agent, ip, visit_count, refresh_interval)
@@ -221,6 +230,8 @@ def track_visit(req) -> str:
                 )
 
     return visitor_id
+
+
 
 def log_detection(symbol, pattern, confidence, price):
     detection_id = str(uuid.uuid4())
