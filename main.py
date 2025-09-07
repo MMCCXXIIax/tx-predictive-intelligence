@@ -165,7 +165,7 @@ class DataCache:
         if data.get("timestamp"):
             try:
                 cache_time = datetime.strptime(data["timestamp"], '%Y-%m-%d %H:%M:%S')
-                if datetime.now(timezone.utc) - cache_time < timedelta(seconds=TXConfig.CACHE_DURATION):
+                if datetime.now(timezone.utc).isoformat() - cache_time < timedelta(seconds=TXConfig.CACHE_DURATION):
                     return data.get("candles", [])
             except Exception:
                 return data.get("candles", [])
@@ -176,7 +176,7 @@ class DataCache:
         cache = DataCache.load_cache()
         cache[symbol] = {
             "candles": candles,
-            "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+            "timestamp": datetime.now(timezone.utc).isoformat().strftime('%Y-%m-%d %H:%M:%S')
         }
         DataCache.save_cache(cache)
 
@@ -193,7 +193,7 @@ class AlertSystem:
         pattern_name = detection.get("name") or detection.get("pattern") or "Unknown"
         explanation = detection.get("explanation", "")
         action = detection.get("action", "Validate before trading.")
-        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.now(timezone.utc).isoformat().strftime('%Y-%m-%d %H:%M:%S')
 
         alert = {
             "symbol": symbol,
@@ -270,7 +270,7 @@ class TXEngine:
     def run_scan(self):
         with self.lock:
             self.scan_id += 1
-            scan_time = datetime.now(timezone.utc).strftime('%H:%M:%S')
+            scan_time = datetime.now(timezone.utc).isoformat().strftime('%H:%M:%S')
             results = []
 
             for symbol in TXConfig.ASSET_TYPES.keys():
@@ -443,7 +443,7 @@ def index():
       <body>
         <div class="ok">✅ TX Beta is running</div>
         <div class="box">
-          <div>Time: <code>{datetime.utcnow().isoformat()}</code></div>
+          <div>Time: <code>{datetime.now(timezone.utc).isoformat()}</code></div>
           <div>Scan loop: <code>enabled</code></div>
           <div>Profile/visitor writes: <code>disabled</code></div>
           <div>Auth: <code>Supabase Service Role</code></div>
@@ -716,7 +716,7 @@ def api_get_candles():
 # Health
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "time": datetime.utcnow().isoformat()})
+    return jsonify({"status": "ok", "time": datetime.now(timezone.utc).isoformat()})
 
 # --- SPA static passthrough (optional; no visitor tracking) ---
 @app.route("/<path:path>", methods=["GET", "POST"])
