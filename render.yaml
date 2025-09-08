@@ -1,12 +1,21 @@
 services:
 - type: web
-  name: tx-copilot-bot
+  name: tx-backend
   env: python
-  plan: free
+  plan: starter
   buildCommand: |
     pip install -r requirements.txt
   startCommand: |
-    gunicorn --worker-class gevent --bind 0.0.0.0:$PORT wsgi:app
+    python main.py
+  healthCheckPath: /api/status
   envVars:
     - key: PORT
-      value: 8080
+      value: 5000
+    - key: FLASK_ENV
+      value: production
+    - key: BACKEND_SCAN_INTERVAL
+      value: 120
+    - key: ALERT_CONFIDENCE_THRESHOLD
+      value: 0.85
+    - key: ENABLE_PAPER_TRADING
+      value: true

@@ -85,7 +85,7 @@ app = Flask(__name__, static_folder="static", static_url_path="")
 # --- SocketIO for real-time alerts ---
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# --- CORS (fixed to include all routes) ---
+# --- CORS (production ready - allow all origins) ---
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
 
 # --- Configuration ---
