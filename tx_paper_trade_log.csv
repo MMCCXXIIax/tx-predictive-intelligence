@@ -2871,3 +2871,5 @@ Timestamp,Symbol,Action,Pattern,Confidence,Price,Amount,Balance
 2025-09-08 07:30:02,ethereum,BUY,Marubozu,0.9,4292.83,0.01164733,50.0,,buy,99600.0
 2025-09-08 07:32:02,ethereum,BUY,Marubozu,0.9,4292.83,0.01164733,50.0,,buy,99550.0
 2025-09-08 07:32:34,ethereum,BUY,Marubozu,0.9,4292.83,0.01164733,50.0,,buy,99950.0
+2025-09-08 07:34:34,ethereum,BUY,Marubozu,0.9,4292.83,0.01164733,50.0,,buy,99900.0
+2025-09-08 07:36:34,ethereum,BUY,Marubozu,0.9,4292.83,0.01164733,50.0,,buy,99850.0
