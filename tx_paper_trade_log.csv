@@ -2811,3 +2811,4 @@ Timestamp,Symbol,Action,Pattern,Confidence,Price,Amount,Balance
 2025-09-08 00:43:16,solana,BUY,Marubozu,0.9,206.52,0.2421073,50.0,,buy,99900.0
 2025-09-08 00:49:35,solana,BUY,Marubozu,0.9,206.52,0.2421073,50.0,,buy,99950.0
 2025-09-08 00:51:35,solana,BUY,Marubozu,0.9,206.52,0.2421073,50.0,,buy,99900.0
+2025-09-08 01:46:48,bitcoin,BUY,Marubozu,0.9,110864.0,0.000451,50.0,,buy,99950.0
