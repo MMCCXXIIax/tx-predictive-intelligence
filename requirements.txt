@@ -8,3 +8,13 @@ waitress
 SQLAlchemy>=2.0.0
 psycopg2>=2.9.0
 supabase
+flask
+flask-cors
+gunicorn
+psycopg2-binary
+python-dotenv
+requests
+sqlalchemy
+supabase
+waitress
+werkzeug

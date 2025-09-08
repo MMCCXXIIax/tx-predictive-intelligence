@@ -5,7 +5,7 @@ audio = true
 
 [nix]
 channel = "stable-24_05"
-packages = ["libev"]
+packages = ["libev", "openssl", "postgresql"]
 
 [unitTest]
 language = "python3"
@@ -44,3 +44,6 @@ externalPort = 80
 [[ports]]
 localPort = 10000
 externalPort = 9000
+
+[agent]
+expertMode = true
