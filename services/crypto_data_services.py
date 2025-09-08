@@ -1,11 +1,9 @@
-# services/crypto_data_services.py
-
 import requests
 import time
 import threading
 
 class CryptoDataService:
-    def __init__(self, symbols, refresh_interval=30, candle_limit=100):
+    def __init__(self, symbols, refresh_interval=180, candle_limit=100):
         self.symbols = symbols
         self.refresh_interval = refresh_interval
         self.candle_limit = candle_limit
@@ -13,8 +11,12 @@ class CryptoDataService:
         self.running = True
 
         for symbol in symbols:
-            threading.Thread(target=self._update_data, args=(symbol,), daemon=True).start()
-            time.sleep(0.2)
+            threading.Thread(
+                target=self._update_data,
+                args=(symbol,),
+                daemon=True
+            ).start()
+            time.sleep(0.2)  # stagger thread starts slightly
 
     def _update_data(self, symbol):
         url = f"https://api.coingecko.com/api/v3/coins/{symbol}/ohlc?vs_currency=usd&days=1"
@@ -31,6 +33,8 @@ class CryptoDataService:
                         "close": item[4]
                     } for item in raw[-self.candle_limit:]]
                     self.candles[symbol] = formatted
+                else:
+                    print(f"⚠️ {symbol}: {response.status_code} from CoinGecko")
             except Exception as e:
                 print(f"⚠️ Error fetching {symbol} (crypto): {e}")
             time.sleep(self.refresh_interval)
