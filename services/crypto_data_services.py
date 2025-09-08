@@ -1,7 +1,6 @@
 import requests
 import time
 import threading
-
 class CryptoDataService:
     def __init__(self, symbols, refresh_interval=180, candle_limit=100):
         self.symbols = symbols

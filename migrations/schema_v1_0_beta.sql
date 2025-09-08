@@ -1,99 +1,184 @@
--- ========================
--- DROP TABLES IF THEY EXIST
--- ========================
-DROP TABLE IF EXISTS public.visitors CASCADE;
-DROP TABLE IF EXISTS public.detections CASCADE;
-DROP TABLE IF EXISTS public.app_state CASCADE;
-DROP TABLE IF EXISTS public.error_logs CASCADE;
+-- 0) Enable pgcrypto for digest()
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS citext WITH SCHEMA public;
 
--- ========================
--- CREATE TABLES
--- ========================
+-- 1) PROFILES: Remove any existing policy and recreate
+DROP POLICY IF EXISTS "service_all_profiles" ON public.profiles;
+DROP POLICY IF EXISTS "service_role_manage_profiles" ON public.profiles;
 
--- 1. visitors: linked to Supabase Auth users
-CREATE TABLE public.visitors (
-  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  first_seen timestamptz NOT NULL DEFAULT now(),
-  last_seen timestamptz NOT NULL DEFAULT now(),
-  user_agent text,
-  ip text,
-  visit_count int NOT NULL DEFAULT 1,
-  refresh_interval int NOT NULL DEFAULT 120,
-  name text,
-  email text,
-  mode text CHECK (mode IN ('demo', 'live'))
-);
+CREATE POLICY "service_role_manage_profiles"
+  ON public.profiles
+  FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
 
-CREATE INDEX idx_visitors_last_seen ON public.visitors (last_seen);
-CREATE INDEX idx_visitors_email ON public.visitors (email);
+-- 2) DETECTIONS: Restrict reads to authenticated users
+DROP POLICY IF EXISTS "Allow all select" ON public.detections;
+DROP POLICY IF EXISTS "Authenticated can view detections" ON public.detections;
 
--- 2. app_state: to persist last_scan etc.
-CREATE TABLE public.app_state (
-  key text PRIMARY KEY,
-  value jsonb NOT NULL DEFAULT '{}'::jsonb,
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
+CREATE POLICY "Authenticated can view detections"
+  ON public.detections
+  FOR SELECT
+  USING (auth.uid() IS NOT NULL);
 
--- 3. detections: pattern hits and outcomes
-CREATE TABLE public.detections (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  timestamp timestamptz NOT NULL DEFAULT now(),
-  symbol text NOT NULL,
-  pattern text NOT NULL,
-  confidence double precision,
-  price numeric(18,8),
-  outcome text,
-  verified boolean NOT NULL DEFAULT false
-);
-
-CREATE INDEX idx_detections_timestamp ON public.detections (timestamp);
-CREATE INDEX idx_detections_symbol_time ON public.detections (symbol, timestamp DESC);
-
--- 4. error_logs: for debug/monitoring
-CREATE TABLE public.error_logs (
-  id bigserial PRIMARY KEY,
-  source text NOT NULL,
-  message text,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE INDEX idx_error_logs_source ON public.error_logs (source);
-CREATE INDEX idx_error_logs_created_at ON public.error_logs (created_at);
-
--- ========================
--- OPTIONAL: SEED DATA
--- ========================
-INSERT INTO public.app_state (key, value)
-VALUES ('last_scan', '{}'::jsonb)
-ON CONFLICT (key) DO NOTHING;
-
--- ========================
--- RLS POLICIES FOR visitors
--- ========================
-ALTER TABLE public.visitors ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow self select" ON public.visitors
-    FOR SELECT USING (auth.uid() = id);
-
-CREATE POLICY "Allow self update" ON public.visitors
-    FOR UPDATE USING (auth.uid() = id);
-
-CREATE POLICY "Allow self insert" ON public.visitors
-    FOR INSERT WITH CHECK (auth.uid() = id);
-
-CREATE POLICY "Allow self delete" ON public.visitors
-    FOR DELETE USING (auth.uid() = id);
-
--- ========================
--- RLS POLICIES FOR detections
--- ========================
-ALTER TABLE public.detections ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow all select" ON public.detections
-    FOR SELECT USING (true);
-
--- ========================
--- RLS POLICIES FOR app_state & error_logs
--- ========================
-ALTER TABLE public.app_state ENABLE ROW LEVEL SECURITY;
+-- 3) ERROR LOGS: Enable RLS, admins can read, service role can insert
 ALTER TABLE public.error_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins can view error logs" ON public.error_logs;
+CREATE POLICY "Admins can view error logs"
+  ON public.error_logs
+  FOR SELECT
+  USING (COALESCE((auth.jwt() ->> 'role'), '') = 'admin');
+
+DROP POLICY IF EXISTS "Service role can insert error logs" ON public.error_logs;
+CREATE POLICY "Service role can insert error logs"
+  ON public.error_logs
+  FOR INSERT
+  WITH CHECK (auth.role() = 'service_role');
+
+-- 4) USERS: Enable RLS, admins can read, service role can manage
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Admins can view users" ON public.users;
+CREATE POLICY "Admins can view users"
+  ON public.users
+  FOR SELECT
+  USING (COALESCE((auth.jwt() ->> 'role'), '') = 'admin');
+
+DROP POLICY IF EXISTS "Service role can manage users" ON public.users;
+CREATE POLICY "Service role can manage users"
+  ON public.users
+  FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+-- 5) SECURITY AUDIT LOG: Allow service role to insert
+DROP POLICY IF EXISTS "Service role can insert audit logs" ON public.security_audit_log;
+CREATE POLICY "Service role can insert audit logs"
+  ON public.security_audit_log
+  FOR INSERT
+  WITH CHECK (auth.role() = 'service_role');
+
+-- 6) VISITORS: Anonymize IP on insert/update
+CREATE OR REPLACE FUNCTION public.hash_ip(ip_address text)
+RETURNS text AS $$
+BEGIN
+  BEGIN
+    PERFORM digest('test', 'sha256');
+    RETURN encode(digest(ip_address || 'salt_for_privacy_protection', 'sha256'), 'hex');
+  EXCEPTION
+    WHEN undefined_function THEN
+      RETURN md5(ip_address || 'salt_for_privacy_protection');
+  END;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION public.visitors_anonymize()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+AS $$
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.ip IS NOT NULL THEN
+      NEW.ip_hash := public.hash_ip(NEW.ip);
+      NEW.ip := NULL;
+    END IF;
+  ELSIF TG_OP = 'UPDATE' THEN
+    IF NEW.ip IS DISTINCT FROM OLD.ip AND NEW.ip IS NOT NULL THEN
+      NEW.ip_hash := public.hash_ip(NEW.ip);
+      NEW.ip := NULL;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS visitors_anonymize_bi ON public.visitors;
+DROP TRIGGER IF EXISTS visitors_anonymize_bu ON public.visitors;
+
+CREATE TRIGGER visitors_anonymize_bi
+  BEFORE INSERT ON public.visitors
+  FOR EACH ROW
+  EXECUTE FUNCTION public.visitors_anonymize();
+
+CREATE TRIGGER visitors_anonymize_bu
+  BEFORE UPDATE ON public.visitors
+  FOR EACH ROW
+  EXECUTE FUNCTION public.visitors_anonymize();
+
+-- 7) PROFILES: Allow 'live' in mode; standardize email to citext
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'profiles_mode_check'
+      AND conrelid = 'public.profiles'::regclass
+  ) THEN
+    ALTER TABLE public.profiles DROP CONSTRAINT profiles_mode_check;
+  END IF;
+END $$;
+
+ALTER TABLE public.profiles
+ADD CONSTRAINT profiles_mode_check
+CHECK (mode IN ('demo', 'live'));
+
+ALTER TABLE public.profiles
+ALTER COLUMN email TYPE citext USING email::text::citext;
+
+-- 8) TEST DATA: Seed into BOTH auth.users and public.users before profiles/visitors
+INSERT INTO auth.users (id, email)
+VALUES ('56047c1b-2f56-4a18-b215-6a19a0dcebda', 'test@example.com')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.users (id)
+VALUES ('56047c1b-2f56-4a18-b215-6a19a0dcebda')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.profiles (id, username, name, email, mode)
+VALUES (
+  '56047c1b-2f56-4a18-b215-6a19a0dcebda',
+  'testuser',
+  'Test User',
+  'test@example.com',
+  'live'
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.visitors (id, ip, name, email, mode)
+VALUES (
+  '56047c1b-2f56-4a18-b215-6a19a0dcebda',
+  '192.168.1.1',
+  'Test User',
+  'test@example.com',
+  'live'
+)
+ON CONFLICT (id) DO NOTHING;
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+
+CREATE OR REPLACE FUNCTION hash_ip(ip_address TEXT)
+RETURNS TEXT AS $$
+BEGIN
+    IF ip_address IS NULL THEN
+        RETURN NULL;
+    END IF;
+    RETURN encode(digest(ip_address || 'salt_for_privacy_protection', 'sha256'), 'hex');
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+CREATE OR REPLACE FUNCTION public.hash_ip(ip_address TEXT)
+RETURNS TEXT AS $$
+BEGIN
+    IF ip_address IS NULL THEN
+        RETURN NULL;
+    END IF;
+    RETURN encode(digest(ip_address || 'salt_for_privacy_protection', 'sha256'), 'hex');
+END;
+$$ LANGUAGE plpgsql IMMUTABLE;
+
+
