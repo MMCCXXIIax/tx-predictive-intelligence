@@ -44,35 +44,35 @@ try:
     from services.strategy_builder import TXStrategyBuilder
 except Exception as e:
     TXStrategyBuilder = None
-    print("⚠️ services.strategy_builder import warning:", e)
+    print("ℹ️ Strategy builder module not available:", e)
 
 try:
     from services.backtesting_engine import backtest_engine, BacktestResult
 except Exception as e:
     backtest_engine = None
     BacktestResult = None
-    print("⚠️ services.backtesting_engine import warning:", e)
+    print("ℹ️ Backtesting engine module not available:", e)
 
 try:
     from services.entry_exit_signals import entry_exit_engine, EntryExitSignal
 except Exception as e:
     entry_exit_engine = None
     EntryExitSignal = None
-    print("⚠️ services.entry_exit_signals import warning:", e)
+    print("ℹ️ Entry/exit signals module not available:", e)
 
 try:
     from services.sentiment_analyzer import sentiment_analyzer, SentimentScore
 except Exception as e:
     sentiment_analyzer = None
     SentimentScore = None
-    print("⚠️ services.sentiment_analyzer import warning:", e)
+    print("ℹ️ Sentiment analyzer module not available:", e)
 
 try:
     from services.alert_explanations import alert_explanation_engine, PatternExplanation
 except Exception as e:
     alert_explanation_engine = None
     PatternExplanation = None
-    print("⚠️ services.alert_explanations import warning:", e)
+    print("ℹ️ Alert explanations module not available:", e)
 
 # Supabase client (v2.x) — service role only (no per-user JWT)
 from supabase import create_client
@@ -1448,10 +1448,10 @@ def api_list_assets():
 
 # --- Serve ---
 if __name__ == "__main__":
-    # Force port 5000 for Replit compatibility
-    port = 5000
+    # Production port configuration - use PORT env var for Render
+    port = int(os.environ.get("PORT", 5000))
     host = "0.0.0.0"
-    print(f"🚀 Starting TX Server with WebSocket support on {host}:{port}")
+    print(f"🚀 Starting TX Production Server with WebSocket support on {host}:{port}")
     
     # Use SocketIO's run method instead of Flask's
     socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)
