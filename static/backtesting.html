@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TX Backtesting Engine - Professional Strategy Testing</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+        
+        .nav-link {
+            color: #3498db;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            transition: background 0.3s;
+        }
+        
+        .nav-link:hover {
+            background: rgba(52, 152, 219, 0.1);
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .backtest-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .card h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 0.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+        
+        .form-input, .form-select {
+            width: 100%;
+            padding: 0.7rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+        
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            border: none;
+            padding: 0.7rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin-right: 0.5rem;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .results-section {
+            display: none;
+        }
+        
+        .results-section.show {
+            display: block;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #74b9ff, #0984e3);
+            color: white;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .trades-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        .trades-table th,
+        .trades-table td {
+            padding: 0.7rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .trades-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+        
+        .trade-profit {
+            color: #2ecc71;
+            font-weight: bold;
+        }
+        
+        .trade-loss {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .pattern-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .pattern-card {
+            background: #f8f9fa;
+            border: 2px solid transparent;
+            padding: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+        
+        .pattern-card:hover {
+            border-color: #3498db;
+            background: rgba(52, 152, 219, 0.1);
+        }
+        
+        .pattern-card.selected {
+            border-color: #2ecc71;
+            background: rgba(46, 204, 113, 0.1);
+        }
+        
+        .pattern-name {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .pattern-success {
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+        
+        @media (max-width: 768px) {
+            .backtest-grid {
+                grid-template-columns: 1fr;
+            }
+            .container {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 TX Backtesting Engine</h1>
+        <div class="nav-links">
+            <a href="/dashboard" class="nav-link">← Dashboard</a>
+            <a href="/strategy-builder.html" class="nav-link">Strategy Builder</a>
+            <a href="/" class="nav-link">Home</a>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="backtest-grid">
+            <!-- Backtest Configuration -->
+            <div class="card">
+                <h3>⚙️ Backtest Configuration</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">Select Patterns to Test</label>
+                    <div class="pattern-selection" id="patternSelection">
+                        <!-- Pattern cards will be populated here -->
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Asset</label>
+                    <select id="backtestSymbol" class="form-select">
+                        <option value="bitcoin">Bitcoin (BTC)</option>
+                        <option value="ethereum">Ethereum (ETH)</option>
+                        <option value="solana">Solana (SOL)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" id="startDate" class="form-input" value="2024-01-01">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">End Date</label>
+                    <input type="date" id="endDate" class="form-input" value="2024-12-31">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Entry Strategy</label>
+                    <select id="entryStrategy" class="form-select">
+                        <option value="immediate">Enter Immediately</option>
+                        <option value="next_candle">Wait for Next Candle</option>
+                        <option value="pullback">Wait for Pullback</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Exit Strategy</label>
+                    <select id="exitStrategy" class="form-select">
+                        <option value="fixed_profit">Fixed Take Profit</option>
+                        <option value="trailing_stop">Trailing Stop</option>
+                        <option value="pattern_reversal">Pattern Reversal</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Stop Loss %</label>
+                    <input type="number" id="stopLoss" class="form-input" value="5" min="1" max="20" step="0.5">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Take Profit %</label>
+                    <input type="number" id="takeProfit" class="form-input" value="10" min="1" max="50" step="0.5">
+                </div>
+                
+                <button class="btn btn-success" onclick="runBacktest()" id="backtestBtn">
+                    🚀 Run Backtest
+                </button>
+            </div>
+            
+            <!-- Quick Templates -->
+            <div class="card">
+                <h3>🎯 Quick Templates</h3>
+                <p style="margin-bottom: 1rem; color: #7f8c8d;">Pre-configured backtesting scenarios</p>
+                
+                <div class="pattern-card" onclick="loadTemplate('aggressive')">
+                    <div class="pattern-name">Aggressive Scalping</div>
+                    <div class="pattern-success">High frequency, quick profits</div>
+                </div>
+                
+                <div class="pattern-card" onclick="loadTemplate('conservative')">
+                    <div class="pattern-name">Conservative Swing</div>
+                    <div class="pattern-success">Lower risk, longer holds</div>
+                </div>
+                
+                <div class="pattern-card" onclick="loadTemplate('reversal')">
+                    <div class="pattern-name">Reversal Hunter</div>
+                    <div class="pattern-success">Focus on trend reversals</div>
+                </div>
+                
+                <div class="pattern-card" onclick="loadTemplate('momentum')">
+                    <div class="pattern-name">Momentum Rider</div>
+                    <div class="pattern-success">Trend continuation plays</div>
+                </div>
+                
+                <h4 style="margin-top: 2rem; margin-bottom: 1rem;">Recent Backtests</h4>
+                <div id="recentBacktests">
+                    <p style="color: #7f8c8d; font-style: italic;">No recent backtests found</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Section -->
+        <div class="results-section" id="resultsSection">
+            <div class="card">
+                <h3>📈 Backtest Results</h3>
+                
+                <!-- Performance Metrics -->
+                <div class="metrics-grid" id="metricsGrid">
+                    <!-- Metrics will be populated here -->
+                </div>
+                
+                <!-- Trade Details -->
+                <h4>Trade Details</h4>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table class="trades-table" id="tradesTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Pattern</th>
+                                <th>Entry</th>
+                                <th>Exit</th>
+                                <th>P&L</th>
+                                <th>Duration</th>
+                                <th>Exit Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tradesTableBody">
+                            <!-- Trades will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const patterns = [
+            { name: 'Marubozu', success: '78%' },
+            { name: 'Hammer', success: '72%' },
+            { name: 'Bullish Engulfing', success: '85%' },
+            { name: 'Bearish Engulfing', success: '84%' },
+            { name: 'Morning Star', success: '89%' },
+            { name: 'Evening Star', success: '87%' },
+            { name: 'Shooting Star', success: '70%' },
+            { name: 'Doji', success: '46%' },
+            { name: 'Piercing Line', success: '75%' },
+            { name: 'Dark Cloud Cover', success: '76%' }
+        ];
+        
+        let selectedPatterns = [];
+        
+        // Initialize patterns
+        function initializePatterns() {
+            const container = document.getElementById('patternSelection');
+            container.innerHTML = patterns.map(pattern => `
+                <div class="pattern-card" onclick="togglePattern('${pattern.name}')">
+                    <div class="pattern-name">${pattern.name}</div>
+                    <div class="pattern-success">${pattern.success} success rate</div>
+                </div>
+            `).join('');
+        }
+        
+        function togglePattern(patternName) {
+            const index = selectedPatterns.indexOf(patternName);
+            if (index === -1) {
+                selectedPatterns.push(patternName);
+            } else {
+                selectedPatterns.splice(index, 1);
+            }
+            
+            updatePatternSelection();
+        }
+        
+        function updatePatternSelection() {
+            const cards = document.querySelectorAll('.pattern-card');
+            cards.forEach(card => {
+                const patternName = card.querySelector('.pattern-name').textContent;
+                if (selectedPatterns.includes(patternName)) {
+                    card.classList.add('selected');
+                } else {
+                    card.classList.remove('selected');
+                }
+            });
+        }
+        
+        function loadTemplate(type) {
+            selectedPatterns = [];
+            
+            switch (type) {
+                case 'aggressive':
+                    selectedPatterns = ['Marubozu', 'Shooting Star'];
+                    document.getElementById('stopLoss').value = 3;
+                    document.getElementById('takeProfit').value = 6;
+                    document.getElementById('entryStrategy').value = 'immediate';
+                    break;
+                case 'conservative':
+                    selectedPatterns = ['Morning Star', 'Evening Star', 'Bullish Engulfing'];
+                    document.getElementById('stopLoss').value = 7;
+                    document.getElementById('takeProfit').value = 15;
+                    document.getElementById('entryStrategy').value = 'next_candle';
+                    break;
+                case 'reversal':
+                    selectedPatterns = ['Hammer', 'Morning Star', 'Evening Star', 'Piercing Line'];
+                    document.getElementById('stopLoss').value = 6;
+                    document.getElementById('takeProfit').value = 12;
+                    break;
+                case 'momentum':
+                    selectedPatterns = ['Marubozu', 'Bullish Engulfing', 'Bearish Engulfing'];
+                    document.getElementById('stopLoss').value = 4;
+                    document.getElementById('takeProfit').value = 8;
+                    break;
+            }
+            
+            updatePatternSelection();
+        }
+        
+        async function runBacktest() {
+            if (selectedPatterns.length === 0) {
+                alert('Please select at least one pattern to backtest');
+                return;
+            }
+            
+            const btn = document.getElementById('backtestBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<div class="spinner"></div>Running Backtest...';
+            btn.disabled = true;
+            
+            try {
+                // Run backtest for each selected pattern
+                const results = [];
+                
+                for (const pattern of selectedPatterns) {
+                    const backtestData = {
+                        pattern: pattern,
+                        symbol: document.getElementById('backtestSymbol').value,
+                        start_date: document.getElementById('startDate').value,
+                        end_date: document.getElementById('endDate').value,
+                        entry_strategy: document.getElementById('entryStrategy').value,
+                        exit_strategy: document.getElementById('exitStrategy').value,
+                        stop_loss_pct: parseFloat(document.getElementById('stopLoss').value),
+                        take_profit_pct: parseFloat(document.getElementById('takeProfit').value)
+                    };
+                    
+                    const response = await fetch('/api/backtest/pattern', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(backtestData)
+                    });
+                    
+                    const result = await response.json();
+                    if (result.status === 'success') {
+                        results.push({
+                            pattern: pattern,
+                            ...result.backtest_result
+                        });
+                    }
+                }
+                
+                displayResults(results);
+                
+            } catch (error) {
+                alert('Backtest failed: ' + error.message);
+                console.error('Backtest error:', error);
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+        
+        function displayResults(results) {
+            const resultsSection = document.getElementById('resultsSection');
+            const metricsGrid = document.getElementById('metricsGrid');
+            const tradesTableBody = document.getElementById('tradesTableBody');
+            
+            if (!results || results.length === 0) {
+                resultsSection.innerHTML = '<div class="loading">No results to display</div>';
+                return;
+            }
+            
+            // Calculate combined metrics
+            const combinedMetrics = combineResults(results);
+            
+            // Display metrics
+            metricsGrid.innerHTML = `
+                <div class="metric-card">
+                    <div class="metric-value">${combinedMetrics.totalTrades}</div>
+                    <div class="metric-label">Total Trades</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${combinedMetrics.winRate.toFixed(1)}%</div>
+                    <div class="metric-label">Win Rate</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">$${combinedMetrics.totalPnL.toFixed(0)}</div>
+                    <div class="metric-label">Total P&L</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${combinedMetrics.profitFactor}</div>
+                    <div class="metric-label">Profit Factor</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">$${combinedMetrics.maxDrawdown.toFixed(0)}</div>
+                    <div class="metric-label">Max Drawdown</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${combinedMetrics.sharpeRatio.toFixed(3)}</div>
+                    <div class="metric-label">Sharpe Ratio</div>
+                </div>
+            `;
+            
+            // Display all trades
+            let allTrades = [];
+            results.forEach(result => {
+                if (result.trades) {
+                    allTrades.push(...result.trades);
+                }
+            });
+            
+            // Sort trades by date
+            allTrades.sort((a, b) => new Date(a.entry_date) - new Date(b.entry_date));
+            
+            tradesTableBody.innerHTML = allTrades.map(trade => `
+                <tr>
+                    <td>${trade.entry_date}</td>
+                    <td>${trade.pattern}</td>
+                    <td>$${trade.entry_price}</td>
+                    <td>$${trade.exit_price}</td>
+                    <td class="${trade.pnl >= 0 ? 'trade-profit' : 'trade-loss'}">
+                        ${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}
+                    </td>
+                    <td>${trade.duration_days} days</td>
+                    <td>${trade.exit_reason}</td>
+                </tr>
+            `).join('');
+            
+            resultsSection.classList.add('show');
+        }
+        
+        function combineResults(results) {
+            let totalTrades = 0;
+            let winningTrades = 0;
+            let totalPnL = 0;
+            let allPnLs = [];
+            let maxDrawdown = 0;
+            
+            results.forEach(result => {
+                const metrics = result.metrics || {};
+                totalTrades += metrics.total_trades || 0;
+                winningTrades += metrics.winning_trades || 0;
+                totalPnL += metrics.total_pnl || 0;
+                maxDrawdown = Math.max(maxDrawdown, metrics.max_drawdown || 0);
+                
+                // Collect individual trade P&Ls for Sharpe ratio
+                if (result.trades) {
+                    result.trades.forEach(trade => {
+                        allPnLs.push(trade.pnl);
+                    });
+                }
+            });
+            
+            const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
+            const profitFactor = results[0]?.metrics?.profit_factor || 'N/A';
+            
+            // Simple Sharpe ratio calculation
+            let sharpeRatio = 0;
+            if (allPnLs.length > 1) {
+                const avgReturn = allPnLs.reduce((a, b) => a + b, 0) / allPnLs.length;
+                const variance = allPnLs.reduce((acc, pnl) => acc + Math.pow(pnl - avgReturn, 2), 0) / allPnLs.length;
+                const stdDev = Math.sqrt(variance);
+                sharpeRatio = stdDev > 0 ? avgReturn / stdDev : 0;
+            }
+            
+            return {
+                totalTrades,
+                winRate,
+                totalPnL,
+                maxDrawdown,
+                profitFactor,
+                sharpeRatio
+            };
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            initializePatterns();
+            
+            // Set default dates
+            const today = new Date();
+            const oneYearAgo = new Date(today.getFullYear() - 1, today.getMonth(), today.getDate());
+            
+            document.getElementById('startDate').value = oneYearAgo.toISOString().split('T')[0];
+            document.getElementById('endDate').value = today.toISOString().split('T')[0];
+        });
+    </script>
+</body>
+</html>

@@ -46,6 +46,27 @@ except Exception as e:
     TXStrategyBuilder = None
     print("⚠️ services.strategy_builder import warning:", e)
 
+try:
+    from services.backtesting_engine import backtest_engine, BacktestResult
+except Exception as e:
+    backtest_engine = None
+    BacktestResult = None
+    print("⚠️ services.backtesting_engine import warning:", e)
+
+try:
+    from services.entry_exit_signals import entry_exit_engine, EntryExitSignal
+except Exception as e:
+    entry_exit_engine = None
+    EntryExitSignal = None
+    print("⚠️ services.entry_exit_signals import warning:", e)
+
+try:
+    from services.sentiment_analyzer import sentiment_analyzer, SentimentScore
+except Exception as e:
+    sentiment_analyzer = None
+    SentimentScore = None
+    print("⚠️ services.sentiment_analyzer import warning:", e)
+
 # Supabase client (v2.x) — service role only (no per-user JWT)
 from supabase import create_client
 
@@ -246,6 +267,9 @@ class TXEngine:
         self.router = DataRouter(TXConfig) if DataRouter is not None else None
         self.trader = PaperTrader() if (PaperTrader is not None and TXConfig.ENABLE_PAPER_TRADING) else None
         self.strategy_builder = TXStrategyBuilder() if TXStrategyBuilder is not None else None
+        self.backtest_engine = backtest_engine
+        self.entry_exit_engine = entry_exit_engine
+        self.sentiment_analyzer = sentiment_analyzer
         self.recent_alerts = {}
         self.lock = threading.Lock()
 
@@ -840,6 +864,328 @@ def api_risk_settings():
             data = request.get_json() or {}
             # Here you would save to database or config file
             return jsonify({"status": "ok", "message": "Risk settings updated"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- Backtesting API Endpoints ---
+@app.route("/api/backtest/pattern", methods=["POST"])
+def api_backtest_pattern():
+    """Run backtest for a specific pattern"""
+    try:
+        data = request.get_json() or {}
+        pattern_name = data.get("pattern", "")
+        symbol = data.get("symbol", "bitcoin")
+        start_date = data.get("start_date", "2024-01-01")
+        end_date = data.get("end_date", "2024-12-31")
+        entry_strategy = data.get("entry_strategy", "immediate")
+        exit_strategy = data.get("exit_strategy", "fixed_profit")
+        stop_loss_pct = data.get("stop_loss_pct", 5.0)
+        take_profit_pct = data.get("take_profit_pct", 10.0)
+        
+        if not pattern_name:
+            return jsonify({"error": "Pattern name is required"}), 400
+        
+        if tx_engine and tx_engine.backtest_engine:
+            result = tx_engine.backtest_engine.run_pattern_backtest(
+                pattern_name, symbol, start_date, end_date,
+                entry_strategy, exit_strategy, stop_loss_pct, take_profit_pct
+            )
+            return jsonify({
+                "status": "success",
+                "backtest_result": result.to_dict()
+            })
+        else:
+            return jsonify({"error": "Backtesting engine not available"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/backtest/strategy", methods=["POST"])
+def api_backtest_strategy():
+    """Run backtest for a complete trading strategy"""
+    try:
+        data = request.get_json() or {}
+        strategy_config = data.get("strategy", {})
+        start_date = data.get("start_date", "2024-01-01")
+        end_date = data.get("end_date", "2024-12-31")
+        
+        if tx_engine and tx_engine.backtest_engine:
+            result = tx_engine.backtest_engine.run_strategy_backtest(
+                strategy_config, start_date, end_date
+            )
+            return jsonify({
+                "status": "success",
+                "backtest_result": result.to_dict()
+            })
+        else:
+            return jsonify({"error": "Backtesting engine not available"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- Entry/Exit Signal API Endpoints ---
+@app.route("/api/signals/entry-exit", methods=["POST"])
+def api_generate_entry_exit_signal():
+    """Generate entry/exit signal for a pattern"""
+    try:
+        data = request.get_json() or {}
+        pattern_name = data.get("pattern", "")
+        symbol = data.get("symbol", "bitcoin")
+        market_data = data.get("market_data", {})
+        confidence = data.get("confidence", 0.5)
+        
+        if not pattern_name:
+            return jsonify({"error": "Pattern name is required"}), 400
+        
+        if tx_engine and tx_engine.entry_exit_engine:
+            signal = tx_engine.entry_exit_engine.generate_signal(
+                pattern_name, symbol, market_data, confidence
+            )
+            return jsonify({
+                "status": "success",
+                "entry_exit_signal": signal.to_dict()
+            })
+        else:
+            return jsonify({"error": "Entry/exit engine not available"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/signals/pattern-analysis/<pattern_name>", methods=["GET"])
+def api_pattern_analysis(pattern_name):
+    """Get detailed analysis for a specific pattern"""
+    try:
+        if tx_engine and tx_engine.entry_exit_engine:
+            analysis = tx_engine.entry_exit_engine.get_pattern_analysis(pattern_name)
+            return jsonify({
+                "status": "success",
+                "pattern_analysis": analysis
+            })
+        else:
+            return jsonify({"error": "Entry/exit engine not available"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- Sentiment Analysis API Endpoints ---
+@app.route("/api/sentiment/<symbol>", methods=["GET"])
+def api_get_sentiment(symbol):
+    """Get sentiment analysis for a symbol"""
+    try:
+        force_refresh = request.args.get("refresh", "false").lower() == "true"
+        
+        if tx_engine and tx_engine.sentiment_analyzer:
+            sentiment_score = tx_engine.sentiment_analyzer.analyze_symbol_sentiment(
+                symbol, force_refresh
+            )
+            return jsonify({
+                "status": "success",
+                "sentiment": sentiment_score.to_dict()
+            })
+        else:
+            return jsonify({"error": "Sentiment analyzer not available"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/sentiment/enhance-confidence", methods=["POST"])
+def api_enhance_pattern_confidence():
+    """Enhance pattern confidence using sentiment analysis"""
+    try:
+        data = request.get_json() or {}
+        pattern_detection = data.get("pattern_detection", {})
+        symbol = data.get("symbol", "")
+        
+        if not symbol or not pattern_detection:
+            return jsonify({"error": "Symbol and pattern_detection are required"}), 400
+        
+        if tx_engine and tx_engine.sentiment_analyzer:
+            sentiment_score = tx_engine.sentiment_analyzer.analyze_symbol_sentiment(symbol)
+            enhanced_confidence = tx_engine.sentiment_analyzer.enhance_pattern_confidence(
+                pattern_detection, sentiment_score
+            )
+            return jsonify({
+                "status": "success",
+                "original_confidence": pattern_detection.get("confidence", 0),
+                "enhanced_confidence": enhanced_confidence,
+                "sentiment_data": sentiment_score.to_dict()
+            })
+        else:
+            return jsonify({"error": "Sentiment analyzer not available"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/sentiment/alert-condition", methods=["POST"])
+def api_sentiment_alert_condition():
+    """Check if sentiment conditions warrant an alert"""
+    try:
+        data = request.get_json() or {}
+        symbol = data.get("symbol", "")
+        pattern_name = data.get("pattern", "")
+        
+        if not symbol or not pattern_name:
+            return jsonify({"error": "Symbol and pattern are required"}), 400
+        
+        if tx_engine and tx_engine.sentiment_analyzer:
+            alert_condition = tx_engine.sentiment_analyzer.get_sentiment_alert_condition(
+                symbol, pattern_name
+            )
+            return jsonify({
+                "status": "success",
+                "alert_condition": alert_condition
+            })
+        else:
+            return jsonify({"error": "Sentiment analyzer not available"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- Enhanced Pattern Detection API ---
+@app.route("/api/detect/enhanced", methods=["POST"])
+def api_enhanced_pattern_detection():
+    """Run pattern detection with sentiment enhancement"""
+    try:
+        data = request.get_json() or {}
+        symbol = data.get("symbol", "bitcoin")
+        
+        # Run regular scan for the symbol
+        if tx_engine:
+            scan_result = tx_engine.run_scan()
+            
+            # Find results for the requested symbol
+            symbol_results = []
+            for result in scan_result.get("results", []):
+                if result.get("symbol") == symbol:
+                    symbol_results.append(result)
+            
+            # Enhance with sentiment and entry/exit signals
+            enhanced_results = []
+            for result in symbol_results:
+                if result.get("status") == "pattern":
+                    pattern_name = result.get("pattern", "")
+                    confidence = result.get("confidence", 0)
+                    price = result.get("price", 0)
+                    
+                    # Generate entry/exit signal
+                    entry_exit_signal = None
+                    if tx_engine.entry_exit_engine:
+                        try:
+                            market_data = {"price": price, "close": price}
+                            entry_exit_signal = tx_engine.entry_exit_engine.generate_signal(
+                                pattern_name, symbol, market_data, confidence
+                            )
+                        except Exception as e:
+                            print(f"Entry/exit signal error: {e}")
+                    
+                    # Enhance with sentiment
+                    enhanced_confidence = confidence
+                    sentiment_data = None
+                    if tx_engine.sentiment_analyzer:
+                        try:
+                            sentiment_score = tx_engine.sentiment_analyzer.analyze_symbol_sentiment(symbol)
+                            enhanced_confidence = tx_engine.sentiment_analyzer.enhance_pattern_confidence(
+                                {"confidence": confidence, "pattern": pattern_name}, sentiment_score
+                            )
+                            sentiment_data = sentiment_score.to_dict()
+                        except Exception as e:
+                            print(f"Sentiment analysis error: {e}")
+                    
+                    enhanced_result = {
+                        **result,
+                        "original_confidence": confidence,
+                        "enhanced_confidence": enhanced_confidence,
+                        "sentiment_data": sentiment_data,
+                        "entry_exit_signal": entry_exit_signal.to_dict() if entry_exit_signal else None
+                    }
+                    enhanced_results.append(enhanced_result)
+                else:
+                    enhanced_results.append(result)
+            
+            return jsonify({
+                "status": "success",
+                "symbol": symbol,
+                "scan_id": scan_result.get("id"),
+                "enhanced_results": enhanced_results
+            })
+        else:
+            return jsonify({"error": "TX engine not available"}), 500
+            
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- Complete Trading Recommendation API ---
+@app.route("/api/recommend/complete", methods=["POST"])
+def api_complete_trading_recommendation():
+    """Get complete trading recommendation including pattern, sentiment, entry/exit"""
+    try:
+        data = request.get_json() or {}
+        symbol = data.get("symbol", "bitcoin")
+        
+        if tx_engine:
+            # Run enhanced detection
+            scan_result = tx_engine.run_scan()
+            
+            recommendations = []
+            for result in scan_result.get("results", []):
+                if result.get("symbol") == symbol and result.get("status") == "pattern":
+                    pattern_name = result.get("pattern", "")
+                    confidence = result.get("confidence", 0)
+                    price = result.get("price", 0)
+                    
+                    recommendation = {
+                        "symbol": symbol,
+                        "pattern": pattern_name,
+                        "current_price": price,
+                        "detection_time": datetime.now(timezone.utc).isoformat(),
+                        "original_confidence": confidence
+                    }
+                    
+                    # Add sentiment analysis
+                    if tx_engine.sentiment_analyzer:
+                        try:
+                            sentiment_score = tx_engine.sentiment_analyzer.analyze_symbol_sentiment(symbol)
+                            enhanced_confidence = tx_engine.sentiment_analyzer.enhance_pattern_confidence(
+                                {"confidence": confidence, "pattern": pattern_name}, sentiment_score
+                            )
+                            recommendation.update({
+                                "enhanced_confidence": enhanced_confidence,
+                                "sentiment": sentiment_score.to_dict()
+                            })
+                        except Exception as e:
+                            print(f"Sentiment error: {e}")
+                    
+                    # Add entry/exit signals
+                    if tx_engine.entry_exit_engine:
+                        try:
+                            market_data = {"price": price, "close": price}
+                            entry_exit_signal = tx_engine.entry_exit_engine.generate_signal(
+                                pattern_name, symbol, market_data, confidence
+                            )
+                            recommendation["trading_plan"] = entry_exit_signal.to_dict()
+                        except Exception as e:
+                            print(f"Entry/exit error: {e}")
+                    
+                    # Add pattern analysis
+                    if tx_engine.entry_exit_engine:
+                        try:
+                            pattern_analysis = tx_engine.entry_exit_engine.get_pattern_analysis(pattern_name)
+                            recommendation["pattern_analysis"] = pattern_analysis
+                        except Exception as e:
+                            print(f"Pattern analysis error: {e}")
+                    
+                    recommendations.append(recommendation)
+            
+            return jsonify({
+                "status": "success",
+                "symbol": symbol,
+                "recommendations": recommendations,
+                "scan_id": scan_result.get("id"),
+                "total_recommendations": len(recommendations)
+            })
+        else:
+            return jsonify({"error": "TX engine not available"}), 500
+            
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
