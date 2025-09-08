@@ -4,7 +4,7 @@ Tests trading strategies against historical data with comprehensive metrics
 """
 
 import json
-import pandas as pd
+# import pandas as pd  # Not available, using native Python instead
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Any, Optional, Tuple
 import statistics
