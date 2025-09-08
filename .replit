@@ -18,7 +18,7 @@ run = ["sh", "-c", "gunicorn -w 4 -b 0.0.0.0:5000 main:app"]
 deploymentTarget = "cloudrun"
 
 [workflows]
-runButton = "Run TX Engine"
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Run TX Engine"
@@ -28,6 +28,27 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python3 main.py"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "TX Server"
+
+[[workflows.workflow]]
+name = "TX Server"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python -u main.py"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [[ports]]
 localPort = 808
@@ -44,6 +65,10 @@ externalPort = 80
 [[ports]]
 localPort = 10000
 externalPort = 9000
+
+[[ports]]
+localPort = 5000
+externalPort = 80
 
 [agent]
 expertMode = true

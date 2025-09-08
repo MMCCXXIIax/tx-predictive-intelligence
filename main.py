@@ -377,7 +377,7 @@ class TXEngine:
             return scan_payload
 
 # --- Global engine instance for efficiency ---
-tx_engine = TXEngine()
+tx_engine = None
 
 # --- Background scanner ---
 SCANNER_STARTED = False
@@ -388,6 +388,9 @@ def background_scan_loop():
     while True:
         start_time = time.time()
         try:
+            if tx_engine is None:
+                time.sleep(5)  # Wait for engine to be initialized
+                continue
             scan = tx_engine.run_scan()
             scan_id = scan.get("id") if isinstance(scan, dict) else None
             scan_time = scan.get("time") if isinstance(scan, dict) else None
@@ -416,11 +419,13 @@ def start_background_scanner():
     SCANNER_STARTED = True
     print("✅ Background scan thread started")
 
-start_background_scanner()
-
+# Initialize TX engine and start scanner only when Flask server starts
 @app.before_request
-def _ensure_scanner():
-    start_background_scanner()
+def _ensure_tx_initialized():
+    global tx_engine
+    if tx_engine is None:
+        tx_engine = TXEngine()
+        start_background_scanner()
 
 # =========================================================
 # Minimal UI
@@ -468,6 +473,8 @@ def api_get_active_alerts():
 @app.route("/api/scan", methods=["GET"])
 def api_scan():
     try:
+        if tx_engine is None:
+            return jsonify({"error": "TX engine not initialized"}), 500
         scan = tx_engine.run_scan()
         return jsonify({
             "last_scan": scan,
@@ -534,7 +541,7 @@ def api_log_outcome():
 @app.route("/api/paper-trades", methods=["GET"])
 def api_get_paper_trades():
     try:
-        if hasattr(tx_engine, 'trader') and tx_engine.trader and hasattr(tx_engine.trader, "get_positions"):
+        if tx_engine and hasattr(tx_engine, 'trader') and tx_engine.trader and hasattr(tx_engine.trader, "get_positions"):
             return jsonify({"positions": tx_engine.trader.get_positions()}), 200
         # Optional: also return persisted paper_trades
         with engine.begin() as conn:
@@ -559,7 +566,7 @@ def api_place_paper_trade():
         if not symbol:
             return jsonify({"status": "error", "message": "missing symbol"}), 400
 
-        if hasattr(tx_engine, "trader") and tx_engine.trader:
+        if tx_engine and hasattr(tx_engine, "trader") and tx_engine.trader:
             price = tx_engine.get_market_price(symbol)
             if price is None:
                 return jsonify({"status": "error", "message": "no_price"}), 400
@@ -590,7 +597,7 @@ def api_close_position():
         if not symbol:
             return jsonify({"status": "error", "message": "missing symbol"}), 400
 
-        if hasattr(tx_engine, "trader") and tx_engine.trader:
+        if tx_engine and hasattr(tx_engine, "trader") and tx_engine.trader:
             price = tx_engine.get_market_price(symbol)
             if price is None:
                 return jsonify({"status": "error", "message": "no_price"}), 400
@@ -606,7 +613,7 @@ def api_close_position():
 @app.route("/api/trading-stats", methods=["GET"])
 def api_trading_stats():
     try:
-        if hasattr(tx_engine, "trader") and tx_engine.trader and hasattr(tx_engine.trader, "get_stats"):
+        if tx_engine and hasattr(tx_engine, "trader") and tx_engine.trader and hasattr(tx_engine.trader, "get_stats"):
             stats = tx_engine.trader.get_stats()
             return jsonify({"stats": stats}), 200
 
@@ -737,10 +744,14 @@ def _log_routes_once():
 
 # --- Serve ---
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    host = os.environ.get("HOST", "0.0.0.0")
+    # Force port 5000 for Replit compatibility
+    port = 5000
+    host = "0.0.0.0"
+    print(f"🚀 Starting TX Server on {host}:{port}")
     try:
         from waitress import serve
+        print("✅ Using Waitress WSGI server")
         serve(app, host=host, port=port)
     except ImportError:
+        print("✅ Using Flask development server")
         app.run(host=host, port=port, debug=False)
