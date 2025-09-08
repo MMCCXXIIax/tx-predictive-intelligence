@@ -18,3 +18,5 @@ sqlalchemy
 supabase
 waitress
 werkzeug
+flask-socketio
+python-socketio

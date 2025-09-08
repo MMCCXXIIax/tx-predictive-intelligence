@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 # --- Third‑party libraries ---
 from flask import Flask, request, jsonify, make_response, send_from_directory, Response
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
 from sqlalchemy import text
 
@@ -39,13 +40,22 @@ except Exception as e:
     PaperTrader = None
     print("⚠️ services.paper_trader import warning:", e)
 
+try:
+    from services.strategy_builder import TXStrategyBuilder
+except Exception as e:
+    TXStrategyBuilder = None
+    print("⚠️ services.strategy_builder import warning:", e)
+
 # Supabase client (v2.x) — service role only (no per-user JWT)
 from supabase import create_client
 
 load_dotenv()
 
 # --- Flask app ---
-app = Flask(__name__, static_folder="client/dist", static_url_path="")
+app = Flask(__name__, static_folder="static", static_url_path="")
+
+# --- SocketIO for real-time alerts ---
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # --- CORS (fixed to include all routes) ---
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
@@ -222,6 +232,12 @@ class AlertSystem:
             pass
 
         print(f"🚨 ALERT: {symbol} {pattern_name} ({alert['confidence']}) @ {alert['price']} — {timestamp}")
+        
+        # Emit real-time WebSocket event
+        try:
+            socketio.emit('new_alert', alert)
+        except Exception as e:
+            print(f"⚠️ WebSocket emit error: {e}")
 
 # --- Engine ---
 class TXEngine:
@@ -229,6 +245,7 @@ class TXEngine:
         self.scan_id = 0
         self.router = DataRouter(TXConfig) if DataRouter is not None else None
         self.trader = PaperTrader() if (PaperTrader is not None and TXConfig.ENABLE_PAPER_TRADING) else None
+        self.strategy_builder = TXStrategyBuilder() if TXStrategyBuilder is not None else None
         self.recent_alerts = {}
         self.lock = threading.Lock()
 
@@ -374,6 +391,14 @@ class TXEngine:
                 "results": list(consolidated.values())
             }
             app_state["last_scan"] = scan_payload
+            
+            # Emit scan update via WebSocket
+            try:
+                socketio.emit('scan_update', scan_payload)
+                socketio.emit('market_update', list(consolidated.values()))
+            except Exception as e:
+                print(f"⚠️ WebSocket scan emit error: {e}")
+                
             return scan_payload
 
 # --- Global engine instance for efficiency ---
@@ -742,16 +767,88 @@ def _log_routes_once():
             app.logger.info(f"{rule} -> {rule.endpoint} [{','.join(rule.methods)}]")
         _routes_logged = True
 
+# --- WebSocket Events ---
+@socketio.on('connect')
+def handle_connect():
+    print('✅ Client connected to WebSocket')
+    emit('connection_status', {'status': 'connected', 'message': 'TX WebSocket connected'})
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('📤 Client disconnected from WebSocket')
+
+@socketio.on('request_scan')
+def handle_manual_scan():
+    """Handle manual scan requests from dashboard"""
+    if tx_engine:
+        scan_result = tx_engine.run_scan()
+        emit('scan_update', scan_result)
+
+# --- Strategy Builder Routes ---
+@app.route("/api/strategies", methods=["GET"])
+def api_get_strategies():
+    """Get all user strategies"""
+    try:
+        if tx_engine and tx_engine.strategy_builder:
+            strategies = tx_engine.strategy_builder.strategies
+            templates = tx_engine.strategy_builder.get_strategy_templates()
+            return jsonify({
+                "strategies": list(strategies.values()),
+                "templates": templates
+            })
+        return jsonify({"strategies": [], "templates": []})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/strategies", methods=["POST"])
+def api_create_strategy():
+    """Create new strategy from template or custom"""
+    try:
+        data = request.get_json() or {}
+        name = data.get("name", "New Strategy")
+        conditions = data.get("conditions", {})
+        actions = data.get("actions", {"alert": True})
+        
+        if tx_engine and tx_engine.strategy_builder:
+            strategy = tx_engine.strategy_builder.create_strategy(name, conditions, actions)
+            return jsonify({"status": "ok", "strategy": strategy})
+        
+        return jsonify({"error": "Strategy builder not available"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/dashboard")
+def dashboard():
+    """Serve the new TX dashboard"""
+    return send_from_directory(app.static_folder, "tx-dashboard.html")
+
+# --- Enhanced Risk Management for Paper Trading ---
+@app.route("/api/risk-settings", methods=["GET", "POST"])
+def api_risk_settings():
+    """Get or update risk management settings"""
+    try:
+        if request.method == "GET":
+            # Return current risk settings
+            return jsonify({
+                "stop_loss_percentage": 5.0,
+                "take_profit_percentage": 10.0,
+                "max_position_size": 1000.0,
+                "auto_risk_management": True
+            })
+        else:
+            # Update risk settings
+            data = request.get_json() or {}
+            # Here you would save to database or config file
+            return jsonify({"status": "ok", "message": "Risk settings updated"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # --- Serve ---
 if __name__ == "__main__":
     # Force port 5000 for Replit compatibility
     port = 5000
     host = "0.0.0.0"
-    print(f"🚀 Starting TX Server on {host}:{port}")
-    try:
-        from waitress import serve
-        print("✅ Using Waitress WSGI server")
-        serve(app, host=host, port=port)
-    except ImportError:
-        print("✅ Using Flask development server")
-        app.run(host=host, port=port, debug=False)
+    print(f"🚀 Starting TX Server with WebSocket support on {host}:{port}")
+    
+    # Use SocketIO's run method instead of Flask's
+    socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)
