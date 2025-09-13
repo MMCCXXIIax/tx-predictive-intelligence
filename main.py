@@ -91,10 +91,22 @@ CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
 # --- Configuration ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
-    raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required")
 
-supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+# Production-ready configuration with graceful degradation
+DATABASE_MODE = "production" if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY else "demo"
+if DATABASE_MODE == "demo":
+    print("⚠️ Running in DEMO MODE - database features disabled")
+    print("   Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for full functionality")
+
+try:
+    supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY) if DATABASE_MODE == "production" else None
+    if supabase:
+        print("✅ Connected to Supabase database")
+    else:
+        print("⚠️ Supabase not configured - using demo mode")
+except Exception as e:
+    print(f"Failed to connect to Supabase: {e}")
+    supabase = None
 
 class TXConfig:
     ASSET_TYPES = {

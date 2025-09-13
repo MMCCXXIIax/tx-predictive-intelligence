@@ -7,6 +7,13 @@ from dotenv import load_dotenv
 load_dotenv()
 API_KEY = os.getenv("ALPHA_VANTAGE_KEY")
 
+# Check if API key is available
+if not API_KEY:
+    print("⚠️ ALPHA_VANTAGE_KEY not configured - stock/forex data unavailable")
+    print("   Configure API key for full market coverage")
+else:
+    print("✅ Alpha Vantage API key configured")
+
 class AlphaDataService:
     def __init__(self, candle_limit=100):
         self.candle_limit = candle_limit
