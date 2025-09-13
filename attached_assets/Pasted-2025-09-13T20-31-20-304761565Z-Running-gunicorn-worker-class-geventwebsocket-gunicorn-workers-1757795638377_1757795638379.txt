@@ -1,0 +1,50 @@
+2025-09-13T20:31:20.304761565Z ==> Running 'gunicorn --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 --bind 0.0.0.0:$PORT main:application'
+2025-09-13T20:31:21.514622202Z 
+2025-09-13T20:31:21.514659533Z Error: class uri 'geventwebsocket.gunicorn.workers.GeventWebSocketWorker' invalid or not found: 
+2025-09-13T20:31:21.514663313Z 
+2025-09-13T20:31:21.514666833Z [Traceback (most recent call last):
+2025-09-13T20:31:21.514670153Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/util.py", line 111, in load_class
+2025-09-13T20:31:21.514673013Z     mod = importlib.import_module('.'.join(components))
+2025-09-13T20:31:21.514675133Z   File "/usr/local/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2025-09-13T20:31:21.514677373Z     return _bootstrap._gcd_import(name[level:], package, level)
+2025-09-13T20:31:21.514679733Z            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-09-13T20:31:21.514682403Z   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-09-13T20:31:21.514684683Z   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-09-13T20:31:21.514686803Z   File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+2025-09-13T20:31:21.514691613Z   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-09-13T20:31:21.514694193Z   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-09-13T20:31:21.514696303Z   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-09-13T20:31:21.514698413Z   File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+2025-09-13T20:31:21.514700533Z   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-09-13T20:31:21.514702683Z   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-09-13T20:31:21.514704683Z   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-09-13T20:31:21.514706643Z   File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+2025-09-13T20:31:21.514708794Z ModuleNotFoundError: No module named 'geventwebsocket'
+2025-09-13T20:31:21.514711043Z ]
+2025-09-13T20:31:21.514713003Z 
+2025-09-13T20:31:23.551158343Z ==> Exited with status 1
+2025-09-13T20:31:23.712689465Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+2025-09-13T20:31:29.261721296Z ==> Running 'gunicorn --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 --bind 0.0.0.0:$PORT main:application'
+2025-09-13T20:31:30.366338142Z 
+2025-09-13T20:31:30.366368053Z Error: class uri 'geventwebsocket.gunicorn.workers.GeventWebSocketWorker' invalid or not found: 
+2025-09-13T20:31:30.366370993Z 
+2025-09-13T20:31:30.366374863Z [Traceback (most recent call last):
+2025-09-13T20:31:30.366377963Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/util.py", line 111, in load_class
+2025-09-13T20:31:30.366380943Z     mod = importlib.import_module('.'.join(components))
+2025-09-13T20:31:30.366383113Z   File "/usr/local/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2025-09-13T20:31:30.366385323Z     return _bootstrap._gcd_import(name[level:], package, level)
+2025-09-13T20:31:30.366387873Z            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-09-13T20:31:30.366390833Z   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-09-13T20:31:30.366392953Z   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-09-13T20:31:30.366395273Z   File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+2025-09-13T20:31:30.366397363Z   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-09-13T20:31:30.366399303Z   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-09-13T20:31:30.366401273Z   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-09-13T20:31:30.366403233Z   File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+2025-09-13T20:31:30.366405503Z   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-09-13T20:31:30.366407514Z   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-09-13T20:31:30.366409583Z   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-09-13T20:31:30.366411603Z   File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
+2025-09-13T20:31:30.366413774Z ModuleNotFoundError: No module named 'geventwebsocket'
+2025-09-13T20:31:30.366416274Z ]
+2025-09-13T20:31:30.366418443Z 

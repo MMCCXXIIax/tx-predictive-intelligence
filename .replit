@@ -5,7 +5,7 @@ audio = true
 
 [nix]
 channel = "stable-24_05"
-packages = ["libev", "openssl", "postgresql"]
+packages = ["iana-etc", "libev", "openssl", "postgresql"]
 
 [unitTest]
 language = "python3"
