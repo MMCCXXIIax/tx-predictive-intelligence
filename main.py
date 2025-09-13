@@ -82,11 +82,22 @@ load_dotenv()
 # --- Flask app ---
 app = Flask(__name__, static_folder="static", static_url_path="")
 
-# WSGI application alias for production servers (Render, gunicorn, etc.)
-application = app
-
 # --- SocketIO for real-time alerts ---
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+
+# WSGI application alias for production servers (Render, gunicorn, etc.) 
+application = app
+
+# Add startup logging for debugging
+print(f"🔧 Flask app mode: {app.config.get('ENV', 'unknown')}")
+print(f"🔧 SocketIO async_mode: {socketio.async_mode}")
+import sys
+print(f"🔧 Python version: {sys.version}")
+try:
+    import requests, urllib3
+    print(f"🔧 Requests: {requests.__version__}, urllib3: {urllib3.__version__}")
+except:
+    pass
 
 # --- CORS (production ready - allow all origins) ---
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)

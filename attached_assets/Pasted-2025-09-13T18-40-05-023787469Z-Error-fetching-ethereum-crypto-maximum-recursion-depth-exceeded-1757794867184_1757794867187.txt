@@ -1,0 +1,150 @@
+2025-09-13T18:40:05.023787469Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T18:40:05.023790189Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T18:40:05.0237927Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T18:40:05.02379568Z 🛰️ scan #85 at 18:38:05 with 3 results
+2025-09-13T18:40:05.02379833Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T18:40:05.02380094Z 🛰️ scan #87 at 18:39:05 with 3 results
+2025-09-13T18:40:05.023816541Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:20.69263023Z [2025-09-13 19:18:20 +0000] [57] [INFO] Handling signal: term
+2025-09-13T19:18:21.588944191Z [2025-09-13 19:18:21 +0000] [61] [INFO] Worker exiting (pid: 61)
+2025-09-13T19:18:21.589085361Z 🛰️ scan #89 at 18:40:05 with 3 results
+2025-09-13T19:18:21.589100153Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589105593Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589110343Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589114764Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589119194Z 🛰️ scan #91 at 18:41:05 with 3 results
+2025-09-13T19:18:21.589123554Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589139816Z 🛰️ scan #93 at 18:42:05 with 3 results
+2025-09-13T19:18:21.589145516Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589170538Z 🛰️ scan #95 at 18:43:05 with 3 results
+2025-09-13T19:18:21.589173888Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589176548Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589179168Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589181728Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589184809Z 🛰️ scan #97 at 18:44:05 with 3 results
+2025-09-13T19:18:21.589186619Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589188259Z 🛰️ scan #99 at 18:45:05 with 3 results
+2025-09-13T19:18:21.589190199Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589191909Z 🛰️ scan #101 at 18:46:05 with 3 results
+2025-09-13T19:18:21.58919478Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.5891976Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.58920065Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.58920319Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.58920587Z 🛰️ scan #103 at 18:47:05 with 3 results
+2025-09-13T19:18:21.58920885Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589211551Z 🛰️ scan #105 at 18:48:05 with 3 results
+2025-09-13T19:18:21.589214311Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589217031Z 🛰️ scan #107 at 18:49:05 with 3 results
+2025-09-13T19:18:21.589219521Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589221982Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589224612Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589227542Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589229672Z 🛰️ scan #109 at 18:50:05 with 3 results
+2025-09-13T19:18:21.589231382Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589233062Z 🛰️ scan #111 at 18:51:05 with 3 results
+2025-09-13T19:18:21.589234732Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589236363Z 🛰️ scan #113 at 18:52:05 with 3 results
+2025-09-13T19:18:21.589238193Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589239883Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589243053Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589244853Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589246503Z 🛰️ scan #115 at 18:53:05 with 3 results
+2025-09-13T19:18:21.589248213Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589249893Z 🛰️ scan #117 at 18:54:05 with 3 results
+2025-09-13T19:18:21.589251584Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589253224Z 🛰️ scan #119 at 18:55:05 with 3 results
+2025-09-13T19:18:21.589254864Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589256504Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589258144Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589259784Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589265955Z 🛰️ scan #121 at 18:56:05 with 3 results
+2025-09-13T19:18:21.589267695Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589269355Z 🛰️ scan #123 at 18:57:05 with 3 results
+2025-09-13T19:18:21.589271015Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589272685Z 🛰️ scan #125 at 18:58:05 with 3 results
+2025-09-13T19:18:21.589274315Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589275955Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589277646Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589279276Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589281126Z 🛰️ scan #127 at 18:59:05 with 3 results
+2025-09-13T19:18:21.589282786Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589284736Z 🛰️ scan #129 at 19:00:05 with 3 results
+2025-09-13T19:18:21.589287686Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589290696Z 🛰️ scan #131 at 19:01:05 with 3 results
+2025-09-13T19:18:21.589293447Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589296297Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589299057Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589301948Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589315188Z 🛰️ scan #133 at 19:02:05 with 3 results
+2025-09-13T19:18:21.589317398Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589319099Z 🛰️ scan #135 at 19:03:05 with 3 results
+2025-09-13T19:18:21.589320729Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589322409Z 🛰️ scan #136 at 19:04:05 with 3 results
+2025-09-13T19:18:21.589324089Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589325819Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589327499Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589329139Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589330799Z 🛰️ scan #137 at 19:05:05 with 3 results
+2025-09-13T19:18:21.58933245Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.58933415Z 🛰️ scan #138 at 19:06:05 with 3 results
+2025-09-13T19:18:21.5893358Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.5893375Z 🛰️ scan #139 at 19:07:05 with 3 results
+2025-09-13T19:18:21.5893392Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.58934088Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.58934254Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589344171Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589345811Z 🛰️ scan #140 at 19:08:05 with 3 results
+2025-09-13T19:18:21.589347461Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589349161Z 🛰️ scan #141 at 19:09:05 with 3 results
+2025-09-13T19:18:21.589350791Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589352461Z 🛰️ scan #142 at 19:10:05 with 3 results
+2025-09-13T19:18:21.589354101Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589359712Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589361442Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589363092Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589365182Z 🛰️ scan #143 at 19:11:05 with 3 results
+2025-09-13T19:18:21.589368222Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589371033Z 🛰️ scan #144 at 19:12:05 with 3 results
+2025-09-13T19:18:21.589373743Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589376263Z 🛰️ scan #145 at 19:13:05 with 3 results
+2025-09-13T19:18:21.589379133Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589381903Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589384883Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589387474Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589390124Z 🛰️ scan #146 at 19:14:05 with 3 results
+2025-09-13T19:18:21.589392734Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589395844Z 🛰️ scan #147 at 19:15:05 with 3 results
+2025-09-13T19:18:21.589397555Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589399195Z 🛰️ scan #148 at 19:16:05 with 3 results
+2025-09-13T19:18:21.589400855Z ⚠️ Error fetching bitcoin (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589402505Z ⚠️ Error fetching ethereum (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589406045Z ⚠️ Error fetching solana (crypto): maximum recursion depth exceeded
+2025-09-13T19:18:21.589407725Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589409405Z 🛰️ scan #149 at 19:17:05 with 3 results
+2025-09-13T19:18:21.589411045Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-13T19:18:21.589412705Z 🛰️ scan #150 at 19:18:05 with 3 results
+2025-09-13T19:18:23.358278953Z [2025-09-13 19:18:23 +0000] [57] [INFO] Shutting down: Master
+2025-09-13T19:18:23.358395692Z ✅ Alpha Vantage API key configured
+2025-09-13T19:18:23.358400582Z ✅ Connected to Supabase database
+2025-09-13T19:56:25.263390106Z ==> Running 'gunicorn --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 --bind 0.0.0.0:$PORT main:application'
+2025-09-13T19:56:42.565202831Z [2025-09-13 19:56:42 +0000] [38] [INFO] Starting gunicorn 21.2.0
+2025-09-13T19:56:42.565675205Z [2025-09-13 19:56:42 +0000] [38] [INFO] Listening at: http://0.0.0.0:5000 (38)
+2025-09-13T19:56:42.565706018Z [2025-09-13 19:56:42 +0000] [38] [INFO] Using worker: geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+2025-09-13T19:56:42.659502083Z [2025-09-13 19:56:42 +0000] [41] [INFO] Booting worker with pid: 41
+2025-09-13T19:56:44.364819299Z /opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/workers/ggevent.py:39: MonkeyPatchWarning: Monkey-patching ssl after ssl has already been imported may lead to errors, including RecursionError on Python 3.6. It may also silently lead to incorrect behaviour on Python 3.7. Please monkey-patch earlier. See https://github.com/gevent/gevent/issues/1016. Modules that had direct imports (NOT patched): ['anyio.streams.tls (/opt/render/project/src/.venv/lib/python3.13/site-packages/anyio/streams/tls.py)', 'jwt.jwks_client (/opt/render/project/src/.venv/lib/python3.13/site-packages/jwt/jwks_client.py)', 'urllib3.util.ssl_ (/opt/render/project/src/.venv/lib/python3.13/site-packages/urllib3/util/ssl_.py)', 'urllib3.util (/opt/render/project/src/.venv/lib/python3.13/site-packages/urllib3/util/__init__.py)']. 
+2025-09-13T19:56:44.364843121Z   monkey.patch_all()
+2025-09-13T20:18:11.413106427Z ==> Deploying...
+2025-09-13T20:18:26.456258855Z ==> Running 'gunicorn --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 --bind 0.0.0.0:$PORT main:application'
+2025-09-13T20:18:38.321396108Z [2025-09-13 20:18:38 +0000] [56] [INFO] Starting gunicorn 21.2.0
+2025-09-13T20:18:38.321957304Z [2025-09-13 20:18:38 +0000] [56] [INFO] Listening at: http://0.0.0.0:5000 (56)
+2025-09-13T20:18:38.321992186Z [2025-09-13 20:18:38 +0000] [56] [INFO] Using worker: geventwebsocket.gunicorn.workers.GeventWebSocketWorker
+2025-09-13T20:18:38.413793867Z [2025-09-13 20:18:38 +0000] [59] [INFO] Booting worker with pid: 59
+2025-09-13T20:18:39.922871417Z /opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/workers/ggevent.py:39: MonkeyPatchWarning: Monkey-patching ssl after ssl has already been imported may lead to errors, including RecursionError on Python 3.6. It may also silently lead to incorrect behaviour on Python 3.7. Please monkey-patch earlier. See https://github.com/gevent/gevent/issues/1016. Modules that had direct imports (NOT patched): ['urllib3.util.ssl_ (/opt/render/project/src/.venv/lib/python3.13/site-packages/urllib3/util/ssl_.py)', 'jwt.jwks_client (/opt/render/project/src/.venv/lib/python3.13/site-packages/jwt/jwks_client.py)', 'anyio.streams.tls (/opt/render/project/src/.venv/lib/python3.13/site-packages/anyio/streams/tls.py)', 'urllib3.util (/opt/render/project/src/.venv/lib/python3.13/site-packages/urllib3/util/__init__.py)']. 
+2025-09-13T20:18:39.922910499Z   monkey.patch_all()
+2025-09-13T20:18:42.490616377Z ==> Your service is live 🎉
+2025-09-13T20:18:42.667890165Z ==> 
+2025-09-13T20:18:42.845546604Z ==> ///////////////////////////////////////////////////////////
+2025-09-13T20:18:43.020256211Z ==> 
+2025-09-13T20:18:43.19564624Z ==> Available at your primary URL https://tx-predictive-intelligence.onrender.com
+2025-09-13T20:18:43.375794768Z ==> 
+2025-09-13T20:18:43.551283176Z ==> ///////////////////////////////////////////////////////////
