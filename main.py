@@ -82,6 +82,9 @@ load_dotenv()
 # --- Flask app ---
 app = Flask(__name__, static_folder="static", static_url_path="")
 
+# WSGI application alias for production servers (Render, gunicorn, etc.)
+application = app
+
 # --- SocketIO for real-time alerts ---
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 

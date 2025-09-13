@@ -1,0 +1,50 @@
+2025-09-13T17:41:20.84595857Z            ~~~~~~~~~~~~~~~~~^^
+2025-09-13T17:41:20.84598607Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/app/wsgiapp.py", line 48, in load_wsgiapp
+2025-09-13T17:41:20.84600066Z     return util.import_app(self.app_uri)
+2025-09-13T17:41:20.84600658Z            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+2025-09-13T17:41:20.84601206Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/util.py", line 418, in import_app
+2025-09-13T17:41:20.846017901Z     raise AppImportError("Failed to find attribute %r in %r." % (name, module))
+2025-09-13T17:41:20.846023661Z gunicorn.errors.AppImportError: Failed to find attribute 'application' in 'main'.
+2025-09-13T17:41:24.97986459Z ==> Exited with status 1
+2025-09-13T17:41:25.145492752Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+2025-09-13T17:41:30.425675002Z ==> Running 'gunicorn --worker-class geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 --bind 0.0.0.0:$PORT main:application'
+2025-09-13T17:41:48.729449992Z ✅ Alpha Vantage API key configured
+2025-09-13T17:41:48.729493893Z ✅ Connected to Supabase database
+2025-09-13T17:41:48.73516365Z Traceback (most recent call last):
+2025-09-13T17:41:48.73518662Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/util.py", line 414, in import_app
+2025-09-13T17:41:48.73519271Z     app = getattr(mod, name)
+2025-09-13T17:41:48.73519836Z AttributeError: module 'main' has no attribute 'application'
+2025-09-13T17:41:48.735201851Z 
+2025-09-13T17:41:48.735206331Z During handling of the above exception, another exception occurred:
+2025-09-13T17:41:48.735209871Z 
+2025-09-13T17:41:48.735213751Z Traceback (most recent call last):
+2025-09-13T17:41:48.736101789Z   File "/opt/render/project/src/.venv/bin/gunicorn", line 8, in <module>
+2025-09-13T17:41:48.736115809Z     sys.exit(run())
+2025-09-13T17:41:48.73612079Z              ~~~^^
+2025-09-13T17:41:48.73612589Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/app/wsgiapp.py", line 67, in run
+2025-09-13T17:41:48.73613046Z     WSGIApplication("%(prog)s [OPTIONS] [APP_MODULE]").run()
+2025-09-13T17:41:48.73613422Z     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+2025-09-13T17:41:48.73613806Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/app/base.py", line 236, in run
+2025-09-13T17:41:48.73614215Z     super().run()
+2025-09-13T17:41:48.73614578Z     ~~~~~~~~~~~^^
+2025-09-13T17:41:48.73614962Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/app/base.py", line 72, in run
+2025-09-13T17:41:48.73615371Z     Arbiter(self).run()
+2025-09-13T17:41:48.73615752Z     ~~~~~~~^^^^^^
+2025-09-13T17:41:48.73616161Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/arbiter.py", line 58, in __init__
+2025-09-13T17:41:48.73616622Z     self.setup(app)
+2025-09-13T17:41:48.73617046Z     ~~~~~~~~~~^^^^^
+2025-09-13T17:41:48.73617494Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/arbiter.py", line 118, in setup
+2025-09-13T17:41:48.736179071Z     self.app.wsgi()
+2025-09-13T17:41:48.736183551Z     ~~~~~~~~~~~~~^^
+2025-09-13T17:41:48.736187651Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/app/base.py", line 67, in wsgi
+2025-09-13T17:41:48.736192571Z     self.callable = self.load()
+2025-09-13T17:41:48.736196651Z                     ~~~~~~~~~^^
+2025-09-13T17:41:48.736201041Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/app/wsgiapp.py", line 58, in load
+2025-09-13T17:41:48.736205211Z     return self.load_wsgiapp()
+2025-09-13T17:41:48.736209041Z            ~~~~~~~~~~~~~~~~~^^
+2025-09-13T17:41:48.736213951Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/app/wsgiapp.py", line 48, in load_wsgiapp
+2025-09-13T17:41:48.736218912Z     return util.import_app(self.app_uri)
+2025-09-13T17:41:48.736222872Z            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+2025-09-13T17:41:48.736226582Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/util.py", line 418, in import_app
+2025-09-13T17:41:48.736230832Z     raise AppImportError("Failed to find attribute %r in %r." % (name, module))
+2025-09-13T17:41:48.736240892Z gunicorn.errors.AppImportError: Failed to find attribute 'application' in 'main'.
