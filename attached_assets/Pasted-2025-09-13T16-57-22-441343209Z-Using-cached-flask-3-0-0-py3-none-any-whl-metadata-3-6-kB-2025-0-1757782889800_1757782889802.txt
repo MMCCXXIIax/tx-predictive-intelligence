@@ -1,0 +1,50 @@
+2025-09-13T16:57:22.441343209Z   Using cached flask-3.0.0-py3-none-any.whl.metadata (3.6 kB)
+2025-09-13T16:57:22.467120826Z Collecting flask-cors==4.0.0 (from -r requirements.txt (line 2))
+2025-09-13T16:57:22.468878626Z   Using cached Flask_Cors-4.0.0-py2.py3-none-any.whl.metadata (5.4 kB)
+2025-09-13T16:57:22.496699311Z Collecting flask-socketio==5.3.0 (from -r requirements.txt (line 3))
+2025-09-13T16:57:22.498563244Z   Using cached Flask_SocketIO-5.3.0-py3-none-any.whl.metadata (2.6 kB)
+2025-09-13T16:57:22.529955242Z Collecting python-socketio==5.8.0 (from -r requirements.txt (line 4))
+2025-09-13T16:57:22.531833675Z   Using cached python_socketio-5.8.0-py3-none-any.whl.metadata (3.2 kB)
+2025-09-13T16:57:22.571345944Z Collecting python-engineio==4.7.0 (from -r requirements.txt (line 5))
+2025-09-13T16:57:22.573320691Z   Using cached python_engineio-4.7.0-py3-none-any.whl.metadata (2.2 kB)
+2025-09-13T16:57:22.602832714Z Collecting gunicorn==21.2.0 (from -r requirements.txt (line 6))
+2025-09-13T16:57:22.604815891Z   Using cached gunicorn-21.2.0-py3-none-any.whl.metadata (4.1 kB)
+2025-09-13T16:57:22.646656067Z Collecting requests==2.31.0 (from -r requirements.txt (line 7))
+2025-09-13T16:57:22.648899851Z   Using cached requests-2.31.0-py3-none-any.whl.metadata (4.6 kB)
+2025-09-13T16:57:22.675413478Z Collecting python-dotenv==1.0.0 (from -r requirements.txt (line 8))
+2025-09-13T16:57:22.677306512Z   Using cached python_dotenv-1.0.0-py3-none-any.whl.metadata (21 kB)
+2025-09-13T16:57:22.715487544Z Collecting werkzeug==2.3.0 (from -r requirements.txt (line 9))
+2025-09-13T16:57:22.717550162Z   Using cached Werkzeug-2.3.0-py3-none-any.whl.metadata (4.2 kB)
+2025-09-13T16:57:22.74859781Z Collecting waitress==3.0.0 (from -r requirements.txt (line 10))
+2025-09-13T16:57:22.750331959Z   Using cached waitress-3.0.0-py3-none-any.whl.metadata (4.2 kB)
+2025-09-13T16:57:23.032021739Z Collecting SQLAlchemy==2.0.0 (from -r requirements.txt (line 11))
+2025-09-13T16:57:23.033504442Z   Using cached SQLAlchemy-2.0.0-py3-none-any.whl.metadata (9.3 kB)
+2025-09-13T16:57:23.102948736Z Collecting psycopg2-binary==2.9.7 (from -r requirements.txt (line 12))
+2025-09-13T16:57:23.104597243Z   Using cached psycopg2-binary-2.9.7.tar.gz (383 kB)
+2025-09-13T16:57:23.161411997Z   Installing build dependencies: started
+2025-09-13T16:57:23.94467651Z   Installing build dependencies: finished with status 'done'
+2025-09-13T16:57:23.945497644Z   Getting requirements to build wheel: started
+2025-09-13T16:57:24.548436024Z   Getting requirements to build wheel: finished with status 'done'
+2025-09-13T16:57:24.549941317Z   Preparing metadata (pyproject.toml): started
+2025-09-13T16:57:25.079385567Z   Preparing metadata (pyproject.toml): finished with status 'done'
+2025-09-13T16:57:25.124896857Z Collecting supabase==1.2.0 (from -r requirements.txt (line 13))
+2025-09-13T16:57:25.126680679Z   Using cached supabase-1.2.0-py3-none-any.whl.metadata (11 kB)
+2025-09-13T16:57:25.175849384Z Collecting websocket-client==1.6.0 (from -r requirements.txt (line 14))
+2025-09-13T16:57:25.177745368Z   Using cached websocket_client-1.6.0-py3-none-any.whl.metadata (7.6 kB)
+2025-09-13T16:57:25.188179176Z INFO: pip is looking at multiple versions of flask to determine which version is compatible with other requirements. This could take a while.
+2025-09-13T16:57:25.18867325Z ERROR: Cannot install -r requirements.txt (line 1) and werkzeug==2.3.0 because these package versions have conflicting dependencies.
+2025-09-13T16:57:25.189169214Z 
+2025-09-13T16:57:25.189178394Z The conflict is caused by:
+2025-09-13T16:57:25.189182955Z     The user requested werkzeug==2.3.0
+2025-09-13T16:57:25.189186885Z     flask 3.0.0 depends on Werkzeug>=3.0.0
+2025-09-13T16:57:25.189190545Z 
+2025-09-13T16:57:25.189194425Z To fix this you could try to:
+2025-09-13T16:57:25.189198865Z 1. loosen the range of package versions you've specified
+2025-09-13T16:57:25.189203285Z 2. remove package versions to allow pip to attempt to solve the dependency conflict
+2025-09-13T16:57:25.189206895Z 
+2025-09-13T16:57:25.19673428Z 
+2025-09-13T16:57:25.196748791Z [notice] A new release of pip is available: 25.1.1 -> 25.2
+2025-09-13T16:57:25.196753181Z [notice] To update, run: pip install --upgrade pip
+2025-09-13T16:57:25.197132592Z ERROR: ResolutionImpossible: for help visit https://pip.pypa.io/en/latest/topics/dependency-resolution/#dealing-with-dependency-conflicts
+2025-09-13T16:57:25.40492656Z ==> Build failed 😞
+2025-09-13T16:57:25.4049508Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
