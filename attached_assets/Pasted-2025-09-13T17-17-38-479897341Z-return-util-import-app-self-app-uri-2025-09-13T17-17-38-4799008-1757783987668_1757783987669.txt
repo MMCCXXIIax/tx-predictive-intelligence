@@ -1,0 +1,50 @@
+2025-09-13T17:17:38.479897341Z     return util.import_app(self.app_uri)
+2025-09-13T17:17:38.479900812Z            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+2025-09-13T17:17:38.479904281Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/util.py", line 371, in import_app
+2025-09-13T17:17:38.479907772Z     mod = importlib.import_module(module)
+2025-09-13T17:17:38.479911932Z   File "/usr/local/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2025-09-13T17:17:38.479915502Z     return _bootstrap._gcd_import(name[level:], package, level)
+2025-09-13T17:17:38.479918922Z            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-09-13T17:17:38.479935702Z   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-09-13T17:17:38.479942112Z   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-09-13T17:17:38.479947353Z   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-09-13T17:17:38.479953073Z   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-09-13T17:17:38.479958003Z   File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+2025-09-13T17:17:38.479961633Z   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-09-13T17:17:38.479965153Z   File "/opt/render/project/src/main.py", line 18, in <module>
+2025-09-13T17:17:38.479979863Z     from sqlalchemy import text
+2025-09-13T17:17:38.479982273Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/__init__.py", line 13, in <module>
+2025-09-13T17:17:38.479984403Z     from .engine import AdaptedConnection as AdaptedConnection
+2025-09-13T17:17:38.479986553Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/engine/__init__.py", line 18, in <module>
+2025-09-13T17:17:38.479988603Z     from . import events as events
+2025-09-13T17:17:38.479990743Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/engine/events.py", line 19, in <module>
+2025-09-13T17:17:38.479992893Z     from .base import Connection
+2025-09-13T17:17:38.479994963Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 30, in <module>
+2025-09-13T17:17:38.479997094Z     from .interfaces import BindTyping
+2025-09-13T17:17:38.479999174Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/engine/interfaces.py", line 38, in <module>
+2025-09-13T17:17:38.480001283Z     from ..sql.compiler import Compiled as Compiled
+2025-09-13T17:17:38.480003364Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/sql/__init__.py", line 11, in <module>
+2025-09-13T17:17:38.480005504Z     from .compiler import COLLECT_CARTESIAN_PRODUCTS as COLLECT_CARTESIAN_PRODUCTS
+2025-09-13T17:17:38.480018654Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/sql/compiler.py", line 60, in <module>
+2025-09-13T17:17:38.480022344Z     from . import crud
+2025-09-13T17:17:38.480025664Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/sql/crud.py", line 34, in <module>
+2025-09-13T17:17:38.480028844Z     from . import dml
+2025-09-13T17:17:38.480032304Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/sql/dml.py", line 35, in <module>
+2025-09-13T17:17:38.480035824Z     from . import util as sql_util
+2025-09-13T17:17:38.480039044Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/sql/util.py", line 46, in <module>
+2025-09-13T17:17:38.480041544Z     from .ddl import sort_tables as sort_tables  # noqa: F401
+2025-09-13T17:17:38.480043795Z     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-09-13T17:17:38.480045915Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/sql/ddl.py", line 30, in <module>
+2025-09-13T17:17:38.480047964Z     from .elements import ClauseElement
+2025-09-13T17:17:38.480050025Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/sql/elements.py", line 760, in <module>
+2025-09-13T17:17:38.480052145Z     class SQLCoreOperations(Generic[_T], ColumnOperators, TypingOnly):
+2025-09-13T17:17:38.480054225Z     ...<387 lines>...
+2025-09-13T17:17:38.480056365Z                 ...
+2025-09-13T17:17:38.480058495Z   File "/usr/local/lib/python3.13/typing.py", line 1257, in _generic_init_subclass
+2025-09-13T17:17:38.480060585Z     super(Generic, cls).__init_subclass__(*args, **kwargs)
+2025-09-13T17:17:38.480062655Z     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+2025-09-13T17:17:38.480065265Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/util/langhelpers.py", line 1983, in __init_subclass__
+2025-09-13T17:17:38.480067345Z     raise AssertionError(
+2025-09-13T17:17:38.480069455Z     ...<2 lines>...
+2025-09-13T17:17:38.480071565Z     )
+2025-09-13T17:17:38.480074515Z AssertionError: Class <class 'sqlalchemy.sql.elements.SQLCoreOperations'> directly inherits TypingOnly but has additional attributes {'__static_attributes__', '__firstlineno__'}.
