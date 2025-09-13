@@ -3035,3 +3035,7 @@ Timestamp,Symbol,Action,Pattern,Confidence,Price,Amount,Balance
 2025-09-13 17:32:03,solana,BUY,Three Black Crows,0.94,238.12,0.20997816,50.0,,buy,98500.0
 2025-09-13 17:34:03,ethereum,BUY,Three Black Crows,0.94,4630.71,0.01079748,50.0,,buy,98450.0
 2025-09-13 17:34:03,solana,BUY,Three Black Crows,0.94,238.12,0.20997816,50.0,,buy,98400.0
+2025-09-13 17:36:03,ethereum,BUY,Three Black Crows,0.94,4630.71,0.01079748,50.0,,buy,98350.0
+2025-09-13 17:36:03,solana,BUY,Three Black Crows,0.94,238.12,0.20997816,50.0,,buy,98300.0
+2025-09-13 17:38:03,ethereum,BUY,Three Black Crows,0.94,4630.71,0.01079748,50.0,,buy,98250.0
+2025-09-13 17:38:03,solana,BUY,Three Black Crows,0.94,238.12,0.20997816,50.0,,buy,98200.0
