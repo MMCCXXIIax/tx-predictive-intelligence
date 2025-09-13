@@ -36,6 +36,8 @@ class CryptoDataService:
                     print(f"⚠️ {symbol}: {response.status_code} from CoinGecko")
             except Exception as e:
                 print(f"⚠️ Error fetching {symbol} (crypto): {e}")
+                # Prevent recursion issues by ensuring we always sleep and continue
+                time.sleep(min(self.refresh_interval, 30))  # Max 30 second retry
             time.sleep(self.refresh_interval)
 
     def get_latest_candles(self, symbol):
