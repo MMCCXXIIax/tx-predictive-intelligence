@@ -1,0 +1,50 @@
+2025-09-13T17:29:35.832735637Z     ~~~~~~~~~~~^^
+2025-09-13T17:29:35.832737907Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/app/base.py", line 72, in run
+2025-09-13T17:29:35.832740027Z     Arbiter(self).run()
+2025-09-13T17:29:35.832742208Z     ~~~~~~~^^^^^^
+2025-09-13T17:29:35.832744257Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/arbiter.py", line 58, in __init__
+2025-09-13T17:29:35.832746548Z     self.setup(app)
+2025-09-13T17:29:35.832748898Z     ~~~~~~~~~~^^^^^
+2025-09-13T17:29:35.832751048Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/arbiter.py", line 118, in setup
+2025-09-13T17:29:35.832753248Z     self.app.wsgi()
+2025-09-13T17:29:35.832755288Z     ~~~~~~~~~~~~~^^
+2025-09-13T17:29:35.832757278Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/app/base.py", line 67, in wsgi
+2025-09-13T17:29:35.832760128Z     self.callable = self.load()
+2025-09-13T17:29:35.832762128Z                     ~~~~~~~~~^^
+2025-09-13T17:29:35.832764348Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/app/wsgiapp.py", line 58, in load
+2025-09-13T17:29:35.832766548Z     return self.load_wsgiapp()
+2025-09-13T17:29:35.832768578Z            ~~~~~~~~~~~~~~~~~^^
+2025-09-13T17:29:35.832774478Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/app/wsgiapp.py", line 48, in load_wsgiapp
+2025-09-13T17:29:35.832776928Z     return util.import_app(self.app_uri)
+2025-09-13T17:29:35.832779068Z            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+2025-09-13T17:29:35.832781448Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/gunicorn/util.py", line 371, in import_app
+2025-09-13T17:29:35.832783628Z     mod = importlib.import_module(module)
+2025-09-13T17:29:35.832798209Z   File "/usr/local/lib/python3.13/importlib/__init__.py", line 88, in import_module
+2025-09-13T17:29:35.832805319Z     return _bootstrap._gcd_import(name[level:], package, level)
+2025-09-13T17:29:35.832808189Z            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-09-13T17:29:35.832811359Z   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+2025-09-13T17:29:35.832813709Z   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+2025-09-13T17:29:35.832815959Z   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+2025-09-13T17:29:35.832818239Z   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+2025-09-13T17:29:35.832820959Z   File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+2025-09-13T17:29:35.832823439Z   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+2025-09-13T17:29:35.832826009Z   File "/opt/render/project/src/main.py", line 22, in <module>
+2025-09-13T17:29:35.8328439Z     from services.db import engine
+2025-09-13T17:29:35.8328472Z   File "/opt/render/project/src/services/db.py", line 8, in <module>
+2025-09-13T17:29:35.83285052Z     engine = create_engine(
+2025-09-13T17:29:35.83285397Z         DATABASE_URL,
+2025-09-13T17:29:35.83285677Z     ...<3 lines>...
+2025-09-13T17:29:35.83285926Z         future=True,
+2025-09-13T17:29:35.83286093Z     )
+2025-09-13T17:29:35.83286268Z   File "<string>", line 2, in create_engine
+2025-09-13T17:29:35.83286492Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/util/deprecations.py", line 281, in warned
+2025-09-13T17:29:35.83286667Z     return fn(*args, **kwargs)  # type: ignore[no-any-return]
+2025-09-13T17:29:35.8328687Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/engine/create.py", line 617, in create_engine
+2025-09-13T17:29:35.83287038Z     dbapi = dbapi_meth(**dbapi_args)
+2025-09-13T17:29:35.83287332Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/sqlalchemy/dialects/postgresql/psycopg2.py", line 696, in import_dbapi
+2025-09-13T17:29:35.83287506Z     import psycopg2
+2025-09-13T17:29:35.83287728Z   File "/opt/render/project/src/.venv/lib/python3.13/site-packages/psycopg2/__init__.py", line 51, in <module>
+2025-09-13T17:29:35.832878951Z     from psycopg2._psycopg import (                     # noqa
+2025-09-13T17:29:35.83288064Z     ...<10 lines>...
+2025-09-13T17:29:35.832882371Z     )
+2025-09-13T17:29:35.832897231Z ImportError: /opt/render/project/src/.venv/lib/python3.13/site-packages/psycopg2/_psycopg.cpython-313-x86_64-linux-gnu.so: undefined symbol: _PyInterpreterState_Get
