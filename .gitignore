@@ -10,6 +10,9 @@ __pycache__/
 # API cache or local storage
 tx_cache.json
 *.log
+*.csv
+tx_trade_log.txt
+tx_alert_log.txt
 
 # Replit-specific or editor files
 replit.nix
