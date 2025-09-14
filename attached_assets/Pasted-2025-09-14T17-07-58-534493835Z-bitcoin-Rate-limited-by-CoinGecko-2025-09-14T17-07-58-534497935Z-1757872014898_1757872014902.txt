@@ -1,0 +1,234 @@
+2025-09-14T17:07:58.534493835Z ⚠️ bitcoin: Rate limited by CoinGecko
+2025-09-14T17:07:58.534497935Z ⚠️ Error fetching bitcoin (crypto): Rate limited
+2025-09-14T17:07:58.534501745Z ⚠️ bitcoin traceback:
+2025-09-14T17:07:58.534505815Z ⚠️ ethereum: Rate limited by CoinGecko
+2025-09-14T17:07:58.534509585Z ⚠️ Error fetching ethereum (crypto): Rate limited
+2025-09-14T17:07:58.534513375Z ⚠️ ethereum traceback:
+2025-09-14T17:07:58.534518075Z ⚠️ solana: Rate limited by CoinGecko
+2025-09-14T17:07:58.534522545Z ⚠️ Error fetching solana (crypto): Rate limited
+2025-09-14T17:07:58.534527235Z ⚠️ solana traceback:
+2025-09-14T17:07:58.534531956Z ℹ️ Background data workers disabled (WORKER_TYPE=web, ENABLE_BACKGROUND_WORKERS=false)
+2025-09-14T17:07:58.534536656Z ℹ️ Background scanning disabled (WORKER_TYPE=web, ENABLE_BACKGROUND_WORKERS=false)
+2025-09-14T17:07:58.534540436Z 127.0.0.1 - - [14/Sep/2025:17:07:58 +0000] "HEAD / HTTP/1.1" 200 0 "-" "Go-http-client/1.1"
+2025-09-14T17:08:03.624330053Z ==> Your service is live 🎉
+2025-09-14T17:08:03.80975824Z ==> 
+2025-09-14T17:08:03.991100358Z ==> ///////////////////////////////////////////////////////////
+2025-09-14T17:08:04.172779146Z ==> 
+2025-09-14T17:08:04.349158084Z ==> Available at your primary URL https://tx-predictive-intelligence.onrender.com
+2025-09-14T17:08:04.533591601Z ==> 
+2025-09-14T17:08:04.711022129Z ==> ///////////////////////////////////////////////////////////
+2025-09-14T17:08:06.359840457Z 127.0.0.1 - - [14/Sep/2025:17:08:06 +0000] "GET / HTTP/1.1" 200 874 "-" "Go-http-client/2.0"
+2025-09-14T17:11:25.878010014Z Traceback (most recent call last):
+2025-09-14T17:11:25.878269091Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:11:25.878280961Z     self._fetch_data(symbol)
+2025-09-14T17:11:25.878285701Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:11:25.878290261Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:11:25.878308612Z     raise Exception("Rate limited")
+2025-09-14T17:11:25.878314042Z Exception: Rate limited
+2025-09-14T17:11:27.054920653Z Traceback (most recent call last):
+2025-09-14T17:11:27.055534628Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:11:27.055552018Z     self._fetch_data(symbol)
+2025-09-14T17:11:27.055557259Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:11:27.055561659Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:11:27.055566799Z     raise Exception("Rate limited")
+2025-09-14T17:11:27.055572329Z Exception: Rate limited
+2025-09-14T17:11:27.967388132Z Traceback (most recent call last):
+2025-09-14T17:11:27.967598758Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:11:27.967608448Z     self._fetch_data(symbol)
+2025-09-14T17:11:27.967612818Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:11:27.967621798Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:11:27.967627358Z     raise Exception("Rate limited")
+2025-09-14T17:11:27.967674689Z Exception: Rate limited
+2025-09-14T17:13:06.775553071Z ==> Detected service running on port 5000
+2025-09-14T17:13:07.154915837Z ==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
+2025-09-14T17:15:25.970538814Z Traceback (most recent call last):
+2025-09-14T17:15:25.970769989Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:15:25.97077877Z     self._fetch_data(symbol)
+2025-09-14T17:15:25.97078221Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:15:25.97078519Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:15:25.9707892Z     raise Exception("Rate limited")
+2025-09-14T17:15:25.97079261Z Exception: Rate limited
+2025-09-14T17:15:27.172428674Z Traceback (most recent call last):
+2025-09-14T17:15:27.1726937Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:15:27.17271109Z     self._fetch_data(symbol)
+2025-09-14T17:15:27.172715541Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:15:27.17271969Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:15:27.172724471Z     raise Exception("Rate limited")
+2025-09-14T17:15:27.172729481Z Exception: Rate limited
+2025-09-14T17:15:28.064322577Z Traceback (most recent call last):
+2025-09-14T17:15:28.064578473Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:15:28.064588813Z     self._fetch_data(symbol)
+2025-09-14T17:15:28.064592213Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:15:28.064595123Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:15:28.064598483Z     raise Exception("Rate limited")
+2025-09-14T17:15:28.064602163Z Exception: Rate limited
+2025-09-14T17:23:26.160871064Z Traceback (most recent call last):
+2025-09-14T17:23:26.16112054Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:23:26.16113006Z     self._fetch_data(symbol)
+2025-09-14T17:23:26.16113343Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:23:26.161158551Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:23:26.161163301Z     raise Exception("Rate limited")
+2025-09-14T17:23:26.161165771Z Exception: Rate limited
+2025-09-14T17:23:27.356972087Z Traceback (most recent call last):
+2025-09-14T17:23:27.357237263Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:23:27.357244923Z     self._fetch_data(symbol)
+2025-09-14T17:23:27.357247313Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:23:27.357249643Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:23:27.357252134Z     raise Exception("Rate limited")
+2025-09-14T17:23:27.357254903Z Exception: Rate limited
+2025-09-14T17:23:28.168808063Z Traceback (most recent call last):
+2025-09-14T17:23:28.169038689Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:23:28.169052779Z     self._fetch_data(symbol)
+2025-09-14T17:23:28.169055019Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:23:28.169056829Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:23:28.169058949Z     raise Exception("Rate limited")
+2025-09-14T17:23:28.169061159Z Exception: Rate limited
+2025-09-14T17:24:07.844420581Z [2025-09-14 17:24:07 +0000] [56] [INFO] Handling signal: term
+2025-09-14T17:24:08.162060852Z [2025-09-14 17:24:08 +0000] [60] [INFO] Worker exiting (pid: 60)
+2025-09-14T17:24:08.162134864Z ⚠️ bitcoin: Rate limited by CoinGecko
+2025-09-14T17:24:08.162146334Z ⚠️ Error fetching bitcoin (crypto): Rate limited
+2025-09-14T17:24:08.162150485Z ⚠️ bitcoin traceback:
+2025-09-14T17:24:08.162153365Z ⚠️ ethereum: Rate limited by CoinGecko
+2025-09-14T17:24:08.162156225Z ⚠️ Error fetching ethereum (crypto): Rate limited
+2025-09-14T17:24:08.162158945Z ⚠️ ethereum traceback:
+2025-09-14T17:24:08.162161915Z ⚠️ solana: Rate limited by CoinGecko
+2025-09-14T17:24:08.162164685Z ⚠️ Error fetching solana (crypto): Rate limited
+2025-09-14T17:24:08.162168065Z ⚠️ solana traceback:
+2025-09-14T17:24:08.162170905Z ⚠️ bitcoin: Rate limited by CoinGecko
+2025-09-14T17:24:08.162173675Z ⚠️ Error fetching bitcoin (crypto): Rate limited
+2025-09-14T17:24:08.162176455Z ⚠️ bitcoin traceback:
+2025-09-14T17:24:08.162179495Z ⚠️ bitcoin: Max retries reached, sleeping longer
+2025-09-14T17:24:08.162182275Z ⚠️ ethereum: Rate limited by CoinGecko
+2025-09-14T17:24:08.162185125Z ⚠️ Error fetching ethereum (crypto): Rate limited
+2025-09-14T17:24:08.162187865Z ⚠️ ethereum traceback:
+2025-09-14T17:24:08.162190605Z ⚠️ ethereum: Max retries reached, sleeping longer
+2025-09-14T17:24:08.162193375Z ⚠️ solana: Rate limited by CoinGecko
+2025-09-14T17:24:08.162196106Z ⚠️ Error fetching solana (crypto): Rate limited
+2025-09-14T17:24:08.162199166Z ⚠️ solana traceback:
+2025-09-14T17:24:08.162202096Z ⚠️ solana: Max retries reached, sleeping longer
+2025-09-14T17:24:08.162204816Z ⚠️ bitcoin: Rate limited by CoinGecko
+2025-09-14T17:24:08.162207566Z ⚠️ Error fetching bitcoin (crypto): Rate limited
+2025-09-14T17:24:08.162210326Z ⚠️ bitcoin traceback:
+2025-09-14T17:24:08.162213066Z ⚠️ ethereum: Rate limited by CoinGecko
+2025-09-14T17:24:08.162215786Z ⚠️ Error fetching ethereum (crypto): Rate limited
+2025-09-14T17:24:08.162218536Z ⚠️ ethereum traceback:
+2025-09-14T17:24:08.162221296Z ⚠️ solana: Rate limited by CoinGecko
+2025-09-14T17:24:08.162224066Z ⚠️ Error fetching solana (crypto): Rate limited
+2025-09-14T17:24:08.162237076Z ⚠️ solana traceback:
+2025-09-14T17:24:09.946910098Z [2025-09-14 17:24:09 +0000] [56] [INFO] Shutting down: Master
+2025-09-14T17:24:09.946991089Z ✅ Alpha Vantage API key configured
+2025-09-14T17:24:09.946996709Z 🔧 Flask app mode: unknown
+2025-09-14T17:24:09.94699857Z 🔧 SocketIO async_mode: gevent
+2025-09-14T17:24:09.94700122Z 🔧 Python version: 3.13.4 (main, Sep 11 2025, 14:50:24) [GCC 12.2.0]
+2025-09-14T17:24:09.94700387Z 🔧 Requests: 2.32.5, urllib3: 2.5.0
+2025-09-14T17:24:09.94700725Z ✅ Connected to Supabase database
+2025-09-14T17:37:06.410579015Z ==> Deploying...
+2025-09-14T17:37:38.02078812Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:37:38.02079214Z     self._fetch_data(symbol)
+2025-09-14T17:37:38.02083351Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:37:38.020840271Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:37:38.020842851Z     raise Exception("Rate limited")
+2025-09-14T17:37:38.020845521Z Exception: Rate limited
+2025-09-14T17:37:39.022495179Z Traceback (most recent call last):
+2025-09-14T17:37:39.02252741Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:37:39.02253153Z     self._fetch_data(symbol)
+2025-09-14T17:37:39.02253402Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:37:39.02253633Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:37:39.02253896Z     raise Exception("Rate limited")
+2025-09-14T17:37:39.02254178Z Exception: Rate limited
+2025-09-14T17:37:39.818123608Z ✅ Alpha Vantage API key configured
+2025-09-14T17:37:39.818145889Z 🔧 Flask app mode: unknown
+2025-09-14T17:37:39.818148698Z 🔧 SocketIO async_mode: gevent
+2025-09-14T17:37:39.818151578Z 🔧 Python version: 3.13.4 (main, Sep 11 2025, 14:50:24) [GCC 12.2.0]
+2025-09-14T17:37:39.818154029Z 🔧 Requests: 2.32.5, urllib3: 2.5.0
+2025-09-14T17:37:39.818156329Z ✅ Connected to Supabase database
+2025-09-14T17:37:39.818158549Z ⚠️ bitcoin: Rate limited by CoinGecko
+2025-09-14T17:37:39.818160709Z ⚠️ Error fetching bitcoin (crypto): Rate limited
+2025-09-14T17:37:39.818162959Z ⚠️ bitcoin traceback:
+2025-09-14T17:37:39.818165299Z ⚠️ ethereum: Rate limited by CoinGecko
+2025-09-14T17:37:39.818167549Z ⚠️ Error fetching ethereum (crypto): Rate limited
+2025-09-14T17:37:39.818169679Z ⚠️ ethereum traceback:
+2025-09-14T17:37:39.818171839Z ⚠️ solana: Rate limited by CoinGecko
+2025-09-14T17:37:39.818174069Z ⚠️ Error fetching solana (crypto): Rate limited
+2025-09-14T17:37:39.818176889Z ⚠️ solana traceback:
+2025-09-14T17:37:39.818179709Z ℹ️ Background data workers disabled (WORKER_TYPE=web, ENABLE_BACKGROUND_WORKERS=false)
+2025-09-14T17:37:39.818184089Z ℹ️ Background scanning disabled (WORKER_TYPE=web, ENABLE_BACKGROUND_WORKERS=false)
+2025-09-14T17:37:39.818186419Z 127.0.0.1 - - [14/Sep/2025:17:37:39 +0000] "HEAD / HTTP/1.1" 200 0 "-" "Go-http-client/1.1"
+2025-09-14T17:37:47.241432989Z ==> Your service is live 🎉
+2025-09-14T17:37:47.424750847Z ==> 
+2025-09-14T17:37:47.917404254Z ==> ///////////////////////////////////////////////////////////
+2025-09-14T17:37:48.097522102Z ==> 
+2025-09-14T17:37:48.27876215Z ==> Available at your primary URL https://tx-predictive-intelligence.onrender.com
+2025-09-14T17:37:48.456521308Z ==> 
+2025-09-14T17:37:48.638481536Z ==> ///////////////////////////////////////////////////////////
+2025-09-14T17:37:50.144550642Z 127.0.0.1 - - [14/Sep/2025:17:37:50 +0000] "GET / HTTP/1.1" 200 874 "-" "Go-http-client/2.0"
+2025-09-14T17:40:56.612565408Z 127.0.0.1 - - [14/Sep/2025:17:40:56 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:40:57.728099134Z 127.0.0.1 - - [14/Sep/2025:17:40:57 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:41:07.421338035Z Traceback (most recent call last):
+2025-09-14T17:41:07.421617211Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:41:07.421629682Z     self._fetch_data(symbol)
+2025-09-14T17:41:07.421634882Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:41:07.421639912Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:41:07.421644702Z     raise Exception("Rate limited")
+2025-09-14T17:41:07.421649792Z Exception: Rate limited
+2025-09-14T17:41:08.149306841Z Traceback (most recent call last):
+2025-09-14T17:41:08.200452295Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:41:08.200483275Z     self._fetch_data(symbol)
+2025-09-14T17:41:08.200489895Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:41:08.200495576Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:41:08.200501706Z     raise Exception("Rate limited")
+2025-09-14T17:41:08.200508436Z Exception: Rate limited
+2025-09-14T17:41:09.235404478Z Traceback (most recent call last):
+2025-09-14T17:41:09.235632963Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:41:09.235640423Z     self._fetch_data(symbol)
+2025-09-14T17:41:09.235644033Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:41:09.235646893Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:41:09.235650324Z     raise Exception("Rate limited")
+2025-09-14T17:41:09.235653824Z Exception: Rate limited
+2025-09-14T17:41:26.432717546Z ⚠️ bitcoin: Rate limited by CoinGecko
+2025-09-14T17:41:26.432740176Z ⚠️ Error fetching bitcoin (crypto): Rate limited
+2025-09-14T17:41:26.432744247Z ⚠️ bitcoin traceback:
+2025-09-14T17:41:26.432747216Z ⚠️ ethereum: Rate limited by CoinGecko
+2025-09-14T17:41:26.432750167Z ⚠️ Error fetching ethereum (crypto): Rate limited
+2025-09-14T17:41:26.432753187Z ⚠️ ethereum traceback:
+2025-09-14T17:41:26.432755997Z ⚠️ solana: Rate limited by CoinGecko
+2025-09-14T17:41:26.432758777Z ⚠️ Error fetching solana (crypto): Rate limited
+2025-09-14T17:41:26.432762037Z ⚠️ solana traceback:
+2025-09-14T17:41:26.432768247Z 127.0.0.1 - - [14/Sep/2025:17:41:26 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:41:26.850786819Z 127.0.0.1 - - [14/Sep/2025:17:41:26 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:41:56.434468248Z 127.0.0.1 - - [14/Sep/2025:17:41:56 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:41:56.912264187Z 127.0.0.1 - - [14/Sep/2025:17:41:56 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:42:27.127998237Z 127.0.0.1 - - [14/Sep/2025:17:42:27 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:42:27.557069166Z 127.0.0.1 - - [14/Sep/2025:17:42:27 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:42:46.236634881Z ==> Detected service running on port 5000
+2025-09-14T17:42:46.622025215Z ==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
+2025-09-14T17:42:56.450779389Z 127.0.0.1 - - [14/Sep/2025:17:42:56 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:42:56.912919368Z 127.0.0.1 - - [14/Sep/2025:17:42:56 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:43:26.543515929Z 127.0.0.1 - - [14/Sep/2025:17:43:26 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:43:26.873974422Z 127.0.0.1 - - [14/Sep/2025:17:43:26 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:44:00.608368283Z 127.0.0.1 - - [14/Sep/2025:17:44:00 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:44:01.337542186Z 127.0.0.1 - - [14/Sep/2025:17:44:01 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:44:45.334968399Z 127.0.0.1 - - [14/Sep/2025:17:44:45 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:44:46.877669861Z 127.0.0.1 - - [14/Sep/2025:17:44:46 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:44:47.294409794Z 127.0.0.1 - - [14/Sep/2025:17:44:47 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_11 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6.1 Mobile/15E148 Safari/604.1"
+2025-09-14T17:45:07.630341933Z Traceback (most recent call last):
+2025-09-14T17:45:07.630579938Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:45:07.630588898Z     self._fetch_data(symbol)
+2025-09-14T17:45:07.630609609Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:45:07.630612369Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:45:07.630615429Z     raise Exception("Rate limited")
+2025-09-14T17:45:07.630618429Z Exception: Rate limited
+2025-09-14T17:45:08.423129599Z Traceback (most recent call last):
+2025-09-14T17:45:08.423157319Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:45:08.423160789Z     self._fetch_data(symbol)
+2025-09-14T17:45:08.423163159Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:45:08.423165359Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:45:08.42316805Z     raise Exception("Rate limited")
+2025-09-14T17:45:08.42317147Z Exception: Rate limited
+2025-09-14T17:45:09.431947247Z Traceback (most recent call last):
+2025-09-14T17:45:09.432156002Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T17:45:09.432168443Z     self._fetch_data(symbol)
+2025-09-14T17:45:09.432173143Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T17:45:09.432177103Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T17:45:09.432181443Z     raise Exception("Rate limited")
+2025-09-14T17:45:09.432185983Z Exception: Rate limited
