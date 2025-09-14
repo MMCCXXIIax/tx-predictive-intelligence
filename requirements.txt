@@ -27,3 +27,6 @@ waitress==3.0.0
 websocket-client==1.6.0
 werkzeug>=3.0.0
 psycopg[binary]
+gevent
+gevent-websocket
+simple-websocket

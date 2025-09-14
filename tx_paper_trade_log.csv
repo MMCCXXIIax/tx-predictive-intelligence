@@ -3050,3 +3050,4 @@ Timestamp,Symbol,Action,Pattern,Confidence,Price,Amount,Balance
 2025-09-14 14:45:58,bitcoin,BUY,Three Black Crows,0.94,115335.0,0.00043352,50.0,,buy,99950.0
 2025-09-14 14:46:41,bitcoin,BUY,Three Black Crows,0.94,115335.0,0.00043352,50.0,,buy,99900.0
 2025-09-14 14:47:57,bitcoin,BUY,Three Black Crows,0.94,115335.0,0.00043352,50.0,,buy,99850.0
+2025-09-14 15:17:29,solana,BUY,Marubozu,0.9,242.03,0.20658596,50.0,,buy,99950.0

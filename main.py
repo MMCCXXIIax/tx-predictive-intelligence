@@ -8,6 +8,7 @@ import time
 import threading
 import uuid
 import traceback
+import hashlib
 from datetime import datetime, timedelta, timezone
 
 # --- Third‑party libraries ---
@@ -83,7 +84,8 @@ load_dotenv()
 app = Flask(__name__, static_folder="static", static_url_path="")
 
 # --- SocketIO for real-time alerts ---
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+# Auto-detect best async mode (gevent/eventlet for production, threading for dev)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # WSGI application alias for production servers (Render, gunicorn, etc.) 
 application = app
@@ -105,6 +107,17 @@ CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
 # --- Configuration ---
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+# Background worker coordination - only run on designated worker to prevent rate limiting
+# In development (single process), always enable. In production, use strict env control.
+IS_DEVELOPMENT = os.getenv("FLASK_ENV") == "development" or os.getenv("REPLIT") or not os.getenv("RENDER")
+WORKER_TYPE = os.getenv("WORKER_TYPE", "web")  # 'web' or 'worker'
+ENABLE_BACKGROUND_WORKERS = (
+    # In development, always enable background workers regardless of worker type
+    IS_DEVELOPMENT or 
+    # In production, only enable for designated worker processes
+    (WORKER_TYPE == "worker" and os.getenv("ENABLE_BACKGROUND_WORKERS", "false").lower() in ("true", "1", "yes"))
+)
 
 # Production-ready configuration with graceful degradation
 DATABASE_MODE = "production" if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY else "demo"
@@ -134,7 +147,8 @@ class TXConfig:
     CANDLE_LIMIT = int(os.getenv("CANDLE_LIMIT", "100"))
     ALERT_CONFIDENCE_THRESHOLD = float(os.getenv("ALERT_CONFIDENCE_THRESHOLD", "0.85"))
     CACHE_FILE = "tx_cache.json"
-    CACHE_DURATION = int(os.getenv("CACHE_DURATION", "180"))
+    CACHE_DURATION = int(os.getenv("CACHE_DURATION", "300"))  # Increased from 180 to 300 seconds
+    RATE_LIMIT_DELAY = float(os.getenv("RATE_LIMIT_DELAY", "1.0"))  # Delay between API calls
     PATTERN_WATCHLIST = [
         "Bullish Engulfing", "Bearish Engulfing", "Morning Star",
         "Evening Star", "Three White Soldiers", "Three Black Crows",
@@ -236,12 +250,32 @@ class DataCache:
 
     @staticmethod
     def update_cache(symbol: str, candles):
-        cache = DataCache.load_cache()
-        cache[symbol] = {
-            "candles": candles,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
-        DataCache.save_cache(cache)
+        try:
+            cache = DataCache.load_cache()
+            cache[symbol] = {
+                "candles": candles,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "api_calls": cache.get(symbol, {}).get("api_calls", 0) + 1
+            }
+            DataCache.save_cache(cache)
+        except Exception as e:
+            print(f"⚠️ Cache update error for {symbol}: {e}")
+    
+    @staticmethod
+    def get_cache_stats():
+        try:
+            cache = DataCache.load_cache()
+            stats = {}
+            for symbol, data in cache.items():
+                if isinstance(data, dict):
+                    stats[symbol] = {
+                        "last_update": data.get("timestamp"),
+                        "api_calls": data.get("api_calls", 0),
+                        "candles_count": len(data.get("candles", []))
+                    }
+            return stats
+        except Exception:
+            return {}
 
 # --- Alerts ---
 class AlertSystem:
@@ -307,16 +341,24 @@ class TXEngine:
         self.recent_alerts = {}
         self.lock = threading.Lock()
 
-        if self.router is not None and hasattr(self.router, "start_alpha_vantage_loop"):
+        # Only start background data fetching if this is designated as a worker process
+        if ENABLE_BACKGROUND_WORKERS and self.router is not None and hasattr(self.router, "start_alpha_vantage_loop"):
             try:
-                threading.Thread(
-                    target=self.router.start_alpha_vantage_loop,
-                    args=(TXConfig.BACKEND_SCAN_INTERVAL,),
-                    daemon=True
-                ).start()
-                print("✅ AlphaVantage/stock background updater started (DataRouter).")
+                # Acquire advisory lock to ensure only one process runs background tasks
+                lock_acquired = self._acquire_worker_lock("alpha_vantage_worker")
+                if lock_acquired:
+                    threading.Thread(
+                        target=self.router.start_alpha_vantage_loop,
+                        args=(TXConfig.BACKEND_SCAN_INTERVAL,),
+                        daemon=True
+                    ).start()
+                    print("✅ AlphaVantage/stock background updater started (DataRouter) with advisory lock.")
+                else:
+                    print("ℹ️ AlphaVantage worker lock held by another process, skipping.")
             except Exception as e:
                 print("⚠️ Could not start router alpha loop:", e)
+        elif not ENABLE_BACKGROUND_WORKERS:
+            print(f"ℹ️ Background data workers disabled (WORKER_TYPE={WORKER_TYPE}, ENABLE_BACKGROUND_WORKERS={os.getenv('ENABLE_BACKGROUND_WORKERS', 'false')})")
 
     def get_market_price(self, symbol: str):
         try:
@@ -340,6 +382,18 @@ class TXEngine:
         for symbol in TXConfig.ASSET_TYPES.keys():
             prices[symbol] = self.get_market_price(symbol)
         return prices
+    
+    def _acquire_worker_lock(self, lock_name: str) -> bool:
+        """Acquire advisory lock to ensure only one process runs background workers"""
+        try:
+            with engine.connect() as conn:
+                # Use deterministic hash to ensure same lock ID across all processes
+                lock_id = int.from_bytes(hashlib.sha1(lock_name.encode()).digest()[:8], 'big')
+                result = conn.execute(text("SELECT pg_try_advisory_lock(:lock_id)"), {"lock_id": lock_id})
+                return result.scalar()
+        except Exception as e:
+            print(f"⚠️ Advisory lock acquisition failed for {lock_name}: {e}")
+            return False
 
     def run_scan(self):
         with self.lock:
@@ -353,6 +407,9 @@ class TXEngine:
 
                     if (not isinstance(candles, list) or len(candles) < 3) and self.router and hasattr(self.router, "get_latest_candles"):
                         try:
+                            # Add rate limiting delay to prevent overwhelming APIs
+                            if TXConfig.RATE_LIMIT_DELAY > 0:
+                                time.sleep(TXConfig.RATE_LIMIT_DELAY)
                             candles = self.router.get_latest_candles(symbol) or []
                             if isinstance(candles, list) and candles:
                                 DataCache.update_cache(symbol, candles)
@@ -493,6 +550,25 @@ def start_background_scanner():
     global SCANNER_STARTED, SCANNER_THREAD
     if SCANNER_STARTED:
         return
+    
+    # Only start background scanning if enabled for this process
+    if not ENABLE_BACKGROUND_WORKERS:
+        print(f"ℹ️ Background scanning disabled (WORKER_TYPE={WORKER_TYPE}, ENABLE_BACKGROUND_WORKERS={os.getenv('ENABLE_BACKGROUND_WORKERS', 'false')})")
+        return
+    
+    # Acquire advisory lock to ensure only one process runs scanner
+    try:
+        with engine.connect() as conn:
+            # Use deterministic hash to ensure same lock ID across all processes
+            lock_id = int.from_bytes(hashlib.sha1("tx_scanner_worker".encode()).digest()[:8], 'big')
+            result = conn.execute(text("SELECT pg_try_advisory_lock(:lock_id)"), {"lock_id": lock_id})
+            if not result.scalar():
+                print("ℹ️ Scanner worker lock held by another process, skipping.")
+                return
+    except Exception as e:
+        print(f"⚠️ Scanner advisory lock failed: {e}")
+        return
+        
     SCANNER_THREAD = threading.Thread(
         target=background_scan_loop,
         daemon=True,
@@ -500,7 +576,7 @@ def start_background_scanner():
     )
     SCANNER_THREAD.start()
     SCANNER_STARTED = True
-    print("✅ Background scan thread started")
+    print("✅ Background scan thread started with advisory lock.")
 
 # Initialize TX engine and start scanner only when Flask server starts
 @app.before_request
@@ -1472,12 +1548,20 @@ def api_list_assets():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 # --- Serve ---
 if __name__ == "__main__":
     # Production port configuration - use PORT env var for Render
     port = int(os.environ.get("PORT", 5000))
     host = "0.0.0.0"
-    print(f"🚀 Starting TX Production Server with WebSocket support on {host}:{port}")
+    
+    # Show startup configuration
+    print(f"🚀 Starting TX Server on {host}:{port}")
+    print(f"🔧 Environment: {'Development' if IS_DEVELOPMENT else 'Production'}")
+    print(f"🔧 Worker type: {WORKER_TYPE}")
+    print(f"🔧 Background workers: {'Enabled' if ENABLE_BACKGROUND_WORKERS else 'Disabled'}")
+    print(f"🔧 Cache duration: {TXConfig.CACHE_DURATION}s")
+    print(f"🔧 Rate limit delay: {TXConfig.RATE_LIMIT_DELAY}s")
     
     # Use SocketIO's run method instead of Flask's
-    socketio.run(app, host=host, port=port, debug=False)
+    socketio.run(app, host=host, port=port, debug=IS_DEVELOPMENT)
