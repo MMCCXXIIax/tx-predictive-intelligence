@@ -424,7 +424,7 @@ class TXEngine:
                     last = candles[-1] if isinstance(candles[-1], dict) else {}
                     last_price = last.get("close") or last.get("price")
 
-                    if self.trader:
+                    if self.trader and last_price is not None:
                         try:
                             sell_trade = self.trader.check_auto_sell(symbol, last_price)
                             if sell_trade:
@@ -456,7 +456,7 @@ class TXEngine:
                         alert_key = f"{symbol}_{best.get('name')}"
                         now_ts = time.time()
                         last_ts = self.recent_alerts.get(alert_key, 0)
-                        if (now_ts - last_ts) > 300:
+                        if (now_ts - last_ts) > 300 and last_price is not None:
                             AlertSystem.trigger_alert(symbol, best, last_price)
                             self.recent_alerts[alert_key] = now_ts
 
@@ -468,19 +468,22 @@ class TXEngine:
                             "price": last_price
                         })
 
-                        if self.trader:
-                            try:
-                                trade = self.trader.buy(
-                                    symbol,
-                                    last_price,
-                                    best.get("name"),
-                                    best.get("confidence"),
-                                    amount_usd=50
-                                )
-                                trade["time"] = scan_time
-                                app_state["paper_trades"].insert(0, trade)
-                            except Exception as e:
-                                print(f"⚠️ trader.buy error for {symbol}: {e}")
+                        if self.trader and last_price is not None:
+                            pattern_name = best.get("name")
+                            pattern_confidence = best.get("confidence")
+                            if pattern_name and pattern_confidence is not None:
+                                try:
+                                    trade = self.trader.buy(
+                                        symbol,
+                                        last_price,
+                                        pattern_name,
+                                        pattern_confidence,
+                                        amount_usd=50
+                                    )
+                                    trade["time"] = scan_time
+                                    app_state["paper_trades"].insert(0, trade)
+                                except Exception as e:
+                                    print(f"⚠️ trader.buy error for {symbol}: {e}")
                     else:
                         results.append({"symbol": symbol, "status": "no_pattern", "price": last_price})
 
@@ -700,8 +703,8 @@ def api_log_outcome():
 @app.route("/api/paper-trades", methods=["GET"])
 def api_get_paper_trades():
     try:
-        if tx_engine and hasattr(tx_engine, 'trader') and tx_engine.trader and hasattr(tx_engine.trader, "get_positions"):
-            return jsonify({"positions": tx_engine.trader.get_positions()}), 200
+        if tx_engine and hasattr(tx_engine, 'trader') and tx_engine.trader and hasattr(tx_engine.trader, "get_open_positions"):
+            return jsonify({"positions": tx_engine.trader.get_open_positions()}), 200
         # Optional: also return persisted paper_trades
         with engine.begin() as conn:
             rows = conn.execute(text("""
@@ -732,7 +735,7 @@ def api_place_paper_trade():
             if side == "buy":
                 trade = tx_engine.trader.buy(symbol, price, "manual", 1.0, amount_usd=None, qty=qty)
             else:
-                trade = tx_engine.trader.sell(symbol, price, "manual", 1.0, qty=qty)
+                trade = tx_engine.trader.sell(symbol, price, qty=qty, reason="manual")
             app_state["paper_trades"].insert(0, trade)
             return jsonify({"status": "ok", "trade": trade}), 200
 
@@ -760,7 +763,7 @@ def api_close_position():
             price = tx_engine.get_market_price(symbol)
             if price is None:
                 return jsonify({"status": "error", "message": "no_price"}), 400
-            result = tx_engine.trader.close(symbol, price)
+            result = tx_engine.trader.close_position(symbol, price)
             return jsonify({"status": "ok", "result": result}), 200
 
         # Stub fallback
@@ -772,8 +775,8 @@ def api_close_position():
 @app.route("/api/trading-stats", methods=["GET"])
 def api_trading_stats():
     try:
-        if tx_engine and hasattr(tx_engine, "trader") and tx_engine.trader and hasattr(tx_engine.trader, "get_stats"):
-            stats = tx_engine.trader.get_stats()
+        if tx_engine and hasattr(tx_engine, "trader") and tx_engine.trader and hasattr(tx_engine.trader, "get_portfolio_value"):
+            stats = tx_engine.trader.get_portfolio_value()
             return jsonify({"stats": stats}), 200
 
         # Minimal aggregate from persisted paper_trades
@@ -1564,4 +1567,4 @@ if __name__ == "__main__":
     print(f"🔧 Rate limit delay: {TXConfig.RATE_LIMIT_DELAY}s")
     
     # Use SocketIO's run method instead of Flask's
-    socketio.run(app, host=host, port=port, debug=IS_DEVELOPMENT)
+    socketio.run(app, host=host, port=port, debug=bool(IS_DEVELOPMENT), use_reloader=False, log_output=True)
