@@ -3053,3 +3053,5 @@ Timestamp,Symbol,Action,Pattern,Confidence,Price,Amount,Balance
 2025-09-14 15:17:29,solana,BUY,Marubozu,0.9,242.03,0.20658596,50.0,,buy,99950.0
 2025-09-14 15:36:51,bitcoin,BUY,Bearish Engulfing,0.9,115424.0,0.00043319,50.0,,buy,99950.0
 2025-09-14 15:36:53,solana,BUY,Marubozu,0.9,242.03,0.20658596,50.0,,buy,99900.0
+2025-09-14 15:38:50,bitcoin,BUY,Bearish Engulfing,0.9,115424.0,0.00043319,50.0,,buy,99850.0
+2025-09-14 15:38:50,solana,BUY,Marubozu,0.9,242.03,0.20658596,50.0,,buy,99800.0
