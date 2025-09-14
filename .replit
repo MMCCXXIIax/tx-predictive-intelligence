@@ -5,7 +5,7 @@ audio = true
 
 [nix]
 channel = "stable-25_05"
-packages = ["iana-etc", "libev", "openssl", "postgresql"]
+packages = ["iana-etc", "libev", "openssl", "postgresql", "postgresql_14", "libpq"]
 
 [unitTest]
 language = "python3"
@@ -69,6 +69,10 @@ externalPort = 80
 [[ports]]
 localPort = 10000
 externalPort = 9000
+
+[[ports]]
+localPort = 35873
+externalPort = 3001
 
 [agent]
 expertMode = true

@@ -1480,4 +1480,4 @@ if __name__ == "__main__":
     print(f"🚀 Starting TX Production Server with WebSocket support on {host}:{port}")
     
     # Use SocketIO's run method instead of Flask's
-    socketio.run(app, host=host, port=port, debug=False, allow_unsafe_werkzeug=True)
+    socketio.run(app, host=host, port=port, debug=False)
