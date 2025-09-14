@@ -14,7 +14,7 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["gunicorn", "--worker-class", "geventwebsocket.gunicorn.workers.GeventWebSocketWorker", "--bind", "0.0.0.0:5000", "--reuse-port", "main:app"]
+run = ["gunicorn", "--worker-class", "geventwebsocket.gunicorn.workers.GeventWebSocketWorker", "--workers", "1", "--bind", "0.0.0.0:$PORT", "--timeout", "120", "--keep-alive", "2", "--preload", "main:app"]
 deploymentTarget = "autoscale"
 build = ["pip", "install", "-r", "requirements.txt"]
 
@@ -70,10 +70,6 @@ externalPort = 80
 [[ports]]
 localPort = 10000
 externalPort = 9000
-
-[[ports]]
-localPort = 33105
-externalPort = 3002
 
 [[ports]]
 localPort = 33165
