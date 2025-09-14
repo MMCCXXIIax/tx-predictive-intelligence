@@ -1,10 +1,10 @@
 entrypoint = "main.py"
-modules = ["nodejs-20", "python-3.11"]
+modules = ["python-3.11", "web"]
 
 audio = true
 
 [nix]
-channel = "stable-24_05"
+channel = "stable-25_05"
 packages = ["iana-etc", "libev", "openssl", "postgresql"]
 
 [unitTest]
