@@ -14,8 +14,9 @@ language = "python3"
 requiredFiles = [".replit", "replit.nix"]
 
 [deployment]
-run = ["gunicorn", "--worker-class=geventwebsocket.gunicorn.workers.GeventWebSocketWorker", "--bind=0.0.0.0:5000", "--reuse-port", "main:app"]
-deploymentTarget = "vm"
+run = ["gunicorn", "--worker-class", "geventwebsocket.gunicorn.workers.GeventWebSocketWorker", "--bind", "0.0.0.0:5000", "--reuse-port", "main:app"]
+deploymentTarget = "autoscale"
+build = ["pip", "install", "-r", "requirements.txt"]
 
 [workflows]
 runButton = "Project"
