@@ -1,0 +1,56 @@
+2025-09-14T14:33:07.374691359Z Traceback (most recent call last):
+2025-09-14T14:33:07.37471516Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T14:33:07.37472029Z     self._fetch_data(symbol)
+2025-09-14T14:33:07.37472471Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T14:33:07.37472918Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T14:33:07.37473312Z     raise Exception("Rate limited")
+2025-09-14T14:33:07.37473774Z Exception: Rate limited
+2025-09-14T14:33:08.481671427Z Traceback (most recent call last):
+2025-09-14T14:33:08.481955233Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T14:33:08.481966803Z     self._fetch_data(symbol)
+2025-09-14T14:33:08.481971223Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T14:33:08.481975563Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T14:33:08.481981553Z     raise Exception("Rate limited")
+2025-09-14T14:33:08.481986193Z Exception: Rate limited
+2025-09-14T14:33:09.556340431Z Traceback (most recent call last):
+2025-09-14T14:33:09.556360541Z   File "/opt/render/project/src/services/crypto_data_services.py", line 31, in _safe_update_data
+2025-09-14T14:33:09.556365991Z     self._fetch_data(symbol)
+2025-09-14T14:33:09.556370411Z     ~~~~~~~~~~~~~~~~^^^^^^^^
+2025-09-14T14:33:09.556374841Z   File "/opt/render/project/src/services/crypto_data_services.py", line 82, in _fetch_data
+2025-09-14T14:33:09.556379281Z     raise Exception("Rate limited")
+2025-09-14T14:33:09.556407942Z Exception: Rate limited
+2025-09-14T14:33:11.932070442Z 🛰️ scan #35 at 14:32:38 with 3 results
+2025-09-14T14:33:11.932090832Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-14T14:33:11.932094502Z ⚠️ bitcoin: Rate limited by CoinGecko
+2025-09-14T14:33:11.932097622Z ⚠️ Error fetching bitcoin (crypto): Rate limited
+2025-09-14T14:33:11.932100882Z ⚠️ bitcoin traceback:
+2025-09-14T14:33:11.932103712Z ⚠️ ethereum: Rate limited by CoinGecko
+2025-09-14T14:33:11.932106573Z ⚠️ Error fetching ethereum (crypto): Rate limited
+2025-09-14T14:33:11.932109393Z ⚠️ ethereum traceback:
+2025-09-14T14:33:11.932112253Z ⚠️ solana: Rate limited by CoinGecko
+2025-09-14T14:33:11.932115002Z ⚠️ Error fetching solana (crypto): Rate limited
+2025-09-14T14:33:11.932118253Z ⚠️ solana traceback:
+2025-09-14T14:33:11.932140403Z 127.0.0.1 - - [14/Sep/2025:14:33:11 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 OPR/121.0.0.0"
+2025-09-14T14:33:12.26373333Z 127.0.0.1 - - [14/Sep/2025:14:33:12 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 OPR/121.0.0.0"
+2025-09-14T14:34:15.997709167Z 🛰️ scan #36 at 14:33:38 with 3 results
+2025-09-14T14:34:15.997730888Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-14T14:34:15.997735118Z 127.0.0.1 - - [14/Sep/2025:14:34:15 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 OPR/121.0.0.0"
+2025-09-14T14:34:16.525212489Z 127.0.0.1 - - [14/Sep/2025:14:34:16 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 OPR/121.0.0.0"
+2025-09-14T14:35:12.029341505Z 🛰️ scan #37 at 14:34:38 with 3 results
+2025-09-14T14:35:12.029380056Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-14T14:35:12.029386896Z 127.0.0.1 - - [14/Sep/2025:14:35:12 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 OPR/121.0.0.0"
+2025-09-14T14:35:12.431187719Z 127.0.0.1 - - [14/Sep/2025:14:35:12 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 OPR/121.0.0.0"
+2025-09-14T14:36:11.292175291Z 🛰️ scan #38 at 14:35:38 with 3 results
+2025-09-14T14:36:11.292844093Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-14T14:36:11.292853094Z 127.0.0.1 - - [14/Sep/2025:14:36:11 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 OPR/121.0.0.0"
+2025-09-14T14:36:11.613657682Z 127.0.0.1 - - [14/Sep/2025:14:36:11 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 OPR/121.0.0.0"
+2025-09-14T14:37:11.914987463Z 🛰️ scan #39 at 14:36:38 with 3 results
+2025-09-14T14:37:11.915666656Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-14T14:37:11.915680266Z 127.0.0.1 - - [14/Sep/2025:14:37:11 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 OPR/121.0.0.0"
+2025-09-14T14:37:12.284239977Z 127.0.0.1 - - [14/Sep/2025:14:37:12 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 OPR/121.0.0.0"
+2025-09-14T14:38:11.365845858Z 🔄 Refreshing Alpha Vantage OHLC data (stocks + forex)...
+2025-09-14T14:38:11.366477961Z 🚨 ALERT: bitcoin Three Black Crows (94%) @ 115335.00 — 2025-09-14 14:37:38
+2025-09-14T14:38:11.366484831Z 🚨 ALERT: ethereum Shooting Star (100%) @ 4613.90 — 2025-09-14 14:37:38
+2025-09-14T14:38:11.366490381Z 🛰️ scan #40 at 14:37:38 with 3 results
+2025-09-14T14:38:11.366496311Z 127.0.0.1 - - [14/Sep/2025:14:38:11 +0000] "OPTIONS /api/assets/list HTTP/1.1" 200 0 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 OPR/121.0.0.0"
+2025-09-14T14:38:11.719506512Z 127.0.0.1 - - [14/Sep/2025:14:38:11 +0000] "GET /api/assets/list HTTP/1.1" 200 287 "https://tx-trade-whisperer.onrender.com/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 OPR/121.0.0.0"
