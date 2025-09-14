@@ -36,7 +36,7 @@ class CryptoDataService:
                 with self.lock:
                     self.retry_count[symbol] = 0
                     self.rate_limit_backoff[symbol] = 0
-                    self.last_success[symbol] = time.time()
+                    self.last_success[symbol] = int(time.time())
                 time.sleep(self.refresh_interval)
                 
             elif result == "rate_limited":
