@@ -1,0 +1,46 @@
+Plan
+Align all frontend API calls to the Flask-supported endpoints you listed.
+Centralize usage through the existing apiClient to avoid divergence.
+Update components that still call unsupported endpoints or shapes.
+Keep CandlestickChart/useCandles as-is since they already hit /api/candles.
+I reviewed apiClient and key components. Most routes already match your Flask endpoints:
+
+Alerts: GET /api/get_active_alerts, POST /api/handle_alert_response, GET /api/get_latest_detection_id, POST /api/log_outcome
+Market data & catalog: GET /api/candles, /api/assets/list, /api/patterns/list
+Paper trading: GET/POST /api/paper-trades, POST /api/close-position, GET /api/trading-stats
+Analytics & logs: GET /api/detection_stats, /api/detection_logs, /api/export_detection_logs, /api/analytics/summary
+AI features: POST /api/backtest/pattern, /api/backtest/strategy, /api/signals/entry-exit, POST /api/detect/enhanced, POST /api/recommend/complete, GET /api/explain/pattern/{name}, POST /api/explain/alert, GET /api/sentiment/{symbol}, POST /api/sentiment/enhance-confidence, POST /api/sentiment/alert-condition
+System: GET /health, /api/status, /api/features
+One small cleanup made:
+
+PatternDetection.tsx uses apiClient.getPatternExplanation, which maps to GET /api/explain/pattern/{name}. Comment added to make the mapping explicit. No behavioral change.
+Key component mappings verified:
+
+TXOverviewDashboard, PatternDashboard, AlertCenter: apiClient.getActiveAlerts, getMarketScan (/api/scan), detectEnhanced (/api/detect/enhanced), getPatternsList, getAssetsList
+PaperTrading: getPaperPortfolio (/api/paper-trades), executePaperTrade (POST /api/paper-trades), closePosition (POST /api/close-position), getPortfolioMetrics (/api/trading-stats)
+CandlestickChart + useCandles: GET /api/candles?symbol=...&timeframe=...
+SentimentAnalysis: txApi.getSentiment → GET /api/sentiment/{symbol} (already uses correct base and shape)
+TXBacktestDashboard: apiClient.backtestPattern → POST /api/backtest/pattern
+PatternRegistry: Now backed primarily by getPatternRegistry? There is no Flask endpoint for /api/patterns; component already falls back to /api/scan or static list. Left intact.
+Outstanding items to confirm with you:
+
+Do you want to remove non-Flask-only placeholders in apiClient like:
+
+getPatternRegistry (/api/patterns) [not in list]
+getPatternStatistics (/api/analytics/patterns) [not in list]
+getPerformanceMetrics (/api/analytics/performance) [not in list]
+getStrategyTemplates (/api/strategy/list) and createStrategy (/api/strategy/create) [Flask uses /api/strategies GET/POST]
+runHistoricalAnalysis (/api/backtest/run) [not in list]
+getTimeframes, getMultiTimeframeAnalysis, getVolumeAnalysis [not in list]
+Strategy & Risk Management:
+
+Your list has GET/POST /api/strategies, GET/POST /api/risk-settings.
+Current code uses txApi in StrategyBuilder (separate client), not apiClient. Do you want me to:
+Standardize StrategyBuilder to apiClient using /api/strategies and /api/risk-settings?
+Or extend txApi to use those exact Flask endpoints?
+If you approve:
+
+I’ll replace unsupported apiClient methods with supported ones (e.g., strategies, risk-settings).
+Update StrategyBuilder to use the correct endpoints.
+Remove or guard calls to non-existent analytics routes with fallbacks.
+Confirm the above and I’ll proceed with those edits.
