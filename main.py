@@ -66,7 +66,7 @@ class Config:
     SUPABASE_SERVICE_ROLE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
     
     # API Keys
-    ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_API_KEY')
+    ALPHA_VANTAGE_API_KEY = os.getenv('ALPHA_VANTAGE_KEY')  # Updated to match your env var
     FINNHUB_API_KEY = os.getenv('FINNHUB_API_KEY')
     POLYGON_API_KEY = os.getenv('POLYGON_API_KEY')
     
@@ -81,7 +81,7 @@ class Config:
     CACHE_DURATION = int(os.getenv('CACHE_DURATION', '60'))  # 1 minute
     
     # Trading settings
-    PAPER_TRADING_ENABLED = os.getenv('PAPER_TRADING_ENABLED', 'true').lower() == 'true'
+    PAPER_TRADING_ENABLED = os.getenv('ENABLE_PAPER_TRADING', 'true').lower() == 'true'
     ALERT_CONFIDENCE_THRESHOLD = float(os.getenv('ALERT_CONFIDENCE_THRESHOLD', '0.7'))
     
     # Rate limiting
