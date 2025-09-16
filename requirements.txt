@@ -34,3 +34,6 @@ werkzeug>=3.0.0
 ccxt>=4.4.86
 psycopg[binary]>=3.2.2
 websocket>=0.2.1
+yfinance 
+ta 
+textblob
