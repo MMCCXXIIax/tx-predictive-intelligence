@@ -95,10 +95,10 @@ app.config.from_object(Config)
 cors = CORS(app, origins=["*"])
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 limiter = Limiter(
-    app,
     key_func=get_remote_address,
     default_limits=["200 per day", "50 per hour"]
 )
+limiter.init_app(app)
 
 # Database setup
 engine = None
