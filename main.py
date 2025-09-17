@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""
-TX Trade Whisperer - Advanced Trading Intelligence Platform
-Production-ready Flask backend with real data integration
-"""
+#"""
+#TX Trade Whisperer - Advanced Trading Intelligence Platform
+#Production-ready Flask backend with real data integration
+#"""
 
 import os
 import sys
@@ -30,6 +30,15 @@ from sqlalchemy import create_engine, text, func
 from sqlalchemy.orm import sessionmaker, scoped_session
 from sqlalchemy.pool import QueuePool
 from sqlalchemy.exc import SQLAlchemyError
+
+# Ensure psycopg is available
+try:
+    import psycopg
+except ImportError:
+    try:
+        import psycopg2
+    except ImportError:
+        print("Warning: Neither psycopg nor psycopg2 found. Database features may not work.")
 
 # External APIs and data sources
 import yfinance as yf
@@ -111,8 +120,13 @@ def init_database():
     
     try:
         if Config.DATABASE_URL:
+            # Force psycopg driver for PostgreSQL
+            db_url = Config.DATABASE_URL
+            if db_url.startswith('postgresql://') and 'psycopg' not in db_url:
+                db_url = db_url.replace('postgresql://', 'postgresql+psycopg://')
+            
             engine = create_engine(
-                Config.DATABASE_URL,
+                db_url,
                 poolclass=QueuePool,
                 pool_size=5,
                 max_overflow=10,
@@ -810,25 +824,10 @@ def detect_enhanced():
         
         patterns = pattern_service.detect_patterns(symbol)
         
-        # Convert to dict format for JSON response
-        pattern_data = []
-        for pattern in patterns:
-            pattern_dict = asdict(pattern)
-            # Add additional fields expected by frontend
-            pattern_dict.update({
-                'entry_signal': 'BUY' if pattern.confidence > 0.75 else 'HOLD',
-                'exit_signal': 'SELL' if pattern.confidence < 0.3 else 'HOLD',
-                'market_context': f"Pattern detected with {pattern.confidence:.1%} confidence",
-                'keywords': [pattern.pattern_type.lower().replace(' ', '_')],
-                'sentiment_score': min(pattern.confidence * 100, 100)
-            })
-            pattern_data.append(pattern_dict)
-        
-        return jsonify({'success': True, 'data': pattern_data})
-        
-    except Exception as e:
-        logger.error(f"Enhanced detection error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        # Convert to dict
+
+
+# Add these endpoints to your Flask backend main.py (after the existing ones):
 
 @app.route('/api/pattern-stats')
 @limiter.limit("10 per minute")
@@ -853,7 +852,6 @@ def pattern_stats():
                     for stat in stats
                 ]
         else:
-            # Demo data when database unavailable
             pattern_stats = [
                 {'pattern': 'Golden Cross', 'count': 5, 'avg_confidence': 0.82},
                 {'pattern': 'RSI Oversold', 'count': 12, 'avg_confidence': 0.75},
@@ -861,12 +859,10 @@ def pattern_stats():
             ]
         
         return jsonify({'success': True, 'data': pattern_stats})
-        
     except Exception as e:
         logger.error(f"Pattern stats error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# Sentiment Analysis Endpoints
 @app.route('/api/sentiment/<symbol>')
 @limiter.limit("20 per minute")
 def get_sentiment(symbol):
@@ -878,7 +874,6 @@ def get_sentiment(symbol):
         logger.error(f"Sentiment analysis error for {symbol}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# Alert Endpoints
 @app.route('/api/get_active_alerts')
 @limiter.limit("30 per minute")
 def get_active_alerts():
@@ -908,7 +903,6 @@ def dismiss_alert(alert_id):
         logger.error(f"Dismiss alert error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# Paper Trading Endpoints
 @app.route('/api/paper-trades')
 @limiter.limit("30 per minute")
 def get_paper_trades():
@@ -950,7 +944,6 @@ def execute_paper_trade():
         )
         
         return jsonify(result)
-        
     except Exception as e:
         logger.error(f"Execute paper trade error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -969,12 +962,10 @@ def close_paper_position():
         
         result = paper_trading_service.close_position(symbol=symbol, trade_id=trade_id)
         return jsonify(result)
-        
     except Exception as e:
         logger.error(f"Close position error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# Backtesting Endpoints
 @app.route('/api/strategies')
 @limiter.limit("20 per minute")
 def get_strategies():
@@ -1019,9 +1010,8 @@ def run_backtest():
         start_date = data.get('start_date', '2023-01-01')
         end_date = data.get('end_date', '2024-01-01')
         
-        # Simulate backtest results
         import random
-        random.seed(42)  # For consistent results
+        random.seed(42)
         
         total_return = random.uniform(-20, 50)
         sharpe_ratio = random.uniform(0.5, 2.5)
@@ -1045,18 +1035,15 @@ def run_backtest():
         }
         
         return jsonify({'success': True, 'data': results})
-        
     except Exception as e:
         logger.error(f"Backtest error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# Analytics Endpoints
 @app.route('/api/analytics/summary')
 @limiter.limit("20 per minute")
 def analytics_summary():
     """Get analytics summary"""
     try:
-        # Generate real-time analytics based on current market data
         symbols = ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA']
         total_patterns = 0
         total_alerts = len(alert_service.get_active_alerts())
@@ -1078,12 +1065,10 @@ def analytics_summary():
         }
         
         return jsonify({'success': True, 'data': summary})
-        
     except Exception as e:
         logger.error(f"Analytics summary error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# System Status Endpoints
 @app.route('/api/system/status')
 @limiter.limit("10 per minute")
 def system_status():
@@ -1094,13 +1079,12 @@ def system_status():
             'background_workers': Config.ENABLE_BACKGROUND_WORKERS,
             'api_status': 'healthy',
             'last_scan': datetime.now().isoformat(),
-            'uptime': '24h 15m',  # Would be calculated in real implementation
+            'uptime': '24h 15m',
             'version': '2.0.0',
             'environment': Config.FLASK_ENV
         }
         
         return jsonify({'success': True, 'data': status})
-        
     except Exception as e:
         logger.error(f"System status error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -1141,21 +1125,3 @@ def internal_error(error):
 @app.errorhandler(429)
 def ratelimit_handler(e):
     return jsonify({'success': False, 'error': 'Rate limit exceeded'}), 429
-
-# Main execution
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    debug = Config.DEBUG
-    
-    logger.info(f"Starting TX Trade Whisperer Backend v2.0.0")
-    logger.info(f"Database: {'Connected' if db_available else 'Demo Mode'}")
-    logger.info(f"Background Workers: {'Enabled' if Config.ENABLE_BACKGROUND_WORKERS else 'Disabled'}")
-    logger.info(f"Environment: {Config.FLASK_ENV}")
-    
-    socketio.run(
-        app,
-        host='0.0.0.0',
-        port=port,
-        debug=debug,
-        allow_unsafe_werkzeug=True
-    )
