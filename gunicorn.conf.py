@@ -2,8 +2,8 @@
 import os
 
 # Server socket
-# Force port 5000 for Render compatibility
-bind = "0.0.0.0:5000"
+# Dynamic port binding for Render compatibility
+bind = f"0.0.0.0:{os.environ.get('PORT', 5000)}"
 backlog = 2048
 
 # Worker processes
