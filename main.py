@@ -2396,245 +2396,6 @@ def export_detection_logs():
         logger.error(f"Export detection logs error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/detection_stats')
-@limiter.limit("20 per minute")
-def get_detection_stats():
-    """Get detection statistics"""
-    try:
-        if db_available:
-            with Session() as session:
-                # Get detection stats by time period
-                daily_stats = session.execute(text("""
-                    SELECT 
-                        DATE(detected_at) as date,
-                        COUNT(*) as detections,
-                        AVG(confidence) as avg_confidence
-                    FROM pattern_detections 
-                    WHERE detected_at > NOW() - INTERVAL '7 days'
-                    GROUP BY DATE(detected_at)
-                    ORDER BY date DESC
-                """)).fetchall()
-                
-                # Get detection stats by symbol
-                symbol_stats = session.execute(text("""
-                    SELECT 
-                        symbol,
-                        COUNT(*) as detections,
-                        AVG(confidence) as avg_confidence
-                    FROM pattern_detections 
-                    WHERE detected_at > NOW() - INTERVAL '30 days'
-                    GROUP BY symbol
-                    ORDER BY detections DESC
-                    LIMIT 10
-                """)).fetchall()
-                
-                stats = {
-                    'daily_detections': [
-                        {
-                            'date': stat.date.isoformat() if hasattr(stat.date, 'isoformat') else str(stat.date),
-                            'detections': stat.detections,
-                            'avg_confidence': float(stat.avg_confidence)
-                        }
-                        for stat in daily_stats
-                    ],
-                    'top_symbols': [
-                        {
-                            'symbol': stat.symbol,
-                            'detections': stat.detections,
-                            'avg_confidence': float(stat.avg_confidence)
-                        }
-                        for stat in symbol_stats
-                    ]
-                }
-        else:
-            # Demo data when database unavailable
-            stats = {
-                'daily_detections': [
-                    {'date': '2024-01-15', 'detections': 23, 'avg_confidence': 0.74},
-                    {'date': '2024-01-14', 'detections': 18, 'avg_confidence': 0.71},
-                    {'date': '2024-01-13', 'detections': 31, 'avg_confidence': 0.78}
-                ],
-                'top_symbols': [
-                    {'symbol': 'AAPL', 'detections': 45, 'avg_confidence': 0.76},
-                    {'symbol': 'TSLA', 'detections': 38, 'avg_confidence': 0.72},
-                    {'symbol': 'NVDA', 'detections': 34, 'avg_confidence': 0.79}
-                ]
-            }
-        
-        stats['timestamp'] = datetime.now().isoformat()
-        return jsonify({'success': True, 'data': stats})
-        
-    except Exception as e:
-        logger.error(f"Detection stats error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/detection_logs')
-@limiter.limit("20 per minute")
-def get_detection_logs():
-    """Get detection logs"""
-    try:
-        limit = request.args.get('limit', 50, type=int)
-        offset = request.args.get('offset', 0, type=int)
-        symbol_filter = request.args.get('symbol', '').upper()
-        pattern_filter = request.args.get('pattern', '')
-        
-        if db_available:
-            with Session() as session:
-                query = """
-                    SELECT id, symbol, pattern_type, confidence, detected_at, price, volume, metadata
-                    FROM pattern_detections 
-                    WHERE 1=1
-                """
-                params = {}
-                
-                if symbol_filter:
-                    query += " AND symbol = :symbol"
-                    params['symbol'] = symbol_filter
-                
-                if pattern_filter:
-                    query += " AND pattern_type ILIKE :pattern"
-                    params['pattern'] = f"%{pattern_filter}%"
-                
-                query += " ORDER BY detected_at DESC LIMIT :limit OFFSET :offset"
-                params.update({'limit': limit, 'offset': offset})
-                
-                logs = session.execute(text(query), params).fetchall()
-                
-                detection_logs = [
-                    {
-                        'id': log.id,
-                        'symbol': log.symbol,
-                        'pattern_type': log.pattern_type,
-                        'confidence': float(log.confidence),
-                        'detected_at': log.detected_at.isoformat() if hasattr(log.detected_at, 'isoformat') else str(log.detected_at),
-                        'price': float(log.price) if log.price else None,
-                        'volume': int(log.volume) if log.volume else None,
-                        'metadata': json.loads(log.metadata) if log.metadata else {}
-                    }
-                    for log in logs
-                ]
-        else:
-            # Demo data when database unavailable
-            detection_logs = [
-                {
-                    'id': 1,
-                    'symbol': 'AAPL',
-                    'pattern_type': 'Golden Cross',
-                    'confidence': 0.85,
-                    'detected_at': '2024-01-15T14:30:00',
-                    'price': 185.50,
-                    'volume': 1250000,
-                    'metadata': {'sma_20': 184.2, 'sma_50': 182.1}
-                },
-                {
-                    'id': 2,
-                    'symbol': 'TSLA',
-                    'pattern_type': 'RSI Oversold',
-                    'confidence': 0.72,
-                    'detected_at': '2024-01-15T13:45:00',
-                    'price': 245.30,
-                    'volume': 890000,
-                    'metadata': {'rsi': 28.5}
-                }
-            ]
-        
-        return jsonify({
-            'success': True,
-            'data': {
-                'logs': detection_logs,
-                'pagination': {
-                    'limit': limit,
-                    'offset': offset,
-                    'total': len(detection_logs)
-                }
-            }
-        })
-        
-    except Exception as e:
-        logger.error(f"Detection logs error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/export_detection_logs')
-@limiter.limit("5 per minute")
-def export_detection_logs():
-    """Export detection logs as CSV"""
-    try:
-        from io import StringIO
-        import csv
-        
-        symbol_filter = request.args.get('symbol', '').upper()
-        pattern_filter = request.args.get('pattern', '')
-        days = request.args.get('days', 30, type=int)
-        
-        if db_available:
-            with Session() as session:
-                query = """
-                    SELECT symbol, pattern_type, confidence, detected_at, price, volume, metadata
-                    FROM pattern_detections 
-                    WHERE detected_at > NOW() - INTERVAL ':days days'
-                """
-                params = {'days': days}
-                
-                if symbol_filter:
-                    query += " AND symbol = :symbol"
-                    params['symbol'] = symbol_filter
-                
-                if pattern_filter:
-                    query += " AND pattern_type ILIKE :pattern"
-                    params['pattern'] = f"%{pattern_filter}%"
-                
-                query += " ORDER BY detected_at DESC"
-                
-                logs = session.execute(text(query), params).fetchall()
-        else:
-            # Demo data
-            logs = [
-                type('obj', (object,), {
-                    'symbol': 'AAPL',
-                    'pattern_type': 'Golden Cross',
-                    'confidence': 0.85,
-                    'detected_at': datetime.now(),
-                    'price': 185.50,
-                    'volume': 1250000,
-                    'metadata': '{"sma_20": 184.2}'
-                })()
-            ]
-        
-        # Create CSV content
-        output = StringIO()
-        writer = csv.writer(output)
-        
-        # Write header
-        writer.writerow(['Symbol', 'Pattern Type', 'Confidence', 'Detected At', 'Price', 'Volume', 'Metadata'])
-        
-        # Write data
-        for log in logs:
-            writer.writerow([
-                log.symbol,
-                log.pattern_type,
-                log.confidence,
-                log.detected_at.isoformat() if hasattr(log.detected_at, 'isoformat') else str(log.detected_at),
-                log.price,
-                log.volume,
-                log.metadata if isinstance(log.metadata, str) else json.dumps(log.metadata or {})
-            ])
-        
-        csv_content = output.getvalue()
-        output.close()
-        
-        return jsonify({
-            'success': True,
-            'data': {
-                'csv_content': csv_content,
-                'filename': f'detection_logs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv',
-                'record_count': len(logs)
-            }
-        })
-        
-    except Exception as e:
-        logger.error(f"Export detection logs error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
 # Risk Management Endpoints
 @app.route('/api/risk-settings')
 @limiter.limit("20 per minute")
@@ -2642,37 +2403,24 @@ def get_risk_settings():
     """Get risk management settings"""
     try:
         # Default risk settings - in production, these would be stored per user
-        risk_settings = {
+        settings = {
             'max_position_size': 10000,  # Maximum position size in USD
-            'max_portfolio_risk': 0.02,  # Maximum 2% portfolio risk per trade
-            'stop_loss_percentage': 0.05,  # 5% stop loss
-            'take_profit_percentage': 0.10,  # 10% take profit
-            'max_daily_loss': 1000,  # Maximum daily loss in USD
-            'max_open_positions': 5,  # Maximum number of open positions
-            'risk_reward_ratio': 2.0,  # Minimum risk-reward ratio
-            'position_sizing_method': 'fixed_percentage',  # fixed_amount, fixed_percentage, volatility_based
-            'volatility_lookback': 20,  # Days for volatility calculation
-            'correlation_limit': 0.7,  # Maximum correlation between positions
-            'sector_concentration_limit': 0.3,  # Maximum 30% in any sector
-            'enabled_risk_checks': [
-                'position_size_check',
-                'stop_loss_check',
-                'correlation_check',
-                'daily_loss_check',
-                'sector_concentration_check'
-            ],
-            'alert_thresholds': {
-                'portfolio_drawdown': 0.05,  # Alert at 5% portfolio drawdown
-                'position_loss': 0.03,  # Alert at 3% position loss
-                'daily_loss_warning': 0.8  # Alert at 80% of daily loss limit
-            },
-            'last_updated': datetime.now().isoformat()
+            'max_daily_loss': 500,       # Maximum daily loss in USD
+            'stop_loss_percentage': 2.0,  # Stop loss percentage
+            'take_profit_percentage': 5.0, # Take profit percentage
+            'max_open_positions': 5,     # Maximum number of open positions
+            'risk_per_trade': 1.0,       # Risk percentage per trade
+            'enable_stop_loss': True,
+            'enable_take_profit': True,
+            'enable_position_sizing': True,
+            'confidence_threshold': 0.7,  # Minimum confidence for trades
+            'diversification_limit': 3    # Max positions per symbol
         }
         
-        return jsonify({'success': True, 'data': risk_settings})
+        return jsonify({'success': True, 'data': settings})
         
     except Exception as e:
-        logger.error(f"Get risk settings error: {e}")
+        logger.error(f"Risk settings error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/risk-settings', methods=['POST'])
@@ -2682,179 +2430,109 @@ def update_risk_settings():
     try:
         data = request.get_json()
         
-        # Validate required fields
-        required_fields = ['max_position_size', 'max_portfolio_risk', 'stop_loss_percentage']
+        # Validate input
+        required_fields = ['max_position_size', 'max_daily_loss', 'stop_loss_percentage']
         for field in required_fields:
             if field not in data:
-                return jsonify({'success': False, 'error': f'{field} is required'}), 400
+                return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
         
-        # Validate ranges
-        if data['max_portfolio_risk'] <= 0 or data['max_portfolio_risk'] > 0.1:
-            return jsonify({'success': False, 'error': 'max_portfolio_risk must be between 0 and 0.1 (10%)'}), 400
-        
-        if data['stop_loss_percentage'] <= 0 or data['stop_loss_percentage'] > 0.2:
-            return jsonify({'success': False, 'error': 'stop_loss_percentage must be between 0 and 0.2 (20%)'}), 400
-        
-        # Update settings (in production, save to database per user)
-        updated_settings = {
-            'max_position_size': float(data.get('max_position_size', 10000)),
-            'max_portfolio_risk': float(data.get('max_portfolio_risk', 0.02)),
-            'stop_loss_percentage': float(data.get('stop_loss_percentage', 0.05)),
-            'take_profit_percentage': float(data.get('take_profit_percentage', 0.10)),
-            'max_daily_loss': float(data.get('max_daily_loss', 1000)),
-            'max_open_positions': int(data.get('max_open_positions', 5)),
-            'risk_reward_ratio': float(data.get('risk_reward_ratio', 2.0)),
-            'position_sizing_method': data.get('position_sizing_method', 'fixed_percentage'),
-            'volatility_lookback': int(data.get('volatility_lookback', 20)),
-            'correlation_limit': float(data.get('correlation_limit', 0.7)),
-            'sector_concentration_limit': float(data.get('sector_concentration_limit', 0.3)),
-            'enabled_risk_checks': data.get('enabled_risk_checks', []),
-            'alert_thresholds': data.get('alert_thresholds', {}),
-            'last_updated': datetime.now().isoformat()
+        # In production, save to database per user
+        # For now, return success with validated data
+        validated_settings = {
+            'max_position_size': max(100, min(100000, data.get('max_position_size', 10000))),
+            'max_daily_loss': max(50, min(5000, data.get('max_daily_loss', 500))),
+            'stop_loss_percentage': max(0.5, min(10.0, data.get('stop_loss_percentage', 2.0))),
+            'take_profit_percentage': max(1.0, min(20.0, data.get('take_profit_percentage', 5.0))),
+            'max_open_positions': max(1, min(20, data.get('max_open_positions', 5))),
+            'risk_per_trade': max(0.1, min(5.0, data.get('risk_per_trade', 1.0))),
+            'enable_stop_loss': data.get('enable_stop_loss', True),
+            'enable_take_profit': data.get('enable_take_profit', True),
+            'enable_position_sizing': data.get('enable_position_sizing', True),
+            'confidence_threshold': max(0.5, min(0.95, data.get('confidence_threshold', 0.7))),
+            'diversification_limit': max(1, min(10, data.get('diversification_limit', 3)))
         }
         
-        return jsonify({
-            'success': True,
-            'message': 'Risk settings updated successfully',
-            'data': updated_settings
-        })
+        return jsonify({'success': True, 'data': validated_settings})
         
     except Exception as e:
         logger.error(f"Update risk settings error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/recommend/complete', methods=['POST'])
-@limiter.limit("10 per minute")
-def complete_recommendations():
-    """Get complete trading recommendations with risk analysis"""
+@app.route('/api/recommend/complete')
+@limiter.limit("20 per minute")
+def get_complete_recommendation():
+    """Get complete trading recommendation with risk analysis"""
     try:
-        data = request.get_json()
-        symbol = data.get('symbol', '').upper()
-        portfolio_value = data.get('portfolio_value', 100000)
-        risk_tolerance = data.get('risk_tolerance', 'moderate')  # conservative, moderate, aggressive
-        
+        symbol = request.args.get('symbol', '').upper()
         if not symbol:
             return jsonify({'success': False, 'error': 'Symbol is required'}), 400
         
-        # Get market data and analysis
+        # Get market data
         market_data = market_data_service.get_stock_data(symbol)
-        patterns = pattern_service.detect_patterns(symbol)
+        if not market_data:
+            return jsonify({'success': False, 'error': 'Failed to fetch market data'}), 400
+        
+        # Get pattern detection
+        pattern_data = pattern_detection_service.detect_patterns(symbol)
+        
+        # Get sentiment analysis
         sentiment_data = sentiment_service.analyze_sentiment(symbol)
         
-        if not market_data:
-            return jsonify({'success': False, 'error': 'Unable to get market data'}), 404
-        
-        # Risk tolerance settings
-        risk_profiles = {
-            'conservative': {'max_risk': 0.01, 'position_size': 0.05, 'min_confidence': 0.8},
-            'moderate': {'max_risk': 0.02, 'position_size': 0.10, 'min_confidence': 0.7},
-            'aggressive': {'max_risk': 0.03, 'position_size': 0.15, 'min_confidence': 0.6}
+        # Risk analysis
+        current_price = market_data.get('current_price', 0)
+        risk_settings = {
+            'max_position_size': 10000,
+            'stop_loss_percentage': 2.0,
+            'take_profit_percentage': 5.0,
+            'risk_per_trade': 1.0
         }
         
-        profile = risk_profiles.get(risk_tolerance, risk_profiles['moderate'])
+        # Calculate position sizing
+        risk_amount = risk_settings['max_position_size'] * (risk_settings['risk_per_trade'] / 100)
+        stop_loss_price = current_price * (1 - risk_settings['stop_loss_percentage'] / 100)
+        take_profit_price = current_price * (1 + risk_settings['take_profit_percentage'] / 100)
         
-        recommendations = []
+        # Generate recommendation
+        patterns = pattern_data.get('patterns', [])
+        sentiment_score = sentiment_data.get('sentiment_score', 0)
         
-        # Generate recommendations based on patterns
-        for pattern in patterns:
-            if pattern.confidence >= profile['min_confidence']:
-                current_price = market_data['price']
-                position_size = portfolio_value * profile['position_size']
-                shares = int(position_size / current_price)
-                
-                # Calculate risk metrics
-                stop_loss_price = current_price * 0.95 if pattern.pattern_type in ['Golden Cross', 'RSI Oversold'] else current_price * 1.05
-                take_profit_price = current_price * 1.10 if pattern.pattern_type in ['Golden Cross', 'RSI Oversold'] else current_price * 0.90
-                
-                risk_amount = abs(current_price - stop_loss_price) * shares
-                reward_amount = abs(take_profit_price - current_price) * shares
-                risk_reward_ratio = reward_amount / risk_amount if risk_amount > 0 else 0
-                
-                recommendation = {
-                    'symbol': symbol,
-                    'action': 'BUY' if pattern.pattern_type in ['Golden Cross', 'RSI Oversold', 'Bollinger Breakout'] else 'SELL',
-                    'pattern': pattern.pattern_type,
-                    'confidence': pattern.confidence,
-                    'entry_price': current_price,
-                    'stop_loss': stop_loss_price,
-                    'take_profit': take_profit_price,
-                    'position_size': position_size,
-                    'shares': shares,
-                    'risk_amount': risk_amount,
-                    'reward_amount': reward_amount,
-                    'risk_reward_ratio': risk_reward_ratio,
-                    'portfolio_risk_percent': (risk_amount / portfolio_value) * 100,
-                    'sentiment_score': sentiment_data['sentiment_score'],
-                    'volume_confirmation': market_data['volume'] > 1000000,
-                    'recommendation_strength': 'strong' if pattern.confidence > 0.8 else 'moderate',
-                    'time_horizon': '1-4 weeks' if 'RSI' in pattern.pattern_type else '4-12 weeks',
-                    'risk_factors': [
-                        'Market volatility',
-                        'Sector rotation risk',
-                        'Economic events impact'
-                    ],
-                    'supporting_factors': [
-                        f'Pattern confidence: {pattern.confidence:.1%}',
-                        f'Sentiment score: {sentiment_data["sentiment_score"]:.1f}',
-                        f'Volume: {market_data["volume"]:,}'
-                    ],
-                    'timestamp': datetime.now().isoformat()
-                }
-                
-                # Only include if risk is acceptable
-                if recommendation['portfolio_risk_percent'] <= profile['max_risk'] * 100:
-                    recommendations.append(recommendation)
+        # Simple scoring system
+        pattern_score = sum(p.get('confidence', 0) for p in patterns) / max(len(patterns), 1)
+        combined_score = (pattern_score * 0.7) + (abs(sentiment_score) * 0.3)
         
-        # Portfolio-level recommendations
-        portfolio_analysis = {
-            'current_risk_exposure': sum(r['portfolio_risk_percent'] for r in recommendations),
-            'recommended_positions': len(recommendations),
-            'diversification_score': min(len(set(r['pattern'] for r in recommendations)) / max(len(recommendations), 1) * 100, 100),
-            'overall_sentiment': sentiment_data['overall_rating'],
-            'market_conditions': 'favorable' if len(recommendations) > 0 else 'neutral'
+        if combined_score > 0.7:
+            action = 'BUY' if sentiment_score > 0 else 'SELL'
+        elif combined_score > 0.5:
+            action = 'HOLD'
+        else:
+            action = 'AVOID'
+        
+        recommendation = {
+            'symbol': symbol,
+            'action': action,
+            'confidence': combined_score,
+            'current_price': current_price,
+            'target_price': take_profit_price if action == 'BUY' else stop_loss_price,
+            'stop_loss': stop_loss_price if action == 'BUY' else take_profit_price,
+            'position_size': min(risk_amount / abs(current_price - stop_loss_price), risk_settings['max_position_size']),
+            'risk_reward_ratio': risk_settings['take_profit_percentage'] / risk_settings['stop_loss_percentage'],
+            'patterns_detected': patterns,
+            'sentiment': {
+                'score': sentiment_score,
+                'label': 'Positive' if sentiment_score > 0.1 else 'Negative' if sentiment_score < -0.1 else 'Neutral'
+            },
+            'risk_analysis': {
+                'max_loss': risk_amount,
+                'max_gain': risk_amount * (risk_settings['take_profit_percentage'] / risk_settings['stop_loss_percentage']),
+                'probability_success': combined_score
+            },
+            'timestamp': datetime.now().isoformat()
         }
         
-        return jsonify({
-            'success': True,
-            'data': {
-                'symbol': symbol,
-                'recommendations': recommendations,
-                'portfolio_analysis': portfolio_analysis,
-                'risk_profile': risk_tolerance,
-                'market_context': {
-                    'price': market_data['price'],
-                    'change_percent': market_data['change_percent'],
-                    'volume': market_data['volume'],
-                    'sentiment': sentiment_data['overall_rating']
-                },
-                'timestamp': datetime.now().isoformat()
-            }
-        })
+        return jsonify({'success': True, 'data': recommendation})
         
     except Exception as e:
-        logger.error(f"Complete recommendations error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-# System Status Endpoints
-@app.route('/api/system/status')
-@limiter.limit("10 per minute")
-def system_status():
-    """Get system status"""
-    try:
-        status = {
-            'database': 'connected' if db_available else 'demo_mode',
-            'background_workers': Config.ENABLE_BACKGROUND_WORKERS,
-            'api_status': 'healthy',
-            'last_scan': datetime.now().isoformat(),
-            'uptime': '24h 15m',  # Would be calculated in real implementation
-            'version': '2.0.0',
-            'environment': Config.FLASK_ENV
-        }
-        
-        return jsonify({'success': True, 'data': status})
-        
-    except Exception as e:
-        logger.error(f"System status error: {e}")
+        logger.error(f"Complete recommendation error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # Data Coverage Endpoints
@@ -2866,80 +2544,43 @@ def get_supported_assets():
         # Comprehensive list of supported assets
         assets = {
             'stocks': {
-                'us_equities': [
-                    {'symbol': 'AAPL', 'name': 'Apple Inc.', 'sector': 'Technology', 'market_cap': 'Large'},
-                    {'symbol': 'GOOGL', 'name': 'Alphabet Inc.', 'sector': 'Technology', 'market_cap': 'Large'},
-                    {'symbol': 'MSFT', 'name': 'Microsoft Corporation', 'sector': 'Technology', 'market_cap': 'Large'},
-                    {'symbol': 'AMZN', 'name': 'Amazon.com Inc.', 'sector': 'Consumer Discretionary', 'market_cap': 'Large'},
-                    {'symbol': 'TSLA', 'name': 'Tesla Inc.', 'sector': 'Consumer Discretionary', 'market_cap': 'Large'},
-                    {'symbol': 'NVDA', 'name': 'NVIDIA Corporation', 'sector': 'Technology', 'market_cap': 'Large'},
-                    {'symbol': 'META', 'name': 'Meta Platforms Inc.', 'sector': 'Technology', 'market_cap': 'Large'},
-                    {'symbol': 'NFLX', 'name': 'Netflix Inc.', 'sector': 'Communication Services', 'market_cap': 'Large'},
-                    {'symbol': 'JPM', 'name': 'JPMorgan Chase & Co.', 'sector': 'Financials', 'market_cap': 'Large'},
-                    {'symbol': 'JNJ', 'name': 'Johnson & Johnson', 'sector': 'Healthcare', 'market_cap': 'Large'},
-                    {'symbol': 'V', 'name': 'Visa Inc.', 'sector': 'Financials', 'market_cap': 'Large'},
-                    {'symbol': 'WMT', 'name': 'Walmart Inc.', 'sector': 'Consumer Staples', 'market_cap': 'Large'},
-                    {'symbol': 'PG', 'name': 'Procter & Gamble Co.', 'sector': 'Consumer Staples', 'market_cap': 'Large'},
-                    {'symbol': 'HD', 'name': 'Home Depot Inc.', 'sector': 'Consumer Discretionary', 'market_cap': 'Large'},
-                    {'symbol': 'MA', 'name': 'Mastercard Inc.', 'sector': 'Financials', 'market_cap': 'Large'}
-                ],
-                'sectors': [
-                    'Technology', 'Healthcare', 'Financials', 'Consumer Discretionary',
-                    'Consumer Staples', 'Communication Services', 'Industrials',
-                    'Energy', 'Utilities', 'Real Estate', 'Materials'
-                ],
-                'market_caps': ['Large', 'Mid', 'Small', 'Micro']
+                'us_markets': {
+                    'NYSE': ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'JPM', 'JNJ', 'V'],
+                    'NASDAQ': ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA', 'NFLX', 'ADBE', 'CRM'],
+                    'total_symbols': 8000
+                },
+                'international': {
+                    'available': True,
+                    'markets': ['LSE', 'TSE', 'HKEX', 'ASX'],
+                    'total_symbols': 15000
+                }
             },
-            'etfs': [
-                {'symbol': 'SPY', 'name': 'SPDR S&P 500 ETF', 'category': 'Broad Market'},
-                {'symbol': 'QQQ', 'name': 'Invesco QQQ ETF', 'category': 'Technology'},
-                {'symbol': 'IWM', 'name': 'iShares Russell 2000 ETF', 'category': 'Small Cap'},
-                {'symbol': 'VTI', 'name': 'Vanguard Total Stock Market ETF', 'category': 'Broad Market'},
-                {'symbol': 'XLF', 'name': 'Financial Select Sector SPDR Fund', 'category': 'Sector'},
-                {'symbol': 'XLK', 'name': 'Technology Select Sector SPDR Fund', 'category': 'Sector'}
-            ],
-            'indices': [
-                {'symbol': '^GSPC', 'name': 'S&P 500', 'description': 'Large-cap US stocks'},
-                {'symbol': '^DJI', 'name': 'Dow Jones Industrial Average', 'description': '30 large US companies'},
-                {'symbol': '^IXIC', 'name': 'NASDAQ Composite', 'description': 'Technology-heavy index'},
-                {'symbol': '^RUT', 'name': 'Russell 2000', 'description': 'Small-cap US stocks'}
-            ],
-            'cryptocurrencies': [
-                {'symbol': 'BTC-USD', 'name': 'Bitcoin', 'category': 'Cryptocurrency'},
-                {'symbol': 'ETH-USD', 'name': 'Ethereum', 'category': 'Cryptocurrency'},
-                {'symbol': 'ADA-USD', 'name': 'Cardano', 'category': 'Cryptocurrency'}
-            ],
-            'forex': [
-                {'symbol': 'EURUSD=X', 'name': 'EUR/USD', 'category': 'Major'},
-                {'symbol': 'GBPUSD=X', 'name': 'GBP/USD', 'category': 'Major'},
-                {'symbol': 'USDJPY=X', 'name': 'USD/JPY', 'category': 'Major'}
-            ]
-        }
-        
-        # Summary statistics
-        summary = {
-            'total_assets': sum([
-                len(assets['stocks']['us_equities']),
-                len(assets['etfs']),
-                len(assets['indices']),
-                len(assets['cryptocurrencies']),
-                len(assets['forex'])
-            ]),
-            'asset_types': list(assets.keys()),
-            'sectors_covered': len(assets['stocks']['sectors']),
-            'last_updated': datetime.now().isoformat()
-        }
-        
-        return jsonify({
-            'success': True,
-            'data': {
-                'assets': assets,
-                'summary': summary
+            'indices': {
+                'major_indices': ['SPY', 'QQQ', 'IWM', 'DIA', 'VTI', 'VEA', 'VWO'],
+                'sector_etfs': ['XLK', 'XLF', 'XLE', 'XLV', 'XLI', 'XLP', 'XLY', 'XLU', 'XLRE', 'XLB', 'XME'],
+                'total_etfs': 2500
+            },
+            'crypto': {
+                'available': False,  # Not implemented yet
+                'planned': True,
+                'major_pairs': ['BTC/USD', 'ETH/USD', 'ADA/USD', 'SOL/USD']
+            },
+            'forex': {
+                'available': False,  # Not implemented yet
+                'planned': True,
+                'major_pairs': ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF']
+            },
+            'commodities': {
+                'available': False,  # Not implemented yet
+                'planned': True,
+                'symbols': ['GLD', 'SLV', 'USO', 'UNG', 'DBA', 'DBC']
             }
-        })
+        }
+        
+        return jsonify({'success': True, 'data': assets})
         
     except Exception as e:
-        logger.error(f"Get supported assets error: {e}")
+        logger.error(f"Supported assets error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/features')
@@ -2948,106 +2589,83 @@ def get_feature_status():
     """Get feature status and capabilities"""
     try:
         features = {
+            'data_sources': {
+                'yahoo_finance': {
+                    'status': 'active',
+                    'coverage': 'US stocks, ETFs, indices',
+                    'real_time': True,
+                    'historical': True
+                },
+                'alpha_vantage': {
+                    'status': 'optional',
+                    'coverage': 'Enhanced fundamentals, forex',
+                    'real_time': True,
+                    'requires_api_key': True
+                },
+                'polygon': {
+                    'status': 'optional',
+                    'coverage': 'High-frequency data, options',
+                    'real_time': True,
+                    'requires_api_key': True
+                },
+                'finnhub': {
+                    'status': 'optional',
+                    'coverage': 'News, earnings, insider trading',
+                    'real_time': True,
+                    'requires_api_key': True
+                }
+            },
             'pattern_detection': {
-                'enabled': True,
-                'patterns_supported': [
-                    'Golden Cross', 'Death Cross', 'RSI Oversold', 'RSI Overbought',
-                    'Bollinger Breakout', 'Support Bounce', 'Resistance Break',
-                    'MACD Crossover', 'Volume Spike', 'Price Channel Break'
-                ],
-                'confidence_threshold': 0.7,
-                'real_time': True
+                'technical_patterns': {
+                    'status': 'active',
+                    'patterns': ['Golden Cross', 'Death Cross', 'RSI Oversold/Overbought', 'Bollinger Breakout', 'MACD Crossover'],
+                    'custom_patterns': True
+                },
+                'candlestick_patterns': {
+                    'status': 'planned',
+                    'patterns': ['Doji', 'Hammer', 'Engulfing', 'Morning Star']
+                }
             },
-            'market_data': {
-                'enabled': True,
-                'data_sources': ['Yahoo Finance', 'Alpha Vantage'],
-                'real_time_quotes': True,
-                'historical_data': True,
-                'intraday_data': True,
-                'supported_intervals': ['1m', '5m', '15m', '30m', '1h', '1d', '1wk', '1mo']
-            },
-            'sentiment_analysis': {
-                'enabled': True,
-                'sources': ['News Headlines', 'Social Media'],
-                'languages': ['English'],
-                'update_frequency': '1 hour',
-                'confidence_enhancement': True
-            },
-            'paper_trading': {
-                'enabled': Config.PAPER_TRADING_ENABLED,
-                'portfolio_tracking': True,
-                'pnl_calculation': True,
-                'trade_history': True,
-                'risk_management': True
-            },
-            'backtesting': {
-                'enabled': True,
-                'strategy_backtesting': True,
-                'pattern_backtesting': True,
-                'custom_strategies': True,
-                'risk_metrics': True,
-                'performance_analytics': True
-            },
-            'alerts': {
-                'enabled': True,
-                'real_time_alerts': True,
-                'custom_conditions': True,
-                'alert_history': True,
-                'notification_channels': ['WebSocket', 'Database']
-            },
-            'risk_management': {
-                'enabled': True,
-                'position_sizing': True,
-                'stop_loss_management': True,
-                'portfolio_risk_analysis': True,
-                'correlation_analysis': True,
-                'drawdown_monitoring': True
+            'trading_capabilities': {
+                'paper_trading': {
+                    'status': 'active',
+                    'features': ['Portfolio tracking', 'P&L calculation', 'Trade history']
+                },
+                'live_trading': {
+                    'status': 'planned',
+                    'brokers': ['Alpaca', 'Interactive Brokers', 'TD Ameritrade']
+                },
+                'backtesting': {
+                    'status': 'active',
+                    'strategies': ['Pattern-based', 'Custom strategies', 'Multi-timeframe']
+                }
             },
             'analytics': {
-                'enabled': True,
-                'performance_tracking': True,
-                'pattern_statistics': True,
-                'market_analysis': True,
-                'export_capabilities': True
+                'performance_metrics': {
+                    'status': 'active',
+                    'metrics': ['Win rate', 'Sharpe ratio', 'Max drawdown', 'P&L tracking']
+                },
+                'risk_management': {
+                    'status': 'active',
+                    'features': ['Position sizing', 'Stop loss', 'Take profit', 'Portfolio risk']
+                }
             },
-            'api_features': {
-                'rate_limiting': True,
-                'authentication': False,  # Currently disabled
-                'websocket_support': True,
-                'rest_api': True,
-                'data_export': True,
-                'bulk_operations': True
-            },
-            'system_status': {
-                'database_connected': db_available,
-                'background_workers': Config.ENABLE_BACKGROUND_WORKERS,
-                'live_scanning': scanning_active,
-                'uptime': '24/7',
-                'version': '2.0.0'
+            'real_time_features': {
+                'live_scanning': {
+                    'status': 'active',
+                    'scan_types': ['Pattern detection', 'Volume analysis', 'Price alerts']
+                },
+                'websocket_updates': {
+                    'status': 'active',
+                    'events': ['Pattern detected', 'Alert triggered', 'Scan results']
+                }
             }
         }
         
-        # Feature availability summary
-        enabled_features = sum(1 for feature in features.values() if feature.get('enabled', False))
-        total_features = len(features)
-        
-        summary = {
-            'total_features': total_features,
-            'enabled_features': enabled_features,
-            'availability_percentage': round((enabled_features / total_features) * 100, 1),
-            'last_updated': datetime.now().isoformat()
-        }
-        
-        return jsonify({
-            'success': True,
-            'data': {
-                'features': features,
-                'summary': summary
-            }
-        })
+        return jsonify({'success': True, 'data': features})
         
     except Exception as e:
-        logger.error(f"Get feature status error: {e}")
+        logger.error(f"Feature status error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # WebSocket Events
@@ -3055,7 +2673,7 @@ def get_feature_status():
 def handle_connect():
     """Handle client connection"""
     logger.info(f"Client connected: {request.sid}")
-    emit('connected', {'status': 'Connected to TX Trade Whisperer'})
+    emit('connection_status', {'status': 'connected', 'message': 'Successfully connected to TX Backend'})
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -3064,44 +2682,24 @@ def handle_disconnect():
 
 @socketio.on('subscribe_alerts')
 def handle_subscribe_alerts():
-    """Subscribe to alert updates"""
+    """Subscribe client to alert notifications"""
     logger.info(f"Client {request.sid} subscribed to alerts")
-    emit('subscribed', {'channel': 'alerts'})
+    emit('subscription_status', {'type': 'alerts', 'status': 'subscribed'})
 
-@socketio.on('subscribe_scans')
-def handle_subscribe_scans():
-    """Subscribe to market scan updates"""
-    logger.info(f"Client {request.sid} subscribed to market scans")
-    emit('subscribed', {'channel': 'market_scans'})
+@socketio.on('subscribe_scan_results')
+def handle_subscribe_scan_results():
+    """Subscribe client to scan result notifications"""
+    logger.info(f"Client {request.sid} subscribed to scan results")
+    emit('subscription_status', {'type': 'scan_results', 'status': 'subscribed'})
 
-# Error Handlers
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({'success': False, 'error': 'Endpoint not found'}), 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    return jsonify({'success': False, 'error': 'Internal server error'}), 500
-
-@app.errorhandler(429)
-def ratelimit_handler(e):
-    return jsonify({'success': False, 'error': 'Rate limit exceeded'}), 429
-
-# Main execution
+# Production Server Configuration
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    debug = Config.DEBUG
+    port = int(os.getenv('PORT', 5000))
+    debug = os.getenv('FLASK_ENV') == 'development'
     
-    logger.info(f"Starting TX Trade Whisperer Backend v2.0.0")
-    logger.info(f"Database: {'Connected' if db_available else 'Demo Mode'}")
-    logger.info(f"Background Workers: {'Enabled' if Config.ENABLE_BACKGROUND_WORKERS else 'Disabled'}")
-    logger.info(f"Environment: {Config.FLASK_ENV}")
-    
-    # Use SocketIO server with gevent for production compatibility
-    socketio.run(
-        app,
-        host='0.0.0.0',
-        port=port,
-        debug=debug,
-        allow_unsafe_werkzeug=True
-    )
+    if debug:
+        # Development mode
+        socketio.run(app, host='0.0.0.0', port=port, debug=True)
+    else:
+        # Production mode - let Gunicorn handle this
+        socketio.run(app, host='0.0.0.0', port=port, debug=False)
