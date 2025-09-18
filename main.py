@@ -335,7 +335,7 @@ class PatternDetectionService:
             hist['RSI'] = ta.momentum.RSIIndicator(hist['Close']).rsi()
             hist['MACD'] = ta.trend.MACD(hist['Close']).macd()
             hist['BB_upper'] = ta.volatility.BollingerBands(hist['Close']).bollinger_hband()
-            hist['BB_lower'] = ta.volatility.BollingerBands(hist['Close']).bollinger_lower()
+            hist['BB_lower'] = ta.volatility.BollingerBands(hist['Close']).bollinger_lband()
             
             latest = hist.iloc[-1]
             prev = hist.iloc[-2] if len(hist) > 1 else latest
