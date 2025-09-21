@@ -448,9 +448,7 @@ class SentimentAnalysisService:
                 'sentiment_score': sentiment_score,
                 'overall_rating': overall_rating,
                 'social_indicators': [
-                    {'platform': 'news', 'score': sentiment_score, 'volume': len(news)},
-                    {'platform': 'reddit', 'score': sentiment_score + np.random.uniform(-10, 10), 'volume': np.random.randint(50, 500)},
-                    {'platform': 'twitter', 'score': sentiment_score + np.random.uniform(-15, 15), 'volume': np.random.randint(100, 1000)}
+                    {'platform': 'news', 'score': sentiment_score, 'volume': len(news)}
                 ],
                 'news_impact': [
                     {'headline': article.get('title', ''), 'impact': abs(blob.sentiment.polarity) * 100}
@@ -477,9 +475,7 @@ class SentimentAnalysisService:
             'sentiment_score': 50,
             'overall_rating': 'neutral',
             'social_indicators': [
-                {'platform': 'news', 'score': 50, 'volume': 0},
-                {'platform': 'reddit', 'score': 50, 'volume': 0},
-                {'platform': 'twitter', 'score': 50, 'volume': 0}
+                {'platform': 'news', 'score': 50, 'volume': 0}
             ],
             'news_impact': [],
             'keywords': [],
@@ -1053,12 +1049,8 @@ def pattern_stats():
                     for stat in stats
                 ]
         else:
-            # Demo data when database unavailable
-            pattern_stats = [
-                {'pattern': 'Golden Cross', 'count': 5, 'avg_confidence': 0.82},
-                {'pattern': 'RSI Oversold', 'count': 12, 'avg_confidence': 0.75},
-                {'pattern': 'Bollinger Breakout', 'count': 8, 'avg_confidence': 0.68}
-            ]
+            # No database available: return empty list (no mock data)
+            pattern_stats = []
         
         return jsonify({'success': True, 'data': pattern_stats})
         
@@ -1678,8 +1670,8 @@ def get_latest_detection_id():
                 """)).fetchone()
                 latest_id = result.latest_id if result and result.latest_id else 0
         else:
-            # Demo mode - return a mock ID
-            latest_id = int(time.time()) % 10000
+            # No database available: return 0 (no mock)
+            latest_id = 0
         
         return jsonify({
             'success': True, 
@@ -1844,39 +1836,146 @@ def get_strategies():
 @app.route('/api/backtest', methods=['POST'])
 @limiter.limit("5 per minute")
 def run_backtest():
-    """Run a backtest"""
+    """Run a backtest using real historical data (no simulated values)"""
     try:
-        data = request.get_json()
-        symbol = data.get('symbol', 'AAPL').upper()
-        strategy_id = data.get('strategy_id', 1)
-        start_date = data.get('start_date', '2023-01-01')
-        end_date = data.get('end_date', '2024-01-01')
-        
-        # Simulate backtest results
-        import random
-        random.seed(42)  # For consistent results
-        
-        total_return = random.uniform(-20, 50)
-        sharpe_ratio = random.uniform(0.5, 2.5)
-        max_drawdown = random.uniform(-15, -5)
-        win_rate = random.uniform(45, 75)
-        
+        payload = request.get_json() or {}
+        symbol = (payload.get('symbol') or 'AAPL').upper()
+        strategy_id = int(payload.get('strategy_id') or 1)
+        start_date = payload.get('start_date', '2023-01-01')
+        end_date = payload.get('end_date', datetime.now().strftime('%Y-%m-%d'))
+
+        # Fetch historical daily data
+        hist = yf.download(symbol, start=start_date, end=end_date, progress=False, auto_adjust=True)
+        if hist is None or hist.empty:
+            return jsonify({'success': False, 'error': 'No historical data found for symbol/date range'}), 404
+
+        df = hist.copy()
+        df['Return'] = df['Close'].pct_change().fillna(0)
+
+        import math
+        # Strategy definitions
+        if strategy_id == 1:
+            # Golden Cross 20/50 SMA
+            df['SMA20'] = df['Close'].rolling(20).mean()
+            df['SMA50'] = df['Close'].rolling(50).mean()
+            df['Signal'] = (df['SMA20'] > df['SMA50']).astype(int)
+            df['Cross'] = df['Signal'].diff().fillna(0)
+        elif strategy_id == 2:
+            # RSI Mean Reversion: buy when RSI crosses back above 30, exit when above 70
+            rsi = ta.momentum.RSIIndicator(df['Close'], window=14).rsi()
+            df['RSI'] = rsi
+            df['Signal'] = 0
+            df.loc[(df['RSI'].shift(1) < 30) & (df['RSI'] >= 30), 'Signal'] = 1  # entry
+            df.loc[(df['RSI'].shift(1) < 70) & (df['RSI'] >= 70), 'Signal'] = -1  # exit
+        else:
+            # Bollinger Breakout: enter when close > upper band; exit when close < middle band
+            bb = ta.volatility.BollingerBands(df['Close'], window=20, window_dev=2)
+            df['BB_MID'] = bb.bollinger_mavg()
+            df['BB_UP'] = bb.bollinger_hband()
+            df['Signal'] = 0
+            df.loc[df['Close'] > df['BB_UP'], 'Signal'] = 1  # entry
+            df.loc[df['Close'] < df['BB_MID'], 'Signal'] = -1  # exit
+
+        # Build trades
+        trades = []
+        position = 0
+        entry_price = None
+        entry_date = None
+        def close_trade(date, price, reason):
+            nonlocal trades, position, entry_price, entry_date
+            if position != 0 and entry_price is not None:
+                pnl_pct = (float(price) - float(entry_price)) / float(entry_price) * 100
+                trades.append({
+                    'entry_date': entry_date.isoformat() if hasattr(entry_date, 'isoformat') else str(entry_date),
+                    'exit_date': date.isoformat() if hasattr(date, 'isoformat') else str(date),
+                    'entry_price': round(float(entry_price), 4),
+                    'exit_price': round(float(price), 4),
+                    'direction': 'long',
+                    'pnl_pct': round(float(pnl_pct), 4),
+                    'reason': reason
+                })
+            position = 0
+            entry_price = None
+            entry_date = None
+
+        for date, row in df.iterrows():
+            sig = int(row.get('Signal', 0))
+            price = float(row['Close'])
+            if strategy_id == 1:
+                if sig == 1 and position == 0 and not math.isnan(row.get('SMA20', math.nan)) and not math.isnan(row.get('SMA50', math.nan)):
+                    position = 1
+                    entry_price = price
+                    entry_date = date
+                if row.get('Cross', 0) < 0 and position == 1:
+                    close_trade(date, price, 'sma_cross_down')
+            elif strategy_id == 2:
+                if sig == 1 and position == 0:
+                    position = 1
+                    entry_price = price
+                    entry_date = date
+                if sig == -1 and position == 1:
+                    close_trade(date, price, 'rsi_exit_70')
+            else:
+                if sig == 1 and position == 0:
+                    position = 1
+                    entry_price = price
+                    entry_date = date
+                if sig == -1 and position == 1:
+                    close_trade(date, price, 'bollinger_exit_mid')
+
+        if position == 1 and entry_price is not None:
+            last_date = df.index[-1]
+            last_price = float(df.iloc[-1]['Close'])
+            close_trade(last_date, last_price, 'end_of_period')
+
+        pnl_list = [t['pnl_pct'] for t in trades]
+        total_trades = len(trades)
+        profitable = len([p for p in pnl_list if p > 0])
+        win_rate = (profitable / total_trades * 100) if total_trades > 0 else 0.0
+
+        # Position series and metrics
+        if strategy_id == 1:
+            pos_series = (df['Signal'] > 0).astype(int).shift(1).fillna(0)
+        else:
+            pos = 0
+            pos_vals = []
+            for _, r in df.iterrows():
+                s = int(r['Signal'])
+                if s == 1:
+                    pos = 1
+                elif s == -1:
+                    pos = 0
+                pos_vals.append(pos)
+            pos_series = pd.Series(pos_vals, index=df.index).shift(1).fillna(0)
+
+        strat_daily = (pos_series * df['Return']).fillna(0)
+        avg = strat_daily.mean()
+        std = strat_daily.std()
+        sharpe = (avg / std * (252 ** 0.5)) if std and std != 0 else 0.0
+        equity = (1 + strat_daily).cumprod()
+        roll_max = equity.cummax()
+        drawdown = 1 - (equity / roll_max)
+        max_dd = drawdown.max() * 100 if not drawdown.empty else 0
+        total_return = (equity.iloc[-1] - 1) * 100 if len(equity) else 0.0
+        annualized_return = ((1 + strat_daily).prod() ** (252/ max(1, len(strat_daily))) - 1) * 100 if len(strat_daily) > 0 else 0.0
+
         results = {
             'symbol': symbol,
             'strategy_id': strategy_id,
             'period': f"{start_date} to {end_date}",
-            'total_return': round(total_return, 2),
-            'annualized_return': round(total_return * 0.8, 2),
-            'sharpe_ratio': round(sharpe_ratio, 2),
-            'max_drawdown': round(max_drawdown, 2),
-            'win_rate': round(win_rate, 1),
-            'total_trades': random.randint(50, 200),
-            'profitable_trades': random.randint(25, 150),
-            'avg_trade_return': round(random.uniform(-2, 5), 2),
-            'volatility': round(random.uniform(15, 35), 2),
-            'timestamp': datetime.now().isoformat()
+            'total_return': round(float(total_return), 2),
+            'annualized_return': round(float(annualized_return), 2),
+            'sharpe_ratio': round(float(sharpe), 3),
+            'max_drawdown': round(float(max_dd), 2),
+            'win_rate': round(float(win_rate), 2),
+            'total_trades': total_trades,
+            'profitable_trades': profitable,
+            'avg_trade_return': round(float(np.mean(pnl_list)) if pnl_list else 0.0, 2),
+            'volatility': round(float(std) * (252 ** 0.5) * 100 if std else 0.0, 2),
+            'timestamp': datetime.now().isoformat(),
+            'trades': trades
         }
-        
+
         return jsonify({'success': True, 'data': results})
         
     except Exception as e:
@@ -1969,8 +2068,8 @@ def backtest_strategy():
         risk_per_trade = data.get('risk_per_trade', 0.02)  # 2% risk per trade
         
         # Simulate comprehensive strategy backtest
-        import random
-        random.seed(hash(strategy_name) % 1000)
+        # No simulated portfolio results in production
+        return jsonify({'success': False, 'error': 'Not implemented: strategy backtest disabled to avoid mock data'}), 501
         
         # Generate performance metrics
         total_return_pct = random.uniform(5, 45)
