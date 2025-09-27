@@ -2243,9 +2243,9 @@ def backtest_pattern():
         logger.error(f"Pattern backtest error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
- @app.route('/api/backtest/strategy', methods=['POST'])
- @limiter.limit("5 per minute")
- def backtest_strategy():
+@app.route('/api/backtest/strategy', methods=['POST'])
+@limiter.limit("5 per minute")
+def backtest_strategy():
     """Backtest a complete trading strategy (multi-symbol, multi-pattern)"""
     try:
         data = request.get_json()
