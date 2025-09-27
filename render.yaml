@@ -14,7 +14,7 @@ services:
     - key: FLASK_ENV
       value: production
     - key: BACKEND_SCAN_INTERVAL
-      value: 120
+      value: 180
     - key: ALERT_CONFIDENCE_THRESHOLD
       value: 0.85
     - key: ENABLE_PAPER_TRADING

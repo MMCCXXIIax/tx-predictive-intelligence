@@ -17,6 +17,7 @@ from dataclasses import dataclass, asdict
 from concurrent.futures import ThreadPoolExecutor
 import traceback
 
+
 # Flask and extensions
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
@@ -40,18 +41,26 @@ except ImportError:
     except ImportError:
         print("Warning: Neither psycopg nor psycopg2 found. Database features may not work.")
 
-# External APIs and data sources
 import yfinance as yf
 import requests
 import pandas as pd
 import numpy as np
 from textblob import TextBlob
 import ta
+from services.sentiment_analyzer import sentiment_analyzer as tx_sentiment_analyzer
+from services.backtesting_engine import backtest_engine
+
+# Modular pattern detection (AI + registry)
+from detectors.ai_pattern_logic import detect_all_patterns
+try:
+    from pattern_watchlist import prioritized_patterns
+except Exception:
+    # Fallback if watchlist module is missing
+    prioritized_patterns = []
 
 # Environment and configuration
 from dotenv import load_dotenv
 load_dotenv()
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -86,12 +95,12 @@ class Config:
     
     # Background workers
     ENABLE_BACKGROUND_WORKERS = os.getenv('ENABLE_BACKGROUND_WORKERS', 'true').lower() == 'true'
-    BACKEND_SCAN_INTERVAL = int(os.getenv('BACKEND_SCAN_INTERVAL', '300'))  # 5 minutes
+    BACKEND_SCAN_INTERVAL = int(os.getenv('BACKEND_SCAN_INTERVAL', '180'))  # 3 minutes
     CACHE_DURATION = int(os.getenv('CACHE_DURATION', '60'))  # 1 minute
     
     # Trading settings
     PAPER_TRADING_ENABLED = os.getenv('ENABLE_PAPER_TRADING', 'true').lower() == 'true'
-    ALERT_CONFIDENCE_THRESHOLD = float(os.getenv('ALERT_CONFIDENCE_THRESHOLD', '0.7'))
+    ALERT_CONFIDENCE_THRESHOLD = float(os.getenv('ALERT_CONFIDENCE_THRESHOLD', '0.85'))
     
     # Rate limiting
     RATE_LIMIT_DELAY = float(os.getenv('RATE_LIMIT_DELAY', '1.0'))
@@ -151,6 +160,24 @@ def init_database():
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         logger.info("Running in demo mode without database")
+
+# --------------------------------------
+# Helper utilities (symbol normalization)
+# --------------------------------------
+def is_crypto_symbol(symbol: str) -> bool:
+    s = (symbol or '').upper()
+    return s in {"BTC", "BTC-USD", "X:BTCUSD", "BITCOIN", "ETH", "ETH-USD", "X:ETHUSD", "ETHEREUM"}
+
+def normalize_symbol_for_yf(symbol: str) -> str:
+    """Map user symbol to yfinance-compatible ticker, supporting crypto pairs."""
+    s = (symbol or '').upper()
+    if s in {"BTC", "BTC-USD", "X:BTCUSD", "BITCOIN"}:
+        return "BTC-USD"
+    if s in {"ETH", "ETH-USD", "X:ETHUSD", "ETHEREUM"}:
+        return "ETH-USD"
+    return s
+
+ 
 
 def create_tables():
     """Create necessary database tables"""
@@ -262,14 +289,15 @@ class MarketDataService:
             return self.cache[cache_key]
         
         try:
-            ticker = yf.Ticker(symbol)
+            yf_symbol = normalize_symbol_for_yf(symbol)
+            ticker = yf.Ticker(yf_symbol)
             hist = ticker.history(period=period)
             
             if hist.empty:
                 return None
                 
             latest = hist.iloc[-1]
-            info = ticker.info
+            info = getattr(ticker, 'info', {}) or {}
             
             data = {
                 'symbol': symbol,
@@ -321,7 +349,8 @@ class PatternDetectionService:
     def detect_patterns(self, symbol: str) -> List[PatternDetection]:
         """Detect technical patterns using real market data"""
         try:
-            ticker = yf.Ticker(symbol)
+            yf_symbol = normalize_symbol_for_yf(symbol)
+            ticker = yf.Ticker(yf_symbol)
             hist = ticker.history(period='3mo')
             
             if hist.empty or len(hist) < 20:
@@ -343,7 +372,7 @@ class PatternDetectionService:
             # Golden Cross pattern
             if (latest['SMA_20'] > latest['SMA_50'] and 
                 prev['SMA_20'] <= prev['SMA_50']):
-                patterns.append(PatternDetection(
+                pd_item = PatternDetection(
                     symbol=symbol,
                     pattern_type='Golden Cross',
                     confidence=0.85,
@@ -351,11 +380,16 @@ class PatternDetectionService:
                     volume=int(latest['Volume']),
                     timestamp=datetime.now().isoformat(),
                     metadata={'sma_20': float(latest['SMA_20']), 'sma_50': float(latest['SMA_50'])}
-                ))
+                )
+                # Boost confidence if in watchlist
+                if any('golden' in p.lower() for p in prioritized_patterns):
+                    pd_item.confidence = min(1.0, pd_item.confidence + 0.1)
+                patterns.append(pd_item)
+                logger.info(f"Pattern detected: {pd_item.pattern_type} on {symbol} @ {pd_item.price} (conf {pd_item.confidence:.2f})")
             
             # RSI Oversold/Overbought
             if latest['RSI'] < 30:
-                patterns.append(PatternDetection(
+                pd_item = PatternDetection(
                     symbol=symbol,
                     pattern_type='RSI Oversold',
                     confidence=0.75,
@@ -363,9 +397,13 @@ class PatternDetectionService:
                     volume=int(latest['Volume']),
                     timestamp=datetime.now().isoformat(),
                     metadata={'rsi': float(latest['RSI'])}
-                ))
+                )
+                if any('rsi' in p.lower() and 'oversold' in p.lower() for p in prioritized_patterns):
+                    pd_item.confidence = min(1.0, pd_item.confidence + 0.1)
+                patterns.append(pd_item)
+                logger.info(f"Pattern detected: {pd_item.pattern_type} on {symbol} @ {pd_item.price} (conf {pd_item.confidence:.2f})")
             elif latest['RSI'] > 70:
-                patterns.append(PatternDetection(
+                pd_item = PatternDetection(
                     symbol=symbol,
                     pattern_type='RSI Overbought',
                     confidence=0.75,
@@ -373,11 +411,15 @@ class PatternDetectionService:
                     volume=int(latest['Volume']),
                     timestamp=datetime.now().isoformat(),
                     metadata={'rsi': float(latest['RSI'])}
-                ))
+                )
+                if any('rsi' in p.lower() and 'overbought' in p.lower() for p in prioritized_patterns):
+                    pd_item.confidence = min(1.0, pd_item.confidence + 0.1)
+                patterns.append(pd_item)
+                logger.info(f"Pattern detected: {pd_item.pattern_type} on {symbol} @ {pd_item.price} (conf {pd_item.confidence:.2f})")
             
             # Bollinger Band Squeeze
             if (latest['Close'] > latest['BB_upper']):
-                patterns.append(PatternDetection(
+                pd_item = PatternDetection(
                     symbol=symbol,
                     pattern_type='Bollinger Breakout',
                     confidence=0.70,
@@ -385,12 +427,103 @@ class PatternDetectionService:
                     volume=int(latest['Volume']),
                     timestamp=datetime.now().isoformat(),
                     metadata={'bb_upper': float(latest['BB_upper'])}
-                ))
+                )
+                if any('bollinger' in p.lower() for p in prioritized_patterns):
+                    pd_item.confidence = min(1.0, pd_item.confidence + 0.1)
+                patterns.append(pd_item)
+                logger.info(f"Pattern detected: {pd_item.pattern_type} on {symbol} @ {pd_item.price} (conf {pd_item.confidence:.2f})")
+
+            # Integrate modular AI pattern detection (candlestick-based)
+            try:
+                candles = []
+                for ts, row in hist.iterrows():
+                    candles.append({
+                        'time': ts.isoformat() if hasattr(ts, 'isoformat') else str(ts),
+                        'open': float(row['Open']),
+                        'high': float(row['High']),
+                        'low': float(row['Low']),
+                        'close': float(row['Close']),
+                        'volume': int(row['Volume']) if not pd.isna(row['Volume']) else 0
+                    })
+                ai_results = detect_all_patterns(candles)
+                for r in ai_results:
+                    name = r.get('name', 'AI Pattern')
+                    conf = r.get('confidence', 0.7) or 0.7
+                    # Boost confidence for prioritized patterns
+                    if any(name.lower() in p.lower() for p in prioritized_patterns):
+                        conf = min(1.0, conf + 0.1)
+                    ai_item = PatternDetection(
+                        symbol=symbol,
+                        pattern_type=name,
+                        confidence=float(conf),
+                        price=float(latest['Close']),
+                        volume=int(latest['Volume']),
+                        timestamp=r.get('candle_time', datetime.now().isoformat()) or datetime.now().isoformat(),
+                        metadata={
+                            'source': 'ai_pattern_logic',
+                            'index': r.get('index'),
+                            'category': r.get('category'),
+                            'explanation': r.get('explanation')
+                        }
+                    )
+                    patterns.append(ai_item)
+                    logger.info(f"AI Pattern detected: {ai_item.pattern_type} on {symbol} @ {ai_item.price} (conf {ai_item.confidence:.2f})")
+            except Exception as _e:
+                logger.debug(f"AI pattern detection skipped for {symbol}: {_e}")
             
             return patterns
             
         except Exception as e:
             logger.error(f"Pattern detection failed for {symbol}: {e}")
+            return []
+
+    def detect_patterns_intraday(self, symbol: str, period: str = '1d', interval: str = '1m') -> List[PatternDetection]:
+        """Detect candlestick patterns using intraday candles for real-time scanning"""
+        try:
+            yf_symbol = normalize_symbol_for_yf(symbol)
+            ticker = yf.Ticker(yf_symbol)
+            hist = ticker.history(period=period, interval=interval)
+
+            if hist.empty or len(hist) < 5:
+                return []
+
+            patterns: List[PatternDetection] = []
+
+            candles = []
+            for ts, row in hist.iterrows():
+                candles.append({
+                    'time': ts.isoformat() if hasattr(ts, 'isoformat') else str(ts),
+                    'open': float(row['Open']),
+                    'high': float(row['High']),
+                    'low': float(row['Low']),
+                    'close': float(row['Close']),
+                    'volume': int(row['Volume']) if not pd.isna(row['Volume']) else 0
+                })
+
+            latest = hist.iloc[-1]
+
+            try:
+                ai_results = detect_all_patterns(candles)
+                for r in ai_results:
+                    name = r.get('name', 'AI Pattern')
+                    conf = r.get('confidence', 0.7) or 0.7
+                    if any(name.lower() in p.lower() for p in prioritized_patterns):
+                        conf = min(1.0, conf + 0.1)
+                    patterns.append(PatternDetection(
+                        symbol=symbol,
+                        pattern_type=name,
+                        confidence=float(conf),
+                        price=float(latest['Close']),
+                        volume=int(latest['Volume']) if 'Volume' in latest else 0,
+                        timestamp=r.get('candle_time', datetime.now().isoformat()) or datetime.now().isoformat(),
+                        metadata={'source': 'intraday', 'interval': interval, 'period': period}
+                    ))
+            except Exception as _e:
+                logger.debug(f"AI pattern detection (intraday) skipped for {symbol}: {_e}")
+
+            return patterns
+        except Exception as e:
+            logger.error(f"Intraday pattern detection failed for {symbol}: {e}")
             return []
 
 # Sentiment Analysis Service
@@ -740,7 +873,7 @@ scanning_status = {
 # Initialize services
 market_data_service = MarketDataService()
 pattern_service = PatternDetectionService(market_data_service)
-sentiment_service = SentimentAnalysisService()
+sentiment_service = SentimentAnalysisService()  # legacy; endpoints will use tx_sentiment_analyzer instead
 paper_trading_service = PaperTradingService(market_data_service)
 alert_service = AlertService(pattern_service)
 
@@ -879,7 +1012,6 @@ def get_candles():
                 'candles': candles
             }
         })
-        
     except Exception as e:
         logger.error(f"Candles data error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -895,27 +1027,89 @@ def start_live_scanning():
             return jsonify({'success': False, 'error': 'Scanning already active'}), 400
         
         data = request.get_json() or {}
-        symbols = data.get('symbols', ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'NVDA', 'META', 'NFLX'])
-        scan_interval = data.get('interval', 60)  # seconds
+        symbols = data.get('symbols', SCAN_DEFAULTS['symbols'])
+        scan_interval = data.get('interval', SCAN_DEFAULTS['interval'])  # seconds
+        auto_alerts = bool(data.get('auto_alerts', SCAN_DEFAULTS['auto_alerts']))
         
         def live_scanner():
             global scanning_status
             while scanning_active:
                 try:
+                    logger.info(f"Live scanner tick: scanning {len(symbols)} symbols every {scan_interval}s")
                     patterns_found = 0
                     for symbol in symbols:
                         if not scanning_active:
                             break
-                        patterns = pattern_service.detect_patterns(symbol)
-                        patterns_found += len(patterns)
-                        
-                        # Emit real-time updates
-                        if patterns:
+                        # Intraday 1m candles for real-time candlestick detections
+                        intraday_patterns = pattern_service.detect_patterns_intraday(symbol, period='1d', interval='1m')
+                        # 3-month context window for technical indicators and confirmation
+                        context_patterns = pattern_service.detect_patterns(symbol)
+
+                        patterns_found += len(intraday_patterns) + len(context_patterns)
+
+                        # Emit real-time updates with both intraday and context results
+                        if intraday_patterns or context_patterns:
+                            def _with_pct(ps):
+                                out = []
+                                for _p in ps:
+                                    d = asdict(_p)
+                                    d['confidence_pct'] = round(float(d.get('confidence', 0)) * 100.0, 1)
+                                    out.append(d)
+                                return out
+
                             socketio.emit('scan_update', {
                                 'symbol': symbol,
-                                'patterns': [asdict(p) for p in patterns],
+                                'intraday_patterns': _with_pct(intraday_patterns),
+                                'context_patterns': _with_pct(context_patterns),
                                 'timestamp': datetime.now().isoformat()
                             })
+
+                        # Auto-emit alerts for high-confidence detections
+                        if auto_alerts:
+                            def _emit_alert(pat: PatternDetection):
+                                try:
+                                    if float(pat.confidence) >= Config.ALERT_CONFIDENCE_THRESHOLD:
+                                        payload = {
+                                            'symbol': pat.symbol,
+                                            'alert_type': pat.pattern_type,
+                                            'confidence': float(pat.confidence),
+                                            'confidence_pct': round(float(pat.confidence) * 100.0, 1),
+                                            'price': float(pat.price),
+                                            'timestamp': pat.timestamp,
+                                            'source': (pat.metadata or {}).get('source', 'scanner'),
+                                            'explanation': (pat.metadata or {}).get('explanation'),
+                                            'interval': (pat.metadata or {}).get('interval'),
+                                            'period': (pat.metadata or {}).get('period')
+                                        }
+                                        socketio.emit('pattern_alert', payload)
+                                        # Optional: persist alert if DB available
+                                        if db_available:
+                                            try:
+                                                with engine.begin() as conn:
+                                                    conn.execute(text("""
+                                                        INSERT INTO alerts (symbol, alert_type, confidence, is_active, created_at, metadata)
+                                                        VALUES (:symbol, :atype, :conf, true, NOW(), :metadata::jsonb)
+                                                    """), {
+                                                        'symbol': pat.symbol,
+                                                        'atype': pat.pattern_type,
+                                                        'conf': float(pat.confidence),
+                                                        'metadata': json.dumps({
+                                                            'source': payload.get('source'),
+                                                            'explanation': payload.get('explanation'),
+                                                            'interval': payload.get('interval'),
+                                                            'period': payload.get('period'),
+                                                            'scanner_sentiment': tx_sentiment_analyzer.analyze_symbol_sentiment(pat.symbol.lower()).to_dict()
+                                                        })
+                                                    })
+                                            except Exception as db_e:
+                                                logger.debug(f"Alert DB insert skipped: {db_e}")
+                                except Exception as ee:
+                                    logger.debug(f"Emit alert error: {ee}")
+
+                            for pat in intraday_patterns:
+                                _emit_alert(pat)
+                            for pat in context_patterns:
+                                _emit_alert(pat)
                     
                     scanning_status.update({
                         'symbols_scanned': len(symbols),
@@ -945,7 +1139,8 @@ def start_live_scanning():
             'message': 'Live scanning started',
             'config': {
                 'symbols': symbols,
-                'interval': scan_interval
+                'interval': scan_interval,
+                'auto_alerts': auto_alerts
             }
         })
         
@@ -993,6 +1188,56 @@ def get_scanning_status():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # Pattern Detection Endpoints
+@app.route('/api/scan/config')
+@limiter.limit("30 per minute")
+def get_scan_config():
+    """Get current scan defaults and status"""
+    try:
+        return jsonify({
+            'success': True,
+            'data': {
+                'defaults': SCAN_DEFAULTS,
+                'status': scanning_status
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Get scan config error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/scan/config', methods=['POST'])
+@limiter.limit("10 per minute")
+def set_scan_config():
+    """Update scan defaults at runtime"""
+    try:
+        data = request.get_json() or {}
+        updated = {}
+        if 'symbols' in data and isinstance(data['symbols'], list):
+            SCAN_DEFAULTS['symbols'] = [str(s).upper() for s in data['symbols'] if s]
+            updated['symbols'] = SCAN_DEFAULTS['symbols']
+        if 'interval' in data:
+            try:
+                iv = int(data['interval'])
+                if iv > 0:
+                    SCAN_DEFAULTS['interval'] = iv
+                    updated['interval'] = iv
+            except Exception:
+                pass
+        if 'auto_alerts' in data:
+            SCAN_DEFAULTS['auto_alerts'] = bool(data['auto_alerts'])
+            updated['auto_alerts'] = SCAN_DEFAULTS['auto_alerts']
+
+        return jsonify({
+            'success': True,
+            'message': 'Scan defaults updated',
+            'updated': updated,
+            'defaults': SCAN_DEFAULTS,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Set scan config error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/detect-enhanced', methods=['POST'])
 @limiter.limit("20 per minute")
 def detect_enhanced():
@@ -1016,7 +1261,8 @@ def detect_enhanced():
                 'exit_signal': 'SELL' if pattern.confidence < 0.3 else 'HOLD',
                 'market_context': f"Pattern detected with {pattern.confidence:.1%} confidence",
                 'keywords': [pattern.pattern_type.lower().replace(' ', '_')],
-                'sentiment_score': min(pattern.confidence * 100, 100)
+                'sentiment_score': min(pattern.confidence * 100, 100),
+                'confidence_pct': round(float(pattern.confidence) * 100.0, 1)
             })
             pattern_data.append(pattern_dict)
         
@@ -1061,34 +1307,8 @@ def pattern_stats():
 @app.route('/api/detect/enhanced', methods=['POST'])
 @limiter.limit("20 per minute")
 def detect_enhanced_alt():
-    """Alternative enhanced pattern detection endpoint"""
-    try:
-        data = request.get_json()
-        symbol = data.get('symbol', '').upper()
-        
-        if not symbol:
-            return jsonify({'success': False, 'error': 'Symbol is required'}), 400
-        
-        patterns = pattern_service.detect_patterns(symbol)
-        
-        # Convert to dict format for JSON response
-        pattern_data = []
-        for pattern in patterns:
-            pattern_dict = asdict(pattern)
-            pattern_dict.update({
-                'entry_signal': 'BUY' if pattern.confidence > 0.75 else 'HOLD',
-                'exit_signal': 'SELL' if pattern.confidence < 0.3 else 'HOLD',
-                'market_context': f"Pattern detected with {pattern.confidence:.1%} confidence",
-                'keywords': [pattern.pattern_type.lower().replace(' ', '_')],
-                'sentiment_score': min(pattern.confidence * 100, 100)
-            })
-            pattern_data.append(pattern_dict)
-        
-        return jsonify({'success': True, 'data': pattern_data})
-        
-    except Exception as e:
-        logger.error(f"Enhanced detection error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+    """Alternative enhanced pattern detection endpoint (deprecated)"""
+    return jsonify({'success': False, 'error': 'Deprecated: use /api/detect-enhanced'}), 410
 
 @app.route('/api/patterns/list')
 @limiter.limit("30 per minute")
@@ -1299,10 +1519,10 @@ def explain_alert():
 @app.route('/api/sentiment/<symbol>')
 @limiter.limit("20 per minute")
 def get_sentiment(symbol):
-    """Get sentiment analysis for a symbol"""
+    """Get sentiment analysis for a symbol (advanced multi-source)"""
     try:
-        data = sentiment_service.analyze_sentiment(symbol.upper())
-        return jsonify({'success': True, 'data': data})
+        score = tx_sentiment_analyzer.analyze_symbol_sentiment(symbol.lower())
+        return jsonify({'success': True, 'data': score.to_dict()})
     except Exception as e:
         logger.error(f"Sentiment analysis error for {symbol}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -1310,28 +1530,22 @@ def get_sentiment(symbol):
 @app.route('/api/sentiment/enhance-confidence', methods=['POST'])
 @limiter.limit("20 per minute")
 def enhance_sentiment_confidence():
-    """Enhance confidence using sentiment data"""
+    """Enhance confidence using advanced sentiment data"""
     try:
         data = request.get_json()
         symbol = data.get('symbol', '').upper()
-        base_confidence = data.get('base_confidence', 0.5)
+        base_confidence = float(data.get('base_confidence', 0.5))
         pattern_type = data.get('pattern_type', '')
         
         if not symbol:
             return jsonify({'success': False, 'error': 'Symbol is required'}), 400
         
-        # Get sentiment data
-        sentiment_data = sentiment_service.analyze_sentiment(symbol)
-        sentiment_score = sentiment_data.get('sentiment_score', 50)
-        
-        # Calculate enhanced confidence
-        sentiment_multiplier = 1.0
-        if sentiment_score > 60:  # Bullish sentiment
-            sentiment_multiplier = 1.1 if 'bullish' in pattern_type.lower() or 'cross' in pattern_type.lower() else 0.95
-        elif sentiment_score < 40:  # Bearish sentiment
-            sentiment_multiplier = 1.1 if 'bearish' in pattern_type.lower() or 'oversold' in pattern_type.lower() else 0.9
-        
-        enhanced_confidence = min(base_confidence * sentiment_multiplier, 1.0)
+        sentiment_score = tx_sentiment_analyzer.analyze_symbol_sentiment(symbol.lower())
+        pattern_detection = {
+            'pattern': pattern_type or '',
+            'confidence': base_confidence
+        }
+        enhanced_confidence = tx_sentiment_analyzer.enhance_pattern_confidence(pattern_detection, sentiment_score)
         
         return jsonify({
             'success': True,
@@ -1339,9 +1553,8 @@ def enhance_sentiment_confidence():
                 'symbol': symbol,
                 'base_confidence': base_confidence,
                 'enhanced_confidence': enhanced_confidence,
-                'sentiment_score': sentiment_score,
-                'sentiment_multiplier': sentiment_multiplier,
-                'enhancement_factor': enhanced_confidence - base_confidence,
+                'sentiment': sentiment_score.to_dict(),
+                'enhancement_factor': float(enhanced_confidence) - float(base_confidence),
                 'timestamp': datetime.now().isoformat()
             }
         })
@@ -1353,48 +1566,18 @@ def enhance_sentiment_confidence():
 @app.route('/api/sentiment/alert-condition', methods=['POST'])
 @limiter.limit("20 per minute")
 def sentiment_alert_condition():
-    """Check sentiment-based alert conditions"""
+    """Check sentiment-based alert conditions (advanced)"""
     try:
         data = request.get_json()
         symbol = data.get('symbol', '').upper()
-        condition_type = data.get('condition_type', 'bullish_surge')  # bullish_surge, bearish_crash, neutral_consolidation
-        threshold = data.get('threshold', 0.7)
+        pattern_type = data.get('pattern_type', '')
         
         if not symbol:
             return jsonify({'success': False, 'error': 'Symbol is required'}), 400
         
-        # Get sentiment data
-        sentiment_data = sentiment_service.analyze_sentiment(symbol)
-        sentiment_score = sentiment_data.get('sentiment_score', 50)
-        overall_rating = sentiment_data.get('overall_rating', 'neutral')
+        condition = tx_sentiment_analyzer.get_sentiment_alert_condition(symbol.lower(), pattern_type)
         
-        # Check conditions
-        condition_met = False
-        alert_message = ''
-        
-        if condition_type == 'bullish_surge':
-            condition_met = sentiment_score > 70 and overall_rating == 'bullish'
-            alert_message = f'Strong bullish sentiment detected for {symbol} (Score: {sentiment_score:.1f})'
-        elif condition_type == 'bearish_crash':
-            condition_met = sentiment_score < 30 and overall_rating == 'bearish'
-            alert_message = f'Strong bearish sentiment detected for {symbol} (Score: {sentiment_score:.1f})'
-        elif condition_type == 'neutral_consolidation':
-            condition_met = 40 <= sentiment_score <= 60 and overall_rating == 'neutral'
-            alert_message = f'Neutral sentiment consolidation for {symbol} (Score: {sentiment_score:.1f})'
-        
-        return jsonify({
-            'success': True,
-            'data': {
-                'symbol': symbol,
-                'condition_type': condition_type,
-                'condition_met': condition_met,
-                'sentiment_score': sentiment_score,
-                'overall_rating': overall_rating,
-                'threshold': threshold,
-                'alert_message': alert_message if condition_met else '',
-                'timestamp': datetime.now().isoformat()
-            }
-        })
+        return jsonify({'success': True, 'data': condition})
         
     except Exception as e:
         logger.error(f"Sentiment alert condition error: {e}")
@@ -1416,7 +1599,7 @@ def get_entry_exit_signals():
         # Get market data and patterns
         market_data = market_data_service.get_stock_data(symbol)
         patterns = pattern_service.detect_patterns(symbol)
-        sentiment_data = sentiment_service.analyze_sentiment(symbol)
+        sentiment_adv = tx_sentiment_analyzer.analyze_symbol_sentiment(symbol.lower())
         
         if not market_data:
             return jsonify({'success': False, 'error': 'Unable to get market data'}), 404
@@ -1462,7 +1645,7 @@ def get_entry_exit_signals():
                 elif pnl_percent < -5:  # Stop loss at -5%
                     should_exit = True
                     exit_reason = 'Stop loss triggered'
-                elif sentiment_data['sentiment_score'] < 30 and position['quantity'] > 0:  # Bearish sentiment for long position
+                elif sentiment_adv.overall_sentiment < -0.6 and position['quantity'] > 0:  # Strong bearish sentiment for long position
                     should_exit = True
                     exit_reason = 'Negative sentiment shift'
                 
@@ -1476,10 +1659,14 @@ def get_entry_exit_signals():
                         'pnl_percent': pnl_percent,
                         'quantity': abs(position['quantity']),
                         'urgency': 'high' if 'stop loss' in exit_reason.lower() else 'medium',
-                        'timestamp': datetime.now().isoformat()
+                        'timestamp': datetime.now().isoformat(),
+                        'sentiment': sentiment_adv.to_dict()
                     }
                     signals.append(exit_signal)
         
+        # Sort by adjusted confidence for UX
+        signals.sort(key=lambda s: s.get('adjusted_confidence', s.get('confidence', 0)), reverse=True)
+
         return jsonify({
             'success': True,
             'data': {
@@ -1488,7 +1675,8 @@ def get_entry_exit_signals():
                 'market_context': {
                     'price': market_data['price'],
                     'change_percent': market_data['change_percent'],
-                    'sentiment_score': sentiment_data['sentiment_score'],
+                    'sentiment_label': sentiment_adv.to_dict().get('sentiment_label'),
+                    'sentiment_overall': sentiment_adv.overall_sentiment,
                     'volume': market_data['volume']
                 },
                 'timestamp': datetime.now().isoformat()
@@ -1556,7 +1744,7 @@ def generate_entry_exit_signals():
                 'summary': {
                     'total_symbols_analyzed': len(symbols),
                     'symbols_with_signals': len(all_signals),
-                    'total_signals': sum(len(data['signals']) for data in all_signals.values()),
+                    'total_signals': sum(len(d['signals']) for d in all_signals.values()),
                     'min_confidence_threshold': min_confidence
                 },
                 'timestamp': datetime.now().isoformat()
@@ -1574,7 +1762,11 @@ def get_active_alerts():
     """Get active alerts"""
     try:
         alerts = alert_service.get_active_alerts()
-        alert_data = [asdict(alert) for alert in alerts]
+        alert_data = []
+        for a in alerts:
+            d = asdict(a)
+            d['confidence_pct'] = round(float(d.get('confidence', 0)) * 100.0, 1)
+            alert_data.append(d)
         return jsonify({'success': True, 'alerts': alert_data})
     except Exception as e:
         logger.error(f"Get alerts error: {e}")
@@ -2051,95 +2243,103 @@ def backtest_pattern():
         logger.error(f"Pattern backtest error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/backtest/strategy', methods=['POST'])
-@limiter.limit("5 per minute")
-def backtest_strategy():
-    """Backtest a complete trading strategy"""
+ @app.route('/api/backtest/strategy', methods=['POST'])
+ @limiter.limit("5 per minute")
+ def backtest_strategy():
+    """Backtest a complete trading strategy (multi-symbol, multi-pattern)"""
     try:
         data = request.get_json()
         strategy_name = data.get('strategy_name', 'Multi-Pattern Strategy')
         symbols = data.get('symbols', ['AAPL', 'GOOGL', 'MSFT'])
         start_date = data.get('start_date', '2023-01-01')
         end_date = data.get('end_date', '2024-01-01')
-        initial_capital = data.get('initial_capital', 100000)
-        
-        # Strategy configuration
-        patterns_used = data.get('patterns', ['Golden Cross', 'RSI Oversold', 'Bollinger Breakout'])
-        risk_per_trade = data.get('risk_per_trade', 0.02)  # 2% risk per trade
-        
-        # Simulate comprehensive strategy backtest
-        # No simulated portfolio results in production
-        return jsonify({'success': False, 'error': 'Not implemented: strategy backtest disabled to avoid mock data'}), 501
-        
-        # Generate performance metrics
-        total_return_pct = random.uniform(5, 45)
-        final_capital = initial_capital * (1 + total_return_pct / 100)
-        
-        # Calculate trade statistics
-        total_trades = random.randint(150, 400)
-        win_rate = random.uniform(58, 78)
-        profitable_trades = int(total_trades * win_rate / 100)
-        losing_trades = total_trades - profitable_trades
-        
-        # Risk metrics
-        max_drawdown = random.uniform(-18, -8)
-        volatility = random.uniform(18, 32)
-        sharpe_ratio = total_return_pct / volatility if volatility > 0 else 0
-        
-        # Monthly returns simulation
-        monthly_returns = []
-        for i in range(12):
-            monthly_ret = random.uniform(-8, 12)
-            monthly_returns.append(round(monthly_ret, 2))
-        
-        # Symbol performance breakdown
-        symbol_performance = {}
-        for symbol in symbols:
-            symbol_performance[symbol] = {
-                'trades': random.randint(20, 80),
-                'win_rate': round(random.uniform(50, 80), 1),
-                'return': round(random.uniform(-5, 25), 2),
-                'best_pattern': random.choice(patterns_used)
+        initial_capital = float(data.get('initial_capital', 100000))
+        patterns_used = data.get('patterns', ['Marubozu', 'Hammer', 'Bullish Engulfing'])
+        entry_strategy = data.get('entry_strategy', 'immediate')
+        exit_strategy = data.get('exit_strategy', 'fixed_profit')
+        stop_loss_pct = float(data.get('stop_loss_pct', 5.0))
+        take_profit_pct = float(data.get('take_profit_pct', 10.0))
+
+        def to_engine_symbol(sym: str) -> str:
+            s = (sym or '').upper()
+            if s in {'BTC', 'BTC-USD', 'X:BTCUSD', 'BITCOIN'}:
+                return 'bitcoin'
+            if s in {'ETH', 'ETH-USD', 'X:ETHUSD', 'ETHEREUM'}:
+                return 'ethereum'
+            return sym
+
+        portfolio_trades = []
+        summary_by_symbol = {}
+        total_trades = 0
+        total_wins = 0
+        total_profit = 0.0
+        total_loss = 0.0
+
+        for sym in symbols:
+            engine_symbol = to_engine_symbol(sym)
+            symbol_trades = []
+            sym_total_pnl = 0.0
+            sym_trades_count = 0
+            sym_wins = 0
+
+            for pat in patterns_used:
+                result = backtest_engine.run_pattern_backtest(
+                    pattern_name=pat,
+                    symbol=engine_symbol,
+                    start_date=start_date,
+                    end_date=end_date,
+                    entry_strategy=entry_strategy,
+                    exit_strategy=exit_strategy,
+                    stop_loss_pct=stop_loss_pct,
+                    take_profit_pct=take_profit_pct
+                )
+
+                rdict = result.to_dict()
+                trades = rdict.get('trades', [])
+                metrics = rdict.get('metrics', {})
+
+                symbol_trades.extend(trades)
+                sym_trades_count += int(metrics.get('total_trades', 0) or 0)
+                sym_total_pnl += float(metrics.get('total_pnl', 0.0) or 0.0)
+                sym_wins += int(metrics.get('winning_trades', 0) or 0)
+
+            win_rate = (sym_wins / sym_trades_count * 100.0) if sym_trades_count > 0 else 0.0
+
+            summary_by_symbol[sym] = {
+                'trades': sym_trades_count,
+                'win_rate': round(win_rate, 2),
+                'total_pnl': round(sym_total_pnl, 2)
             }
-        
+
+            portfolio_trades.extend(symbol_trades)
+            total_trades += sym_trades_count
+            total_wins += sym_wins
+            if sym_total_pnl >= 0:
+                total_profit += sym_total_pnl
+            else:
+                total_loss += sym_total_pnl
+
+        overall_win_rate = (total_wins / total_trades * 100.0) if total_trades > 0 else 0.0
+        portfolio_profit_factor = (total_profit / abs(total_loss)) if total_loss < 0 else float('inf')
+
         results = {
             'strategy_name': strategy_name,
             'symbols': symbols,
             'patterns_used': patterns_used,
-            'period': f"{start_date} to {end_date}",
+            'period': f'{start_date} to {end_date}',
             'initial_capital': initial_capital,
-            'final_capital': round(final_capital, 2),
-            'total_return': round(total_return_pct, 2),
-            'total_return_amount': round(final_capital - initial_capital, 2),
-            'annualized_return': round(total_return_pct * 0.85, 2),
-            'sharpe_ratio': round(sharpe_ratio, 2),
-            'max_drawdown': round(max_drawdown, 2),
-            'volatility': round(volatility, 2),
-            'win_rate': round(win_rate, 1),
-            'total_trades': total_trades,
-            'profitable_trades': profitable_trades,
-            'losing_trades': losing_trades,
-            'avg_trade_return': round((final_capital - initial_capital) / total_trades, 2),
-            'best_trade': round(random.uniform(500, 2500), 2),
-            'worst_trade': round(random.uniform(-1500, -200), 2),
-            'profit_factor': round(random.uniform(1.2, 2.8), 2),
-            'recovery_factor': round(random.uniform(0.8, 3.2), 2),
-            'max_consecutive_wins': random.randint(5, 15),
-            'max_consecutive_losses': random.randint(3, 8),
-            'avg_hold_time': random.randint(5, 18),
-            'monthly_returns': monthly_returns,
-            'symbol_performance': symbol_performance,
-            'risk_metrics': {
-                'var_95': round(random.uniform(-3, -1), 2),
-                'expected_shortfall': round(random.uniform(-5, -2), 2),
-                'calmar_ratio': round(total_return_pct / abs(max_drawdown), 2),
-                'sortino_ratio': round(random.uniform(0.8, 2.5), 2)
+            'summary_by_symbol': summary_by_symbol,
+            'portfolio': {
+                'total_trades': total_trades,
+                'win_rate': round(overall_win_rate, 2),
+                'profit_factor': 'inf' if portfolio_profit_factor == float('inf') else round(portfolio_profit_factor, 2),
+                'total_pnl': round(total_profit + total_loss, 2)
             },
+            'sample_trades': portfolio_trades[:50],
             'timestamp': datetime.now().isoformat()
         }
-        
+
         return jsonify({'success': True, 'data': results})
-        
     except Exception as e:
         logger.error(f"Strategy backtest error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
