@@ -114,7 +114,8 @@ cors = CORS(app, origins=["*"])
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 limiter = Limiter(
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
+    default_limits=["2000 per day", "600 per hour"],
+    storage_uri=os.getenv('RATELIMIT_STORAGE_URI', 'memory://')
 )
 limiter.init_app(app)
 
@@ -137,10 +138,11 @@ def init_database():
             engine = create_engine(
                 db_url,
                 poolclass=QueuePool,
-                pool_size=5,
-                max_overflow=10,
+                pool_size=2,
+                max_overflow=0,
                 pool_pre_ping=True,
-                pool_recycle=300
+                pool_recycle=1800,
+                connect_args={"sslmode": "require"} if db_url.startswith('postgresql') else {}
             )
             
             # Test connection
@@ -924,6 +926,7 @@ def index():
     })
 
 @app.route('/health')
+@limiter.exempt
 def health_check():
     """Health check endpoint"""
     return jsonify({
