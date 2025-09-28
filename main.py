@@ -103,8 +103,6 @@ class Config:
     ALERT_CONFIDENCE_THRESHOLD = float(os.getenv('ALERT_CONFIDENCE_THRESHOLD', '0.85'))
     
     # Rate limiting
-    RATE_LIMIT_DELAY = float(os.getenv('RATE_LIMIT_DELAY', '1.0'))
-
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -114,7 +112,6 @@ cors = CORS(app, origins=["*"])
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 limiter = Limiter(
     key_func=get_remote_address,
-    default_limits=["2000 per day", "600 per hour"],
     storage_uri=os.getenv('RATELIMIT_STORAGE_URI', 'memory://')
 )
 limiter.init_app(app)
@@ -947,21 +944,18 @@ def market_scan():
         data = market_data_service.get_market_scan(scan_type)
         return jsonify({'success': True, 'data': data})
     except Exception as e:
-        logger.error(f"Market scan error: {e}")
+        logger.exception("Market scan failed")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/stock/<symbol>')
-@limiter.limit("60 per minute")
-def get_stock_data(symbol):
-    """Get stock data for a specific symbol"""
+# Sentiment Ops Endpoints
+@app.route('/api/sentiment/twitter-health', methods=['GET'])
+@limiter.limit("30 per minute")
+def twitter_health():
+    """Surface Twitter Recent Search metrics for ops/telemetry."""
     try:
-        data = market_data_service.get_stock_data(symbol.upper())
-        if data:
-            return jsonify({'success': True, 'data': data})
-        else:
-            return jsonify({'success': False, 'error': 'Symbol not found'}), 404
+        return jsonify({'success': True, 'metrics': tx_sentiment_analyzer.twitter_metrics}), 200
     except Exception as e:
-        logger.error(f"Stock data error for {symbol}: {e}")
+        logger.exception("twitter-health endpoint failed")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/scan')
