@@ -47,6 +47,8 @@ import pandas as pd
 import numpy as np
 from textblob import TextBlob
 import ta
+import csv
+from io import StringIO
 from services.sentiment_analyzer import sentiment_analyzer as tx_sentiment_analyzer
 from services.backtesting_engine import backtest_engine
 
