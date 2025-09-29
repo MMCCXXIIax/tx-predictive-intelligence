@@ -62,13 +62,14 @@ except Exception:
 from dotenv import load_dotenv
 load_dotenv()
 # Configure logging
+if os.getenv('RENDER'):
+    handlers = [logging.StreamHandler(sys.stdout)]
+else:
+    handlers = [logging.StreamHandler(sys.stdout), logging.FileHandler('tx_backend.log')]
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('tx_backend.log') if not os.getenv('RENDER') else logging.StreamHandler(sys.stdout)
-    ]
+    handlers=handlers
 )
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,13 @@ class Config:
     ENABLE_BACKGROUND_WORKERS = os.getenv('ENABLE_BACKGROUND_WORKERS', 'true').lower() == 'true'
     BACKEND_SCAN_INTERVAL = int(os.getenv('BACKEND_SCAN_INTERVAL', '180'))  # 3 minutes
     CACHE_DURATION = int(os.getenv('CACHE_DURATION', '60'))  # 1 minute
+    # Comma-separated list of symbols to scan (supports stocks, crypto, forex)
+    SCAN_SYMBOLS = os.getenv(
+        'SCAN_SYMBOLS',
+        'AAPL,GOOGL,MSFT,AMZN,TSLA,NVDA,META,NFLX,'
+        'BTC-USD,ETH-USD,'
+        'EURUSD=X,GBPUSD=X,USDJPY=X,USDCHF=X'
+    )
     
     # Trading settings
     PAPER_TRADING_ENABLED = os.getenv('ENABLE_PAPER_TRADING', 'true').lower() == 'true'
@@ -168,12 +176,35 @@ def is_crypto_symbol(symbol: str) -> bool:
     return s in {"BTC", "BTC-USD", "X:BTCUSD", "BITCOIN", "ETH", "ETH-USD", "X:ETHUSD", "ETHEREUM"}
 
 def normalize_symbol_for_yf(symbol: str) -> str:
-    """Map user symbol to yfinance-compatible ticker, supporting crypto pairs."""
+    """Map user symbol to yfinance-compatible ticker, supporting crypto and forex pairs."""
     s = (symbol or '').upper()
-    if s in {"BTC", "BTC-USD", "X:BTCUSD", "BITCOIN"}:
+    # --- Crypto mappings ---
+    if s in {"BTC", "BTC-USD", "X:BTCUSD", "BITCOIN", "BTCUSD"}:
         return "BTC-USD"
-    if s in {"ETH", "ETH-USD", "X:ETHUSD", "ETHEREUM"}:
+    if s in {"ETH", "ETH-USD", "X:ETHUSD", "ETHEREUM", "ETHUSD"}:
         return "ETH-USD"
+    if s in {"SOL", "SOL-USD", "X:SOLUSD", "SOLUSD"}:
+        return "SOL-USD"
+    if s in {"ADA", "ADA-USD", "X:ADAUSD", "ADAUSD"}:
+        return "ADA-USD"
+
+    # --- Forex mappings (Yahoo format uses =X) ---
+    forex_map = {
+        "EUR/USD": "EURUSD=X",
+        "EURUSD": "EURUSD=X",
+        "FX:EURUSD": "EURUSD=X",
+        "GBP/USD": "GBPUSD=X",
+        "GBPUSD": "GBPUSD=X",
+        "FX:GBPUSD": "GBPUSD=X",
+        "USD/JPY": "USDJPY=X",
+        "USDJPY": "USDJPY=X",
+        "FX:USDJPY": "USDJPY=X",
+        "USD/CHF": "USDCHF=X",
+        "USDCHF": "USDCHF=X",
+        "FX:USDCHF": "USDCHF=X",
+    }
+    if s in forex_map:
+        return forex_map[s]
     return s
 
  
@@ -317,14 +348,13 @@ class MarketDataService:
             self.cache_timestamps[cache_key] = time.time()
             
             return data
-            
         except Exception as e:
             logger.error(f"Failed to fetch data for {symbol}: {e}")
             return None
     
     def get_market_scan(self, scan_type: str = 'trending') -> List[Dict[str, Any]]:
         """Get market scan data"""
-        symbols = ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'NVDA', 'META', 'NFLX']
+        symbols = [s.strip() for s in Config.SCAN_SYMBOLS.split(',') if s.strip()]
         results = []
         
         for symbol in symbols:
@@ -784,11 +814,41 @@ class AlertService:
     def __init__(self, pattern_service: PatternDetectionService):
         self.pattern_service = pattern_service
         self.active_alerts = []
+        # In-memory dedupe cache: key -> last_emit_ts
+        self.recent_alerts = {}
+        # Cooldown minutes before re-emitting same (symbol, pattern)
+        self.dedupe_minutes = int(os.getenv('ALERT_DEDUPE_MINUTES', '10'))
+
+    def _now_iso(self):
+        return datetime.now().isoformat()
+
+    def _should_emit(self, symbol: str, pattern_type: str) -> bool:
+        """Return True if we should emit an alert for (symbol, pattern_type)."""
+        try:
+            key = f"{symbol}:{pattern_type}"
+            now = datetime.now()
+            last_iso = self.recent_alerts.get(key)
+            if last_iso:
+                try:
+                    last = datetime.fromisoformat(last_iso)
+                except Exception:
+                    last = now
+                if (now - last) < timedelta(minutes=self.dedupe_minutes):
+                    return False
+            # Update cache and opportunistically prune old entries
+            self.recent_alerts[key] = self._now_iso()
+            if len(self.recent_alerts) > 1000:
+                cutoff = now - timedelta(minutes=self.dedupe_minutes * 3)
+                self.recent_alerts = {k: v for k, v in self.recent_alerts.items() if datetime.fromisoformat(v) >= cutoff}
+            return True
+        except Exception:
+            # Fail-open to avoid blocking alerts
+            return True
         
     def generate_alerts(self) -> List[Alert]:
         """Generate alerts based on pattern detection"""
         try:
-            symbols = ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'NVDA', 'META', 'NFLX']
+            symbols = [s.strip() for s in Config.SCAN_SYMBOLS.split(',') if s.strip()]
             new_alerts = []
             
             for symbol in symbols:
@@ -796,6 +856,11 @@ class AlertService:
                 
                 for pattern in patterns:
                     if pattern.confidence >= Config.ALERT_CONFIDENCE_THRESHOLD:
+                        # Dedupe: skip same (symbol, pattern) within cooldown
+                        if not self._should_emit(pattern.symbol, pattern.pattern_type):
+                            logger.debug(f"Deduped alert for {pattern.symbol} / {pattern.pattern_type}")
+                            continue
+
                         alert = Alert(
                             id=len(self.active_alerts) + len(new_alerts) + 1,
                             symbol=pattern.symbol,
@@ -1066,6 +1131,10 @@ def start_live_scanning():
                             def _emit_alert(pat: PatternDetection):
                                 try:
                                     if float(pat.confidence) >= Config.ALERT_CONFIDENCE_THRESHOLD:
+                                        # Dedupe: skip same (symbol, pattern) within cooldown
+                                        if not alert_service._should_emit(pat.symbol, pat.pattern_type):
+                                            logger.debug(f"Deduped live alert for {pat.symbol} / {pat.pattern_type}")
+                                            return
                                         payload = {
                                             'symbol': pat.symbol,
                                             'alert_type': pat.pattern_type,
@@ -2857,13 +2926,13 @@ def get_supported_assets():
                 'total_etfs': 2500
             },
             'crypto': {
-                'available': False,  # Not implemented yet
-                'planned': True,
+                'available': True,
+                'planned': False,
                 'major_pairs': ['BTC/USD', 'ETH/USD', 'ADA/USD', 'SOL/USD']
             },
             'forex': {
-                'available': False,  # Not implemented yet
-                'planned': True,
+                'available': True,
+                'planned': False,
                 'major_pairs': ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF']
             },
             'commodities': {
@@ -2871,7 +2940,6 @@ def get_supported_assets():
                 'planned': True,
                 'symbols': ['GLD', 'SLV', 'USO', 'UNG', 'DBA', 'DBC']
             }
-        }
         
         return jsonify({'success': True, 'data': assets})
         
