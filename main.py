@@ -2942,7 +2942,7 @@ def get_supported_assets():
                 'planned': True,
                 'symbols': ['GLD', 'SLV', 'USO', 'UNG', 'DBA', 'DBC']
             }
-        
+        }
         return jsonify({'success': True, 'data': assets})
         
     except Exception as e:
