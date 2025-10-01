@@ -49,6 +49,7 @@ from textblob import TextBlob
 import ta
 import csv
 from io import StringIO
+from zoneinfo import ZoneInfo
 from services.sentiment_analyzer import sentiment_analyzer as tx_sentiment_analyzer
 from services.backtesting_engine import backtest_engine
 
@@ -74,6 +75,13 @@ logging.basicConfig(
     handlers=handlers
 )
 logger = logging.getLogger(__name__)
+
+# Timezone helper (Uganda/EAT)
+def to_eat_iso(dt: datetime) -> str:
+    try:
+        return dt.astimezone(ZoneInfo("Africa/Kampala")).isoformat()
+    except Exception:
+        return dt.isoformat()
 
 # Configuration
 class Config:
@@ -291,6 +299,7 @@ class Alert:
     confidence: float
     timestamp: str
     is_active: bool = True
+    metadata: Dict[str, Any] = None
 
 @dataclass
 class PaperTrade:
@@ -396,6 +405,13 @@ class PatternDetectionService:
             hist['MACD'] = ta.trend.MACD(hist['Close']).macd()
             hist['BB_upper'] = ta.volatility.BollingerBands(hist['Close']).bollinger_hband()
             hist['BB_lower'] = ta.volatility.BollingerBands(hist['Close']).bollinger_lband()
+            # ATR and average volume for confirmations
+            try:
+                atr_ind = ta.volatility.AverageTrueRange(high=hist['High'], low=hist['Low'], close=hist['Close'], window=14)
+                hist['ATR_14'] = atr_ind.average_true_range()
+            except Exception:
+                hist['ATR_14'] = pd.Series([np.nan] * len(hist), index=hist.index)
+            hist['VOL_MA_20'] = hist['Volume'].rolling(window=20).mean()
             
             latest = hist.iloc[-1]
             prev = hist.iloc[-2] if len(hist) > 1 else latest
@@ -403,18 +419,44 @@ class PatternDetectionService:
             # Golden Cross pattern
             if (latest['SMA_20'] > latest['SMA_50'] and 
                 prev['SMA_20'] <= prev['SMA_50']):
+                # Confidence: base + slope/distance + volume
+                base_conf = 0.80
+                slope = float((latest['SMA_20'] - prev['SMA_20']) - (latest['SMA_50'] - prev['SMA_50']))
+                dist = float((latest['SMA_20'] - latest['SMA_50']) / max(1e-9, latest['Close']))
+                vol_boost = 0.05 if ('Volume' in latest and 'VOL_MA_20' in latest and latest['Volume'] > (latest['VOL_MA_20'] or 0)) else 0.0
+                conf = base_conf + min(0.1, abs(slope) * 10) + min(0.1, max(0.0, dist) * 5) + vol_boost
+                # Watchlist boost
+                if any('golden' in p.lower() for p in prioritized_patterns):
+                    conf = min(1.0, conf + 0.05)
+                conf = float(max(0.0, min(1.0, conf)))
                 pd_item = PatternDetection(
                     symbol=symbol,
                     pattern_type='Golden Cross',
-                    confidence=0.85,
+                    confidence=conf,
                     price=float(latest['Close']),
                     volume=int(latest['Volume']),
-                    timestamp=datetime.now().isoformat(),
-                    metadata={'sma_20': float(latest['SMA_20']), 'sma_50': float(latest['SMA_50'])}
+                    timestamp=to_eat_iso(datetime.now()),
+                    metadata={
+                        'sma_20': float(latest['SMA_20']),
+                        'sma_50': float(latest['SMA_50']),
+                        'timeframe': '1D',
+                        'timestamp_eat': to_eat_iso(datetime.now()),
+                        'explanation': '20-day SMA has crossed above 50-day SMA, indicating a bullish trend shift.',
+                        'suggested_action': 'BUY',
+                        'confidence_pct': round(conf * 100.0, 1),
+                        'confidence_factors': {
+                            'slope_diff': float(slope),
+                            'sma_distance_pct': round(dist * 100.0, 3),
+                            'volume_above_avg': bool(latest['Volume'] > (latest['VOL_MA_20'] or 0))
+                        },
+                        'risk_suggestions': (lambda entry, atr: {
+                            'entry': entry,
+                            'stop_loss': round(entry - 1.5 * atr, 6) if atr and not np.isnan(atr) else None,
+                            'take_profit': round(entry + (2.0 if conf >= 0.8 else 1.5) * atr, 6) if atr and not np.isnan(atr) else None,
+                            'rr': round((2.0 if conf >= 0.8 else 1.5) / 1.5, 2) if atr and not np.isnan(atr) else None
+                        })(float(latest['Close']), float(latest['ATR_14']) if 'ATR_14' in latest else None)
+                    }
                 )
-                # Boost confidence if in watchlist
-                if any('golden' in p.lower() for p in prioritized_patterns):
-                    pd_item.confidence = min(1.0, pd_item.confidence + 0.1)
                 patterns.append(pd_item)
                 logger.info(f"Pattern detected: {pd_item.pattern_type} on {symbol} @ {pd_item.price} (conf {pd_item.confidence:.2f})")
             
@@ -423,44 +465,88 @@ class PatternDetectionService:
                 pd_item = PatternDetection(
                     symbol=symbol,
                     pattern_type='RSI Oversold',
-                    confidence=0.75,
+                    confidence=float(max(0.0, min(1.0, 0.65 + min(0.15, (30 - float(latest['RSI'])) / 100.0 * 3.0) + (0.05 if latest['Volume'] > (latest['VOL_MA_20'] or 0) else 0.0)))),
                     price=float(latest['Close']),
                     volume=int(latest['Volume']),
-                    timestamp=datetime.now().isoformat(),
-                    metadata={'rsi': float(latest['RSI'])}
+                    timestamp=to_eat_iso(datetime.now()),
+                    metadata={
+                        'rsi': float(latest['RSI']),
+                        'timeframe': '1D',
+                        'timestamp_eat': to_eat_iso(datetime.now()),
+                        'explanation': 'RSI below 30 indicates oversold conditions which may precede a bullish reversal.',
+                        'suggested_action': 'BUY',
+                        'confidence_pct': round(float(max(0.0, min(1.0, 0.65 + min(0.15, (30 - float(latest['RSI'])) / 100.0 * 3.0) + (0.05 if latest['Volume'] > (latest['VOL_MA_20'] or 0) else 0.0))))) * 100.0, 1),
+                        'risk_suggestions': (lambda entry, atr: {
+                            'entry': entry,
+                            'stop_loss': round(entry - 1.5 * atr, 6) if atr and not np.isnan(atr) else None,
+                            'take_profit': round(entry + 1.5 * atr, 6) if atr and not np.isnan(atr) else None,
+                            'rr': 1.0 if atr and not np.isnan(atr) else None
+                        })(float(latest['Close']), float(hist['ATR_14'].iloc[-1]) if len(hist) else None)
+                    }
                 )
                 if any('rsi' in p.lower() and 'oversold' in p.lower() for p in prioritized_patterns):
-                    pd_item.confidence = min(1.0, pd_item.confidence + 0.1)
+                    pd_item.confidence = min(1.0, pd_item.confidence + 0.05)
                 patterns.append(pd_item)
                 logger.info(f"Pattern detected: {pd_item.pattern_type} on {symbol} @ {pd_item.price} (conf {pd_item.confidence:.2f})")
             elif latest['RSI'] > 70:
                 pd_item = PatternDetection(
                     symbol=symbol,
                     pattern_type='RSI Overbought',
-                    confidence=0.75,
+                    confidence=float(max(0.0, min(1.0, 0.65 + min(0.15, (float(latest['RSI']) - 70) / 100.0 * 3.0) + (0.05 if latest['Volume'] > (latest['VOL_MA_20'] or 0) else 0.0)))),
                     price=float(latest['Close']),
                     volume=int(latest['Volume']),
-                    timestamp=datetime.now().isoformat(),
-                    metadata={'rsi': float(latest['RSI'])}
+                    timestamp=to_eat_iso(datetime.now()),
+                    metadata={
+                        'rsi': float(latest['RSI']),
+                        'timeframe': '1D',
+                        'timestamp_eat': to_eat_iso(datetime.now()),
+                        'explanation': 'RSI above 70 indicates overbought conditions which may precede a bearish pullback.',
+                        'suggested_action': 'SELL',
+                        'confidence_pct': round(float(max(0.0, min(1.0, 0.65 + min(0.15, (float(latest['RSI']) - 70) / 100.0 * 3.0) + (0.05 if latest['Volume'] > (latest['VOL_MA_20'] or 0) else 0.0))))) * 100.0, 1),
+                        'risk_suggestions': (lambda entry, atr: {
+                            'entry': entry,
+                            'stop_loss': round(entry + 1.5 * atr, 6) if atr and not np.isnan(atr) else None,
+                            'take_profit': round(entry - 1.5 * atr, 6) if atr and not np.isnan(atr) else None,
+                            'rr': 1.0 if atr and not np.isnan(atr) else None
+                        })(float(latest['Close']), float(hist['ATR_14'].iloc[-1]) if len(hist) else None)
+                    }
                 )
                 if any('rsi' in p.lower() and 'overbought' in p.lower() for p in prioritized_patterns):
-                    pd_item.confidence = min(1.0, pd_item.confidence + 0.1)
+                    pd_item.confidence = min(1.0, pd_item.confidence + 0.05)
                 patterns.append(pd_item)
                 logger.info(f"Pattern detected: {pd_item.pattern_type} on {symbol} @ {pd_item.price} (conf {pd_item.confidence:.2f})")
             
             # Bollinger Band Squeeze
             if (latest['Close'] > latest['BB_upper']):
+                mag = float((latest['Close'] - latest['BB_upper']) / max(1e-9, latest['Close']))
+                base = 0.65 + min(0.2, max(0.0, mag) * 5.0)
+                if latest['Volume'] > (latest['VOL_MA_20'] or 0):
+                    base += 0.05
+                conf = float(max(0.0, min(1.0, base)))
                 pd_item = PatternDetection(
                     symbol=symbol,
                     pattern_type='Bollinger Breakout',
-                    confidence=0.70,
+                    confidence=conf,
                     price=float(latest['Close']),
                     volume=int(latest['Volume']),
-                    timestamp=datetime.now().isoformat(),
-                    metadata={'bb_upper': float(latest['BB_upper'])}
+                    timestamp=to_eat_iso(datetime.now()),
+                    metadata={
+                        'bb_upper': float(latest['BB_upper']),
+                        'timeframe': '1D',
+                        'timestamp_eat': to_eat_iso(datetime.now()),
+                        'explanation': 'Price closed above the upper Bollinger Band, signaling strong bullish momentum.',
+                        'suggested_action': 'BUY',
+                        'confidence_pct': round(conf * 100.0, 1),
+                        'risk_suggestions': (lambda entry, atr: {
+                            'entry': entry,
+                            'stop_loss': round(entry - 1.5 * atr, 6) if atr and not np.isnan(atr) else None,
+                            'take_profit': round(entry + (2.0 if conf >= 0.8 else 1.5) * atr, 6) if atr and not np.isnan(atr) else None,
+                            'rr': round((2.0 if conf >= 0.8 else 1.5) / 1.5, 2) if atr and not np.isnan(atr) else None
+                        })(float(latest['Close']), float(hist['ATR_14'].iloc[-1]) if len(hist) else None)
+                    }
                 )
                 if any('bollinger' in p.lower() for p in prioritized_patterns):
-                    pd_item.confidence = min(1.0, pd_item.confidence + 0.1)
+                    pd_item.confidence = min(1.0, pd_item.confidence + 0.05)
                 patterns.append(pd_item)
                 logger.info(f"Pattern detected: {pd_item.pattern_type} on {symbol} @ {pd_item.price} (conf {pd_item.confidence:.2f})")
 
@@ -483,18 +569,32 @@ class PatternDetectionService:
                     # Boost confidence for prioritized patterns
                     if any(name.lower() in p.lower() for p in prioritized_patterns):
                         conf = min(1.0, conf + 0.1)
+                    # Suggested action heuristic
+                    low_name = (name or '').lower()
+                    if 'bear' in low_name:
+                        action = 'SELL'
+                    elif 'bull' in low_name:
+                        action = 'BUY'
+                    elif name in {'Doji', 'Spinning Top'}:
+                        action = 'CONTINUATION'
+                    else:
+                        action = 'CONTINUATION'
                     ai_item = PatternDetection(
                         symbol=symbol,
                         pattern_type=name,
                         confidence=float(conf),
                         price=float(latest['Close']),
                         volume=int(latest['Volume']),
-                        timestamp=r.get('candle_time', datetime.now().isoformat()) or datetime.now().isoformat(),
+                        timestamp=to_eat_iso(datetime.now()),
                         metadata={
                             'source': 'ai_pattern_logic',
                             'index': r.get('index'),
                             'category': r.get('category'),
-                            'explanation': r.get('explanation')
+                            'explanation': r.get('explanation'),
+                            'timeframe': '1D',
+                            'timestamp_eat': to_eat_iso(datetime.now()),
+                            'suggested_action': action,
+                            'confidence_pct': round(float(conf) * 100.0, 1)
                         }
                     )
                     patterns.append(ai_item)
@@ -534,20 +634,50 @@ class PatternDetectionService:
             latest = hist.iloc[-1]
 
             try:
+                # ATR on intraday if enough candles
+                atr_val = None
+                try:
+                    if len(hist) >= 15:
+                        atr_ind = ta.volatility.AverageTrueRange(high=hist['High'], low=hist['Low'], close=hist['Close'], window=14)
+                        atr_val = float(atr_ind.average_true_range().iloc[-1])
+                except Exception:
+                    atr_val = None
                 ai_results = detect_all_patterns(candles)
                 for r in ai_results:
                     name = r.get('name', 'AI Pattern')
                     conf = r.get('confidence', 0.7) or 0.7
                     if any(name.lower() in p.lower() for p in prioritized_patterns):
                         conf = min(1.0, conf + 0.1)
+                    low_name = (name or '').lower()
+                    if 'bear' in low_name:
+                        action = 'SELL'
+                    elif 'bull' in low_name:
+                        action = 'BUY'
+                    elif name in {'Doji', 'Spinning Top'}:
+                        action = 'CONTINUATION'
+                    else:
+                        action = 'CONTINUATION'
                     patterns.append(PatternDetection(
                         symbol=symbol,
                         pattern_type=name,
                         confidence=float(conf),
                         price=float(latest['Close']),
                         volume=int(latest['Volume']) if 'Volume' in latest else 0,
-                        timestamp=r.get('candle_time', datetime.now().isoformat()) or datetime.now().isoformat(),
-                        metadata={'source': 'intraday', 'interval': interval, 'period': period}
+                        timestamp=to_eat_iso(datetime.now()),
+                        metadata={
+                            'source': 'intraday', 'interval': interval, 'period': period,
+                            'timeframe': interval,
+                            'timestamp_eat': to_eat_iso(datetime.now()),
+                            'explanation': r.get('explanation'),
+                            'suggested_action': action,
+                            'confidence_pct': round(float(conf) * 100.0, 1),
+                            'risk_suggestions': (lambda entry, atr: None if atr is None else {
+                                'entry': entry,
+                                'stop_loss': round(entry - 1.0 * atr, 6) if action == 'BUY' else round(entry + 1.0 * atr, 6),
+                                'take_profit': round(entry + 1.5 * atr, 6) if action == 'BUY' else round(entry - 1.5 * atr, 6),
+                                'rr': 1.5
+                            })(float(latest['Close']), atr_val)
+                        }
                     ))
             except Exception as _e:
                 logger.debug(f"AI pattern detection (intraday) skipped for {symbol}: {_e}")
@@ -869,7 +999,8 @@ class AlertService:
                             alert_type=pattern.pattern_type,
                             message=f"{pattern.pattern_type} detected for {pattern.symbol} with {pattern.confidence:.1%} confidence",
                             confidence=pattern.confidence,
-                            timestamp=pattern.timestamp
+                            timestamp=pattern.timestamp,
+                            metadata=pattern.metadata or {}
                         )
                         new_alerts.append(alert)
                         
@@ -905,19 +1036,29 @@ class AlertService:
             if db_available:
                 with Session() as session:
                     alerts = session.execute(text("""
-                        SELECT id, symbol, alert_type, message, confidence, created_at
+                        SELECT id, symbol, alert_type, message, confidence, created_at, metadata
                         FROM alerts WHERE is_active = true
                         ORDER BY created_at DESC LIMIT 50
                     """)).fetchall()
                     
-                    return [Alert(
-                        id=alert.id,
-                        symbol=alert.symbol,
-                        alert_type=alert.alert_type,
-                        message=alert.message,
-                        confidence=alert.confidence,
-                        timestamp=alert.created_at.isoformat() if hasattr(alert.created_at, 'isoformat') else str(alert.created_at)
-                    ) for alert in alerts]
+                    result = []
+                    for row in alerts:
+                        try:
+                            metadata = row.metadata if isinstance(row.metadata, dict) else json.loads(row.metadata) if row.metadata else {}
+                        except Exception:
+                            metadata = {}
+                        alert = Alert(
+                            id=row.id,
+                            symbol=row.symbol,
+                            alert_type=row.alert_type,
+                            message=row.message,
+                            confidence=row.confidence,
+                            timestamp=row.created_at.isoformat() if hasattr(row.created_at, 'isoformat') else str(row.created_at)
+                        )
+                        if metadata:
+                            alert.metadata = metadata
+                        result.append(alert)
+                    return result
             else:
                 return self.active_alerts[-50:]  # Return last 50 alerts
                 
@@ -3032,6 +3173,33 @@ def get_feature_status():
         
     except Exception as e:
         logger.error(f"Feature status error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Paper-trade execute from alert (simulator only)
+@app.route('/api/paper-trade/execute-from-alert', methods=['POST'])
+@limiter.limit("10 per minute")
+def execute_from_alert():
+    try:
+        if not Config.ENABLE_PAPER_TRADING:
+            return jsonify({'success': False, 'error': 'Paper trading disabled'}), 400
+        data = request.get_json() or {}
+        symbol = data.get('symbol')
+        action = data.get('suggested_action') or data.get('action')
+        risk = data.get('risk_suggestions') or {}
+        entry = risk.get('entry')
+        stop_loss = risk.get('stop_loss')
+        take_profit = risk.get('take_profit')
+        qty = float(data.get('quantity') or 1)
+        if not symbol or not action:
+            return jsonify({'success': False, 'error': 'symbol and suggested_action are required'}), 400
+        side = 'BUY' if action.upper() == 'BUY' else 'SELL'
+        price = float(entry) if entry else None
+        trade = paper_trading_service.execute_trade(symbol=symbol, side=side, quantity=qty, price=price, pattern=data.get('pattern') or data.get('alert_type'), confidence=float(data.get('confidence') or 0))
+        # Return with risk context for UI
+        trade['risk_suggestions'] = risk
+        return jsonify({'success': True, 'data': trade})
+    except Exception as e:
+        logger.error(f"Execute from alert error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # WebSocket Events
