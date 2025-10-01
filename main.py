@@ -475,7 +475,20 @@ class PatternDetectionService:
                         'timestamp_eat': to_eat_iso(datetime.now()),
                         'explanation': 'RSI below 30 indicates oversold conditions which may precede a bullish reversal.',
                         'suggested_action': 'BUY',
-                        'confidence_pct': round(float(max(0.0, min(1.0, 0.65 + min(0.15, (30 - float(latest['RSI'])) / 100.0 * 3.0) + (0.05 if latest['Volume'] > (latest['VOL_MA_20'] or 0) else 0.0))))) * 100.0, 1),
+                        'confidence_pct': round(
+                            float(
+                                max(
+                                    0.0,
+                                    min(
+                                        1.0,
+                                        0.65
+                                        + min(0.15, (30 - float(latest['RSI'])) / 100.0 * 3.0)
+                                        + (0.05 if latest['Volume'] > (latest['VOL_MA_20'] or 0) else 0.0)
+                                    )
+                                )
+                            ) * 100.0,
+                            1
+                        ),
                         'risk_suggestions': (lambda entry, atr: {
                             'entry': entry,
                             'stop_loss': round(entry - 1.5 * atr, 6) if atr and not np.isnan(atr) else None,
@@ -502,7 +515,20 @@ class PatternDetectionService:
                         'timestamp_eat': to_eat_iso(datetime.now()),
                         'explanation': 'RSI above 70 indicates overbought conditions which may precede a bearish pullback.',
                         'suggested_action': 'SELL',
-                        'confidence_pct': round(float(max(0.0, min(1.0, 0.65 + min(0.15, (float(latest['RSI']) - 70) / 100.0 * 3.0) + (0.05 if latest['Volume'] > (latest['VOL_MA_20'] or 0) else 0.0))))) * 100.0, 1),
+                        'confidence_pct': round(
+                            float(
+                                max(
+                                    0.0,
+                                    min(
+                                        1.0,
+                                        0.65
+                                        + min(0.15, (float(latest['RSI']) - 70) / 100.0 * 3.0)
+                                        + (0.05 if latest['Volume'] > (latest['VOL_MA_20'] or 0) else 0.0)
+                                    )
+                                )
+                            ) * 100.0,
+                            1
+                        ),
                         'risk_suggestions': (lambda entry, atr: {
                             'entry': entry,
                             'stop_loss': round(entry + 1.5 * atr, 6) if atr and not np.isnan(atr) else None,
