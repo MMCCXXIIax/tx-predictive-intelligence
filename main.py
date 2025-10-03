@@ -160,6 +160,12 @@ def init_database():
             if db_url.startswith('postgresql://') and 'psycopg' not in db_url:
                 db_url = db_url.replace('postgresql://', 'postgresql+psycopg://')
             
+            # Connect args: enforce SSL; disable server-side prepared statements for PgBouncer (transaction pooling)
+            _connect_args = {"sslmode": "require"} if db_url.startswith('postgresql') else {}
+            # psycopg3 supports prepare_threshold: set to -1 to disable prepared statements
+            if '+psycopg' in db_url:
+                _connect_args["prepare_threshold"] = -1
+
             engine = create_engine(
                 db_url,
                 poolclass=QueuePool,
@@ -167,7 +173,7 @@ def init_database():
                 max_overflow=0,
                 pool_pre_ping=True,
                 pool_recycle=1800,
-                connect_args={"sslmode": "require"} if db_url.startswith('postgresql') else {}
+                connect_args=_connect_args
             )
             
             # Test connection
