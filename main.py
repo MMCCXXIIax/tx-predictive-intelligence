@@ -132,8 +132,12 @@ app = Flask(__name__)
 app.config.from_object(Config)
 
 # Initialize extensions
-cors = CORS(app, origins=["*"])
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+cors = CORS(
+    app,
+    origins=["https://tx-trade-whisperer.onrender.com"],
+    supports_credentials=True
+)
+socketio = SocketIO(app, cors_allowed_origins=["https://tx-trade-whisperer.onrender.com"], async_mode='threading')
 limiter = Limiter(
     key_func=get_remote_address,
     storage_uri=os.getenv('RATELIMIT_STORAGE_URI', 'memory://')
@@ -3506,6 +3510,52 @@ def pre_trade_check():
     except Exception as e:
         logger.error(f"Pre-trade check error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# --------------------------------------
+# User Profile: Save endpoint
+# --------------------------------------
+@app.route('/api/save-profile', methods=['POST'])
+@limiter.limit("30 per minute")
+def save_profile():
+    """Save or update a user's profile.
+    Body JSON: { user_id, email?, display_name?, avatar_url?, preferences? }
+    Upserts into tx.user_profiles keyed by user_id.
+    """
+    try:
+        data = request.get_json() or {}
+        user_id = (data.get('user_id') or '').strip()
+        if not user_id:
+            return jsonify({'success': False, 'error': 'user_id is required'}), 400
+
+        email = data.get('email')
+        display_name = data.get('display_name')
+        avatar_url = data.get('avatar_url')
+        preferences = data.get('preferences')
+
+        if db_available:
+            with Session() as session:
+                session.execute(text("""
+                    INSERT INTO tx.user_profiles (user_id, email, display_name, avatar_url, preferences, updated_at)
+                    VALUES (:user_id, :email, :display_name, :avatar_url, :preferences, NOW())
+                    ON CONFLICT (user_id) DO UPDATE
+                    SET email = EXCLUDED.email,
+                        display_name = EXCLUDED.display_name,
+                        avatar_url = EXCLUDED.avatar_url,
+                        preferences = EXCLUDED.preferences,
+                        updated_at = NOW()
+                """), {
+                    'user_id': user_id,
+                    'email': email,
+                    'display_name': display_name,
+                    'avatar_url': avatar_url,
+                    'preferences': json.dumps(preferences) if isinstance(preferences, (dict, list)) else preferences
+                })
+                session.commit()
+
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Save profile error: {e}")
+        return jsonify({'success': False, 'error': 'Save failed'}), 500
 
 # Production Server Configuration
 if __name__ == '__main__':
