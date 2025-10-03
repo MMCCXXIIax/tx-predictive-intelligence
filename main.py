@@ -942,8 +942,8 @@ class PaperTradingService:
                 try:
                     with Session() as session:
                         session.execute(text("""
-                            INSERT INTO paper_trades (symbol, side, quantity, price, executed_at, pattern, confidence)
-                            VALUES (:symbol, :side, :quantity, :price, :executed_at, :pattern, :confidence)
+                            INSERT INTO tx.paper_trades (symbol, side, quantity, entry_price, executed_at, pattern_type, confidence, status)
+                            VALUES (:symbol, :side, :quantity, :price, :executed_at, :pattern, :confidence, 'OPEN')
                         """), {
                             'symbol': symbol,
                             'side': side,
@@ -1017,9 +1017,10 @@ class PaperTradingService:
                         if db_available:
                             with Session() as session:
                                 session.execute(text("""
-                                    UPDATE paper_trades SET status = 'closed', pnl = :pnl 
-                                    WHERE symbol = :symbol AND status = 'open'
-                                """), {'symbol': symbol, 'pnl': pnl})
+                                    UPDATE tx.paper_trades 
+                                    SET status = 'CLOSED', pnl = :pnl, exit_price = :price, closed_at = NOW()
+                                    WHERE symbol = :symbol AND status = 'OPEN'
+                                """), {'symbol': symbol, 'pnl': pnl, 'price': price})
                                 session.commit()
                         
                         # Remove from positions
@@ -3409,28 +3410,50 @@ def pre_trade_check():
             slippage_bps = round(max(0.5, (spread_estimate or 0) * 0.5 + vol_factor * 0.1), 2)
 
         # Historical failure approximation
-        # If DB present, could aggregate /api/log_outcome + detections. For now use backtest pattern if provided.
         historical = {}
         failure_rate = None
         avg_win = None
         avg_loss = None
         median_hold = None
-        try:
-            if pattern_type:
-                # light-weight proxy via backtest_pattern characteristics table
-                # Not calling endpoint; approximate based on known priors
-                base_map = {
-                    'Golden Cross': (0.28, 12.0, -6.0, 10),
-                    'RSI Oversold': (0.35, 8.0, -5.0, 7),
-                    'Bollinger Breakout': (0.32, 10.0, -6.5, 9)
-                }
-                failure_rate, avg_win, avg_loss, median_hold = base_map.get(pattern_type, (0.35, 9.0, -6.0, 8))
-        except Exception:
-            pass
+        # If DB present, aggregate real outcomes by symbol and pattern
+        if db_available and pattern_type:
+            try:
+                with Session() as session:
+                    rec = session.execute(text("""
+                        SELECT 
+                          COUNT(*) as total,
+                          COUNT(*) FILTER (WHERE outcome = 'loss') as losses,
+                          COUNT(*) FILTER (WHERE outcome = 'profit') as wins,
+                          AVG(CASE WHEN outcome = 'profit' THEN pnl END) as avg_win_pnl,
+                          AVG(CASE WHEN outcome = 'loss' THEN pnl END) as avg_loss_pnl,
+                          PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY trade_duration_minutes) as median_hold
+                        FROM tx.trade_outcomes
+                        WHERE pattern_type = :pattern
+                          AND symbol = :symbol
+                          AND logged_at > NOW() - INTERVAL '180 days'
+                    """), {'pattern': pattern_type, 'symbol': symbol}).fetchone()
+                    if rec and rec.total and rec.total > 0:
+                        total = int(rec.total or 0)
+                        losses = int(rec.losses or 0)
+                        failure_rate = round(losses / max(total, 1), 3)
+                        # Use PnL aggregates as proxy (amounts)
+                        avg_win = float(rec.avg_win_pnl) if rec.avg_win_pnl is not None else None
+                        avg_loss = float(rec.avg_loss_pnl) if rec.avg_loss_pnl is not None else None
+                        median_hold = float(rec.median_hold) if rec.median_hold is not None else None
+            except Exception as _e:
+                logger.debug(f"DB failure-rate aggregation unavailable: {_e}")
+        # Fallback priors if still unknown
+        if failure_rate is None and pattern_type:
+            base_map = {
+                'Golden Cross': (0.28, 12.0, -6.0, 10),
+                'RSI Oversold': (0.35, 8.0, -5.0, 7),
+                'Bollinger Breakout': (0.32, 10.0, -6.5, 9)
+            }
+            failure_rate, avg_win, avg_loss, median_hold = base_map.get(pattern_type, (0.35, 9.0, -6.0, 8))
         historical.update({
             'failure_rate': failure_rate,  # 0..1
-            'avg_win_pct': avg_win,
-            'avg_loss_pct': avg_loss,
+            'avg_win_pnl': avg_win,
+            'avg_loss_pnl': avg_loss,
             'median_hold_time_days': median_hold
         })
 
