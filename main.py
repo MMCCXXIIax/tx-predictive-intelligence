@@ -4104,7 +4104,7 @@ def save_profile():
 # Production Server Configuration
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
-    debug = os.getenv('FLASK_ENV') == 'development'
+    debug = os.getenv('FLASK_ENV') == 'production'
     
     if debug:
         # Development mode
