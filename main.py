@@ -120,6 +120,8 @@ class Config:
         'BTC-USD,ETH-USD,'
         'EURUSD=X,GBPUSD=X,USDJPY=X,USDCHF=X'
     )
+    # Per-tick batch size for scanners
+    SCAN_BATCH_SIZE = int(os.getenv('SCAN_BATCH_SIZE', '6'))
     
     # Trading settings
     PAPER_TRADING_ENABLED = os.getenv('ENABLE_PAPER_TRADING', 'true').lower() == 'true'
@@ -349,6 +351,208 @@ class MarketDataService:
         self.cache_timestamps = {}
         # cooldowns when rate-limited: symbol -> earliest_next_ts
         self.cooldowns = {}
+        self.polygon_key = os.getenv('POLYGON_API_KEY')
+        self.finnhub_key = os.getenv('FINNHUB_API_KEY')
+
+    # --- Provider helpers ---
+    @staticmethod
+    def _is_crypto(symbol: str) -> bool:
+        s = symbol.upper()
+        return s.endswith('-USD') and any(s.startswith(p) for p in ['BTC', 'ETH', 'SOL'])
+
+    @staticmethod
+    def _is_forex(symbol: str) -> bool:
+        return symbol.upper().endswith('=X') and len(symbol) >= 7
+
+    @staticmethod
+    def _to_polygon_ticker(symbol: str) -> Optional[str]:
+        # Crypto: X:BTC-USD format
+        if MarketDataService._is_crypto(symbol):
+            return f"X:{symbol.upper()}"
+        # Forex: EURUSD=X -> C:EURUSD
+        if MarketDataService._is_forex(symbol):
+            pair = symbol.upper().replace('=X', '')
+            return f"C:{pair}"
+        # Stocks: use raw ticker for Polygon
+        return symbol.upper()
+
+    @staticmethod
+    def _is_stock(symbol: str) -> bool:
+        return (not MarketDataService._is_crypto(symbol)) and (not MarketDataService._is_forex(symbol))
+
+    def _polygon_latest_minute(self, poly_ticker: str) -> Optional[Dict[str, Any]]:
+        if not self.polygon_key:
+            return None
+        try:
+            base = 'https://api.polygon.io'
+            today = datetime.utcnow().strftime('%Y-%m-%d')
+            url = f"{base}/v2/aggs/ticker/{poly_ticker}/range/1/minute/{today}/{today}"
+            params = {
+                'adjusted': 'true',
+                'sort': 'asc',
+                'limit': 50000,
+                'apiKey': self.polygon_key
+            }
+            r = requests.get(url, params=params, timeout=8)
+            if r.status_code == 429:
+                raise Exception('Too Many Requests')
+            r.raise_for_status()
+            j = r.json()
+            results = j.get('results') or []
+            if not results:
+                # fallback to previous close
+                prev = requests.get(f"{base}/v2/aggs/ticker/{poly_ticker}/prev", params={'adjusted': 'true', 'apiKey': self.polygon_key}, timeout=8)
+                if prev.status_code == 429:
+                    raise Exception('Too Many Requests')
+                prev.raise_for_status()
+                pj = prev.json()
+                pres = (pj.get('results') or [])
+                if not pres:
+                    return None
+                agg = pres[0]
+            else:
+                agg = results[-1]
+            # Map polygon fields
+            data = {
+                'price': float(agg.get('c', 0.0)),
+                'open': float(agg.get('o', 0.0)),
+                'high': float(agg.get('h', 0.0)),
+                'low': float(agg.get('l', 0.0)),
+                'volume': int(agg.get('v', 0) or 0),
+                'timestamp': datetime.utcnow().isoformat()
+            }
+            return data
+        except Exception as e:
+            logger.debug(f"Polygon latest minute fetch failed for {poly_ticker}: {e}")
+            return None
+
+    def _polygon_history_daily(self, poly_ticker: str, days: int = 90) -> Optional[pd.DataFrame]:
+        if not self.polygon_key:
+            return None
+        try:
+            base = 'https://api.polygon.io'
+            to_date = datetime.utcnow().date()
+            from_date = to_date - timedelta(days=max(7, days + 5))
+            url = f"{base}/v2/aggs/ticker/{poly_ticker}/range/1/day/{from_date}/{to_date}"
+            params = {'adjusted': 'true', 'sort': 'asc', 'limit': 50000, 'apiKey': self.polygon_key}
+            r = requests.get(url, params=params, timeout=10)
+            if r.status_code == 429:
+                raise Exception('Too Many Requests')
+            r.raise_for_status()
+            j = r.json()
+            results = j.get('results') or []
+            if not results:
+                return None
+            df = pd.DataFrame(results)
+            # Map to OHLCV
+            df.rename(columns={'o': 'Open', 'h': 'High', 'l': 'Low', 'c': 'Close', 'v': 'Volume', 't': 'Time'}, inplace=True)
+            df['Time'] = pd.to_datetime(df['Time'], unit='ms', utc=True)
+            df.set_index('Time', inplace=True)
+            return df[['Open', 'High', 'Low', 'Close', 'Volume']]
+        except Exception as e:
+            logger.debug(f"Polygon daily history failed for {poly_ticker}: {e}")
+            return None
+
+    def _polygon_history_intraday(self, poly_ticker: str, interval: str = '1m', period_days: int = 1) -> Optional[pd.DataFrame]:
+        if not self.polygon_key:
+            return None
+        try:
+            base = 'https://api.polygon.io'
+            to_date = datetime.utcnow().date()
+            from_date = to_date - timedelta(days=max(1, period_days))
+            # Support only 1 minute for now
+            mult = 1
+            if interval.endswith('m'):
+                mult = int(interval[:-1] or 1)
+                url = f"{base}/v2/aggs/ticker/{poly_ticker}/range/{mult}/minute/{from_date}/{to_date}"
+            else:
+                # default to 1 minute
+                url = f"{base}/v2/aggs/ticker/{poly_ticker}/range/1/minute/{from_date}/{to_date}"
+            params = {'adjusted': 'true', 'sort': 'asc', 'limit': 50000, 'apiKey': self.polygon_key}
+            r = requests.get(url, params=params, timeout=10)
+            if r.status_code == 429:
+                raise Exception('Too Many Requests')
+            r.raise_for_status()
+            j = r.json()
+            results = j.get('results') or []
+            if not results:
+                return None
+            df = pd.DataFrame(results)
+            df.rename(columns={'o': 'Open', 'h': 'High', 'l': 'Low', 'c': 'Close', 'v': 'Volume', 't': 'Time'}, inplace=True)
+            df['Time'] = pd.to_datetime(df['Time'], unit='ms', utc=True)
+            df.set_index('Time', inplace=True)
+            return df[['Open', 'High', 'Low', 'Close', 'Volume']]
+        except Exception as e:
+            logger.debug(f"Polygon intraday history failed for {poly_ticker}: {e}")
+            return None
+
+    # --- Finnhub helpers (equities primarily) ---
+    def _finnhub_quote(self, symbol: str) -> Optional[Dict[str, Any]]:
+        if not self.finnhub_key:
+            return None
+        try:
+            url = 'https://finnhub.io/api/v1/quote'
+            r = requests.get(url, params={'symbol': symbol.upper(), 'token': self.finnhub_key}, timeout=8)
+            if r.status_code == 429:
+                raise Exception('Too Many Requests')
+            r.raise_for_status()
+            j = r.json() or {}
+            if not j or j.get('c') in (None, 0):
+                return None
+            return {
+                'price': float(j.get('c', 0.0)),
+                'open': float(j.get('o', 0.0) or 0.0),
+                'high': float(j.get('h', 0.0) or 0.0),
+                'low': float(j.get('l', 0.0) or 0.0),
+                'prev_close': float(j.get('pc', 0.0) or 0.0),
+                'timestamp': datetime.utcnow().isoformat()
+            }
+        except Exception as e:
+            logger.debug(f"Finnhub quote failed for {symbol}: {e}")
+            return None
+
+    def _finnhub_history(self, symbol: str, resolution: str = 'D', from_ts: Optional[int] = None, to_ts: Optional[int] = None) -> Optional[pd.DataFrame]:
+        if not self.finnhub_key:
+            return None
+        try:
+            url = 'https://finnhub.io/api/v1/stock/candle'
+            now = int(time.time()) if to_ts is None else to_ts
+            span = 90 * 24 * 3600 if resolution == 'D' else 24 * 3600
+            start = now - span if from_ts is None else from_ts
+            r = requests.get(url, params={
+                'symbol': symbol.upper(),
+                'resolution': resolution,
+                'from': start,
+                'to': now,
+                'token': self.finnhub_key
+            }, timeout=12)
+            if r.status_code == 429:
+                raise Exception('Too Many Requests')
+            r.raise_for_status()
+            j = r.json() or {}
+            if j.get('s') != 'ok':
+                return None
+            t = j.get('t') or []
+            o = j.get('o') or []
+            h = j.get('h') or []
+            l = j.get('l') or []
+            c = j.get('c') or []
+            v = j.get('v') or []
+            if not t:
+                return None
+            df = pd.DataFrame({
+                'Time': pd.to_datetime(t, unit='s', utc=True),
+                'Open': o,
+                'High': h,
+                'Low': l,
+                'Close': c,
+                'Volume': v,
+            })
+            df.set_index('Time', inplace=True)
+            return df[['Open', 'High', 'Low', 'Close', 'Volume']]
+        except Exception as e:
+            logger.debug(f"Finnhub history failed for {symbol}: {e}")
+            return None
         
     def get_stock_data(self, symbol: str, period: str = '1d') -> Dict[str, Any]:
         """Get real stock data from Yahoo Finance"""
@@ -359,17 +563,66 @@ class MarketDataService:
             time.time() - self.cache_timestamps.get(cache_key, 0) < Config.CACHE_DURATION):
             return self.cache[cache_key]
         
+        # 1) Finnhub for equities
+        if MarketDataService._is_stock(symbol) and self.finnhub_key:
+            q = self._finnhub_quote(symbol)
+            if q:
+                price = q['price']
+                prev_close = q.get('prev_close') or q.get('open') or price
+                change = price - prev_close
+                change_pct = (change / prev_close * 100) if prev_close else 0.0
+                data = {
+                    'symbol': symbol,
+                    'price': price,
+                    'change': change,
+                    'change_percent': change_pct,
+                    'volume': 0,
+                    'high': q.get('high', 0.0),
+                    'low': q.get('low', 0.0),
+                    'open': q.get('open', price),
+                    'market_cap': 0,
+                    'pe_ratio': 0,
+                    'timestamp': q.get('timestamp')
+                }
+                self.cache[cache_key] = data
+                self.cache_timestamps[cache_key] = time.time()
+                return data
+
+        # 2) Polygon for crypto/forex/stocks (if supported)
+        poly_ticker = self._to_polygon_ticker(symbol)
+        if poly_ticker:
+            poly = self._polygon_latest_minute(poly_ticker)
+            if poly:
+                price = poly['price']
+                openp = poly.get('open', price)
+                change = price - openp
+                change_pct = (change / openp * 100) if openp else 0.0
+                data = {
+                    'symbol': symbol,
+                    'price': price,
+                    'change': change,
+                    'change_percent': change_pct,
+                    'volume': poly.get('volume', 0),
+                    'high': poly.get('high', 0.0),
+                    'low': poly.get('low', 0.0),
+                    'open': openp,
+                    'market_cap': 0,
+                    'pe_ratio': 0,
+                    'timestamp': poly.get('timestamp')
+                }
+                self.cache[cache_key] = data
+                self.cache_timestamps[cache_key] = time.time()
+                return data
+
+        # 3) Fallback to yfinance
         try:
             yf_symbol = normalize_symbol_for_yf(symbol)
             ticker = yf.Ticker(yf_symbol)
             hist = ticker.history(period=period)
-            
             if hist.empty:
                 return None
-                
             latest = hist.iloc[-1]
             info = getattr(ticker, 'info', {}) or {}
-            
             data = {
                 'symbol': symbol,
                 'price': float(latest['Close']),
@@ -383,25 +636,24 @@ class MarketDataService:
                 'pe_ratio': info.get('trailingPE', 0),
                 'timestamp': datetime.now().isoformat()
             }
-            
-            # Cache the result
             self.cache[cache_key] = data
             self.cache_timestamps[cache_key] = time.time()
-            
             return data
         except Exception as e:
             logger.error(f"Failed to fetch data for {symbol}: {e}")
             return None
     
-    def get_market_scan(self, scan_type: str = 'trending') -> List[Dict[str, Any]]:
+    def get_market_scan(self, scan_type: str = 'trending', symbols_override: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """Get market scan data"""
-        symbols = [s.strip() for s in Config.SCAN_SYMBOLS.split(',') if s.strip()]
+        symbols = symbols_override if symbols_override is not None else [s.strip() for s in Config.SCAN_SYMBOLS.split(',') if s.strip()]
         results = []
         
         for symbol in symbols:
             data = self.get_stock_data(symbol)
             if data:
                 results.append(data)
+            # small per-symbol jitter to avoid burst hitting providers
+            time.sleep(0.15 + random.uniform(0, 0.2))
                 
         # Sort by volume or change based on scan type
         if scan_type == 'volume':
@@ -415,13 +667,53 @@ class MarketDataService:
 class PatternDetectionService:
     def __init__(self, market_data_service: MarketDataService):
         self.market_data = market_data_service
+        # cooldowns for pattern fetches (history) when rate-limited
+        self.cooldowns = {}
         
     def detect_patterns(self, symbol: str) -> List[PatternDetection]:
         """Detect technical patterns using real market data"""
         try:
-            yf_symbol = normalize_symbol_for_yf(symbol)
-            ticker = yf.Ticker(yf_symbol)
-            hist = ticker.history(period='3mo')
+            # cooldown respect
+            cd_until = self.cooldowns.get(symbol)
+            if cd_until and time.time() < cd_until:
+                return []
+            # Prefer Finnhub for equities, then Polygon, then yfinance
+            hist = None
+            if self.market_data._is_stock(symbol) and self.market_data.finnhub_key:
+                try:
+                    hist = self.market_data._finnhub_history(symbol, resolution='D')
+                except Exception as e:
+                    logger.debug(f"Finnhub daily history unavailable for {symbol}: {e}")
+            try:
+                poly_ticker = self.market_data._to_polygon_ticker(symbol)
+                if hist is None and poly_ticker and self.market_data.polygon_key:
+                    hist = self.market_data._polygon_history_daily(poly_ticker, days=90)
+            except Exception as e:
+                logger.debug(f"Polygon daily history unavailable for {symbol}: {e}")
+
+            if hist is None:
+                # Fallback to yfinance with retry/backoff
+                yf_symbol = normalize_symbol_for_yf(symbol)
+                ticker = yf.Ticker(yf_symbol)
+                max_attempts = 3
+                backoff_base = 0.6
+                last_err = None
+                for attempt in range(1, max_attempts + 1):
+                    try:
+                        hist = ticker.history(period='3mo')
+                        break
+                    except Exception as e:
+                        last_err = e
+                        msg = str(e)
+                        if 'rate limit' in msg.lower() or 'too many requests' in msg.lower():
+                            cooldown = 90 + int(random.uniform(0, 60))
+                            self.cooldowns[symbol] = time.time() + cooldown
+                            logger.error(f"Pattern rate-limited for {symbol}. Cooldown {cooldown}s")
+                            return []
+                        if attempt < max_attempts:
+                            time.sleep(backoff_base * (2 ** (attempt - 1)) + random.uniform(0, 0.3))
+                        else:
+                            raise last_err
             
             if hist.empty or len(hist) < 20:
                 return []
@@ -667,9 +959,47 @@ class PatternDetectionService:
     def detect_patterns_intraday(self, symbol: str, period: str = '1d', interval: str = '1m') -> List[PatternDetection]:
         """Detect candlestick patterns using intraday candles for real-time scanning"""
         try:
-            yf_symbol = normalize_symbol_for_yf(symbol)
-            ticker = yf.Ticker(yf_symbol)
-            hist = ticker.history(period=period, interval=interval)
+            # cooldown respect
+            cd_until = self.cooldowns.get(symbol)
+            if cd_until and time.time() < cd_until:
+                return []
+            # Prefer Finnhub intraday for equities, then Polygon, then yfinance
+            hist = None
+            if self.market_data._is_stock(symbol) and self.market_data.finnhub_key:
+                try:
+                    hist = self.market_data._finnhub_history(symbol, resolution='1')
+                except Exception as e:
+                    logger.debug(f"Finnhub intraday history unavailable for {symbol}: {e}")
+            try:
+                poly_ticker = self.market_data._to_polygon_ticker(symbol)
+                if hist is None and poly_ticker and self.market_data.polygon_key:
+                    hist = self.market_data._polygon_history_intraday(poly_ticker, interval=interval, period_days=1)
+            except Exception as e:
+                logger.debug(f"Polygon intraday history unavailable for {symbol}: {e}")
+
+            if hist is None:
+                # Fallback to yfinance with retry/backoff
+                yf_symbol = normalize_symbol_for_yf(symbol)
+                ticker = yf.Ticker(yf_symbol)
+                max_attempts = 3
+                backoff_base = 0.6
+                last_err = None
+                for attempt in range(1, max_attempts + 1):
+                    try:
+                        hist = ticker.history(period=period, interval=interval)
+                        break
+                    except Exception as e:
+                        last_err = e
+                        msg = str(e)
+                        if 'rate limit' in msg.lower() or 'too many requests' in msg.lower():
+                            cooldown = 90 + int(random.uniform(0, 60))
+                            self.cooldowns[symbol] = time.time() + cooldown
+                            logger.error(f"Intraday pattern rate-limited for {symbol}. Cooldown {cooldown}s")
+                            return []
+                        if attempt < max_attempts:
+                            time.sleep(backoff_base * (2 ** (attempt - 1)) + random.uniform(0, 0.3))
+                        else:
+                            raise last_err
 
             if hist.empty or len(hist) < 5:
                 return []
@@ -1172,10 +1502,10 @@ class AlertService:
             # Fail-open to avoid blocking alerts
             return True
         
-    def generate_alerts(self) -> List[Alert]:
-        """Generate alerts based on pattern detection"""
+    def generate_alerts(self, symbols: Optional[List[str]] = None) -> List[Alert]:
+        """Generate alerts based on pattern detection. If symbols provided, only process that subset."""
         try:
-            symbols = [s.strip() for s in Config.SCAN_SYMBOLS.split(',') if s.strip()]
+            symbols = symbols if symbols is not None else [s.strip() for s in Config.SCAN_SYMBOLS.split(',') if s.strip()]
             new_alerts = []
             
             for symbol in symbols:
@@ -1279,15 +1609,32 @@ sentiment_service = SentimentAnalysisService()  # legacy; endpoints will use tx_
 paper_trading_service = PaperTradingService(market_data_service)
 alert_service = AlertService(pattern_service)
 
-# Background worker for scanning and alerts
+# Background worker for scanning and alerts (with batching/rotation)
+background_scan_offset = 0
 def background_scanner():
     """Background worker for continuous market scanning"""
     while True:
         try:
             logger.info("Running background market scan...")
-            
-            # Generate new alerts
-            new_alerts = alert_service.generate_alerts()
+            # Determine batch
+            all_symbols = [s.strip() for s in Config.SCAN_SYMBOLS.split(',') if s.strip()]
+            batch_size = max(1, int(Config.SCAN_BATCH_SIZE))
+            if not all_symbols:
+                time.sleep(Config.BACKEND_SCAN_INTERVAL)
+                continue
+            global background_scan_offset
+            start = background_scan_offset
+            end = start + batch_size
+            if end <= len(all_symbols):
+                batch = all_symbols[start:end]
+            else:
+                batch = all_symbols[start:] + all_symbols[:(end % len(all_symbols))]
+            background_scan_offset = (end) % len(all_symbols)
+
+            logger.info(f"Background scan batch: {batch} (size {len(batch)}/{len(all_symbols)})")
+
+            # Generate new alerts for this batch
+            new_alerts = alert_service.generate_alerts(batch)
             
             if new_alerts:
                 logger.info(f"Generated {len(new_alerts)} new alerts")
@@ -1297,7 +1644,7 @@ def background_scanner():
                     socketio.emit('new_alert', asdict(alert))
             
             # Update market scan data
-            scan_data = market_data_service.get_market_scan()
+            scan_data = market_data_service.get_market_scan(symbols_override=batch)
             if scan_data:
                 socketio.emit('market_scan_update', {'data': scan_data})
             
@@ -1435,11 +1782,27 @@ def start_live_scanning():
         
         def live_scanner():
             global scanning_status
+            # rotating index for batching
+            idx = 0
             while scanning_active:
                 try:
-                    logger.info(f"Live scanner tick: scanning {len(symbols)} symbols every {scan_interval}s")
+                    if not symbols:
+                        time.sleep(scan_interval)
+                        continue
+                    batch_size = max(1, int(Config.SCAN_BATCH_SIZE))
+                    if batch_size >= len(symbols):
+                        batch = symbols
+                    else:
+                        end = idx + batch_size
+                        if end <= len(symbols):
+                            batch = symbols[idx:end]
+                        else:
+                            batch = symbols[idx:] + symbols[:(end % len(symbols))]
+                        idx = end % len(symbols)
+
+                    logger.info(f"Live scanner tick: scanning {len(batch)}/{len(symbols)} symbols every {scan_interval}s")
                     patterns_found = 0
-                    for symbol in symbols:
+                    for symbol in batch:
                         if not scanning_active:
                             break
                         # Skip symbols under cooldown (from market data fetches)
@@ -1453,6 +1816,9 @@ def start_live_scanning():
                         context_patterns = pattern_service.detect_patterns(symbol)
 
                         patterns_found += len(intraday_patterns) + len(context_patterns)
+
+                        # per-symbol jitter to avoid burst traffic
+                        time.sleep(0.15 + random.uniform(0, 0.2))
 
                         # Emit real-time updates with both intraday and context results
                         if intraday_patterns or context_patterns:
@@ -1523,7 +1889,7 @@ def start_live_scanning():
                                 _emit_alert(pat)
                     
                     scanning_status.update({
-                        'symbols_scanned': len(symbols),
+                        'symbols_scanned': len(batch),
                         'patterns_found': patterns_found,
                         'last_scan': datetime.now().isoformat()
                     })
