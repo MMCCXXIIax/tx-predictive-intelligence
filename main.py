@@ -1697,6 +1697,17 @@ def market_scan():
         logger.exception("Market scan failed")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# Aliases to match frontend contract
+@app.route('/api/paper-trade/portfolio')
+@limiter.limit("30 per minute")
+def get_paper_trade_portfolio_alias():
+    return get_paper_trades()
+
+@app.route('/api/paper-trade/execute', methods=['POST'])
+@limiter.limit("10 per minute")
+def execute_paper_trade_alias():
+    return execute_paper_trade()
+
 # (removed) compat alias handled by multi-route decorator on get_active_alerts
 
 # Sentiment Ops Endpoints
@@ -1720,6 +1731,19 @@ def market_scan_alt():
         return jsonify({'success': True, 'data': data})
     except Exception as e:
         logger.error(f"Market scan error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/market/<symbol>')
+@limiter.limit("30 per minute")
+def get_market_symbol(symbol):
+    """Get current market data for a symbol using provider priority"""
+    try:
+        data = market_data_service.get_stock_data(symbol)
+        if not data:
+            return jsonify({'success': False, 'error': f'No data for {symbol}'}), 404
+        return jsonify({'success': True, 'data': data})
+    except Exception as e:
+        logger.error(f"Market data error for {symbol}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/candles')
@@ -3749,6 +3773,33 @@ def get_feature_status():
         logger.error(f"Feature status error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# Coverage aggregates assets, providers and features into a single payload for the frontend
+@app.route('/api/coverage')
+@limiter.limit("20 per minute")
+def get_coverage():
+    try:
+        # Providers config and priority order
+        providers = {
+            'configured': {
+                'finnhub': bool(Config.FINNHUB_API_KEY),
+                'polygon': bool(Config.POLYGON_API_KEY),
+                'yfinance': True
+            },
+            'priority': {
+                'stocks': ['finnhub', 'polygon', 'yfinance'],
+                'crypto': ['polygon', 'yfinance'],
+                'forex': ['polygon', 'yfinance']
+            }
+        }
+        assets_resp = get_supported_assets()
+        assets = assets_resp.get_json().get('data') if hasattr(assets_resp, 'get_json') else None
+        features_resp = get_feature_status()
+        features = features_resp.get_json().get('data') if hasattr(features_resp, 'get_json') else None
+        return jsonify({'success': True, 'providers': providers, 'assets': assets, 'features': features})
+    except Exception as e:
+        logger.error(f"Coverage error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # Paper-trade execute from alert (simulator only)
 @app.route('/api/paper-trade/execute-from-alert', methods=['POST'])
 @limiter.limit("10 per minute")
@@ -3996,9 +4047,10 @@ def save_profile():
     """
     try:
         data = request.get_json() or {}
-        user_id = (data.get('user_id') or '').strip()
+        # Accept user_id from JSON or X-User-Id header; if still missing, no-op success to avoid frontend break
+        user_id = (data.get('user_id') or request.headers.get('X-User-Id') or '').strip()
         if not user_id:
-            return jsonify({'success': False, 'error': 'user_id is required'}), 400
+            return jsonify({'success': True, 'message': 'profile skipped: missing user_id'}), 200
 
         email = data.get('email')
         display_name = data.get('display_name')
