@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import time
+import random
 import logging
 import asyncio
 import threading
@@ -132,12 +133,23 @@ app = Flask(__name__)
 app.config.from_object(Config)
 
 # Initialize extensions
+_default_cors = [
+    "https://tx-trade-whisperer.onrender.com",
+    # preview origin commonly used in logs
+    "https://preview--tx-trade-whisperer.lovable.app"
+]
+_cors_from_env = os.getenv('CORS_ORIGINS')
+if _cors_from_env:
+    allowed_origins = [o.strip() for o in _cors_from_env.split(',') if o.strip()]
+else:
+    allowed_origins = _default_cors
+
 cors = CORS(
     app,
-    origins=["https://tx-trade-whisperer.onrender.com"],
+    origins=allowed_origins,
     supports_credentials=True
 )
-socketio = SocketIO(app, cors_allowed_origins=["https://tx-trade-whisperer.onrender.com"], async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins=allowed_origins, async_mode='threading')
 limiter = Limiter(
     key_func=get_remote_address,
     storage_uri=os.getenv('RATELIMIT_STORAGE_URI', 'memory://')
@@ -335,6 +347,8 @@ class MarketDataService:
     def __init__(self):
         self.cache = {}
         self.cache_timestamps = {}
+        # cooldowns when rate-limited: symbol -> earliest_next_ts
+        self.cooldowns = {}
         
     def get_stock_data(self, symbol: str, period: str = '1d') -> Dict[str, Any]:
         """Get real stock data from Yahoo Finance"""
@@ -1428,6 +1442,11 @@ def start_live_scanning():
                     for symbol in symbols:
                         if not scanning_active:
                             break
+                        # Skip symbols under cooldown (from market data fetches)
+                        cd_until = market_data_service.cooldowns.get(symbol)
+                        if cd_until and time.time() < cd_until:
+                            logger.debug(f"Skipping {symbol} due to cooldown until {datetime.fromtimestamp(cd_until).isoformat()}")
+                            continue
                         # Intraday 1m candles for real-time candlestick detections
                         intraday_patterns = pattern_service.detect_patterns_intraday(symbol, period='1d', interval='1m')
                         # 3-month context window for technical indicators and confirmation
@@ -1509,7 +1528,8 @@ def start_live_scanning():
                         'last_scan': datetime.now().isoformat()
                     })
                     
-                    time.sleep(scan_interval)
+                    # Stagger next cycle with small jitter to avoid bursts
+                    time.sleep(scan_interval + random.uniform(0, 1.0))
                     
                 except Exception as e:
                     logger.error(f"Live scanner error: {e}")
