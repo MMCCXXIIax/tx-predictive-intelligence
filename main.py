@@ -153,8 +153,13 @@ _wildcard_regex = [
     re.compile(r"https://.*\\.lovable\\.app"),
     re.compile(r"https://.*\\.lovableproject\\.com"),
 ]
+_allow_all_cors = os.getenv('ALLOW_ALL_CORS', 'false').lower() == 'true'
 _cors_from_env = os.getenv('CORS_ORIGINS')
-if _cors_from_env:
+if _allow_all_cors:
+    # Beta switch: allow all origins (do not use with credentials in production)
+    cors_origins = '*'
+    socketio_origins = '*'
+elif _cors_from_env:
     allowed_origins = [o.strip() for o in _cors_from_env.split(',') if o.strip()]
     cors_origins = allowed_origins  # env wins, strings only
     socketio_origins = allowed_origins
