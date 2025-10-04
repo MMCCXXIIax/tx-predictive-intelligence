@@ -162,9 +162,9 @@ def init_database():
             
             # Connect args: enforce SSL; disable server-side prepared statements for PgBouncer (transaction pooling)
             _connect_args = {"sslmode": "require"} if db_url.startswith('postgresql') else {}
-            # psycopg3 supports prepare_threshold: set to -1 to disable prepared statements
+            # psycopg3 supports prepare_threshold: set to 0 to disable prepared statements
             if '+psycopg' in db_url:
-                _connect_args["prepare_threshold"] = -1
+                _connect_args["prepare_threshold"] = 0
 
             engine = create_engine(
                 db_url,
