@@ -25,6 +25,7 @@ import uuid
 
 # Flask and extensions
 from flask import Flask, request, jsonify, render_template
+import re
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 from flask_limiter import Limiter
@@ -137,23 +138,36 @@ app = Flask(__name__)
 app.config.from_object(Config)
 
 # Initialize extensions
-_default_cors = [
+_default_cors_strings = [
     "https://tx-trade-whisperer.onrender.com",
-    # preview origin commonly used in logs
-    "https://preview--tx-trade-whisperer.lovable.app"
+    # Lovable preview domains explicitly used
+    "https://preview--tx-trade-whisperer.lovable.app",
+    # Add the current Lovable deploy the frontend shared
+    "https://id-preview--23172b0b-3460-43d6-96ee-0ae883210c36.lovable.app",
+    # Root domains
+    "https://lovable.app",
+    "https://lovableproject.com",
+]
+# Flask-CORS supports regex, so allow all subdomains for Lovable
+_wildcard_regex = [
+    re.compile(r"https://.*\\.lovable\\.app"),
+    re.compile(r"https://.*\\.lovableproject\\.com"),
 ]
 _cors_from_env = os.getenv('CORS_ORIGINS')
 if _cors_from_env:
     allowed_origins = [o.strip() for o in _cors_from_env.split(',') if o.strip()]
+    cors_origins = allowed_origins  # env wins, strings only
+    socketio_origins = allowed_origins
 else:
-    allowed_origins = _default_cors
+    cors_origins = _default_cors_strings + _wildcard_regex
+    socketio_origins = _default_cors_strings  # Socket.IO does not accept regex
 
 cors = CORS(
     app,
-    origins=allowed_origins,
+    origins=cors_origins,
     supports_credentials=True
 )
-socketio = SocketIO(app, cors_allowed_origins=allowed_origins, async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins=socketio_origins, async_mode='threading')
 limiter = Limiter(
     key_func=get_remote_address,
     storage_uri=os.getenv('RATELIMIT_STORAGE_URI', 'memory://')
