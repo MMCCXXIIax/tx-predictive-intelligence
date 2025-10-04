@@ -34,7 +34,7 @@ from flask_limiter.util import get_remote_address
 import sqlalchemy as sa
 from sqlalchemy import create_engine, text, func
 from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.pool import QueuePool, NullPool
 from sqlalchemy.exc import SQLAlchemyError
 
 # Ensure psycopg is available
@@ -108,6 +108,8 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     FLASK_ENV = os.getenv('FLASK_ENV', 'production')
     DEBUG = FLASK_ENV == 'development'
+    # Assume PgBouncer on Render; can disable explicitly if needed
+    USE_PGBOUNCER = os.getenv('USE_PGBOUNCER', 'true').lower() == 'true'
     
     # Background workers
     ENABLE_BACKGROUND_WORKERS = os.getenv('ENABLE_BACKGROUND_WORKERS', 'true').lower() == 'true'
@@ -173,18 +175,24 @@ def init_database():
             db_url = Config.DATABASE_URL
             if db_url.startswith('postgresql://') and 'psycopg' not in db_url:
                 db_url = db_url.replace('postgresql://', 'postgresql+psycopg://')
+            if db_url.startswith('postgres://'):
+                db_url = db_url.replace('postgres://', 'postgresql+psycopg://', 1)
+            # Ensure prepare_threshold=0 in URL as a belt-and-suspenders for PgBouncer transaction pooling
+            if 'postgresql+psycopg://' in db_url and 'prepare_threshold=' not in db_url:
+                sep = '&' if '?' in db_url else '?'
+                db_url = f"{db_url}{sep}prepare_threshold=0"
             
             # Connect args: enforce SSL; disable server-side prepared statements for PgBouncer (transaction pooling)
             _connect_args = {"sslmode": "require"} if db_url.startswith('postgresql') else {}
-            # psycopg3 supports prepare_threshold: set to 0 to disable prepared statements
+            # psycopg3: disable prepared statements to work with PgBouncer transaction pooling
             if '+psycopg' in db_url:
                 _connect_args["prepare_threshold"] = 0
 
             engine = create_engine(
                 db_url,
-                poolclass=QueuePool,
-                pool_size=2,
-                max_overflow=0,
+                poolclass=(NullPool if Config.USE_PGBOUNCER else QueuePool),
+                pool_size=(0 if Config.USE_PGBOUNCER else 2),
+                max_overflow=(0 if Config.USE_PGBOUNCER else 0),
                 pool_pre_ping=True,
                 pool_recycle=1800,
                 connect_args=_connect_args
