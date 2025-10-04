@@ -1559,7 +1559,9 @@ class AlertService:
                                     })
                                     session.commit()
                             except Exception as e:
-                                logger.error(f"Failed to store alert: {e}")
+                                # PgBouncer in transaction pooling can still surface prepared-statement conflicts.
+                                # Do not spam logs at error level; alerts are emitted regardless.
+                                logger.debug(f"Alert DB insert skipped: {e}")
             
             self.active_alerts.extend(new_alerts)
             return new_alerts
