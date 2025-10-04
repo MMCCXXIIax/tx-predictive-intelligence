@@ -650,6 +650,80 @@ class PatternDetectionService:
             logger.error(f"Pattern detection failed for {symbol}: {e}")
             return []
 
+    def detect_patterns_intraday(self, symbol: str, period: str = '1d', interval: str = '1m') -> List[PatternDetection]:
+        """Detect candlestick patterns using intraday candles for real-time scanning"""
+        try:
+            yf_symbol = normalize_symbol_for_yf(symbol)
+            ticker = yf.Ticker(yf_symbol)
+            hist = ticker.history(period=period, interval=interval)
+
+            if hist.empty or len(hist) < 5:
+                return []
+
+            patterns: List[PatternDetection] = []
+
+            candles = []
+            for ts, row in hist.iterrows():
+                candles.append({
+                    'time': ts.isoformat() if hasattr(ts, 'isoformat') else str(ts),
+                    'open': float(row['Open']),
+                    'high': float(row['High']),
+                    'low': float(row['Low']),
+                    'close': float(row['Close']),
+                    'volume': int(row['Volume']) if not pd.isna(row['Volume']) else 0
+                })
+
+            latest = hist.iloc[-1]
+
+            try:
+                # ATR on intraday if enough candles
+                atr_val = None
+                try:
+                    if len(hist) >= 15:
+                        atr_ind = ta.volatility.AverageTrueRange(high=hist['High'], low=hist['Low'], close=hist['Close'], window=14)
+                        atr_val = float(atr_ind.average_true_range().iloc[-1])
+                except Exception:
+                    atr_val = None
+                ai_results = detect_all_patterns(candles)
+                for r in ai_results:
+                    name = r.get('name', 'AI Pattern')
+                    conf = r.get('confidence', 0.7) or 0.7
+                    if any(name.lower() in p.lower() for p in prioritized_patterns):
+                        conf = min(1.0, conf + 0.1)
+                    low_name = (name or '').lower()
+                    if 'bear' in low_name:
+                        action = 'SELL'
+                    elif 'bull' in low_name:
+                        action = 'BUY'
+                    elif name in {'Doji', 'Spinning Top'}:
+                        action = 'CONTINUATION'
+                    else:
+                        action = 'CONTINUATION'
+                    patterns.append(PatternDetection(
+                        symbol=symbol,
+                        pattern_type=name,
+                        confidence=float(conf),
+                        price=float(latest['Close']),
+                        volume=int(latest['Volume']) if 'Volume' in latest else 0,
+                        timestamp=to_eat_iso(datetime.now()),
+                        metadata={
+                            'source': 'intraday', 'interval': interval, 'period': period,
+                            'timeframe': interval,
+                            'timestamp_eat': to_eat_iso(datetime.now()),
+                            'explanation': r.get('explanation'),
+                            'suggested_action': action,
+                            'confidence_pct': round(float(conf) * 100.0, 1),
+                            'atr_14': atr_val
+                        }
+                    ))
+            except Exception as _e:
+                logger.debug(f"Intraday AI pattern detection skipped for {symbol}: {_e}")
+
+            return patterns
+        except Exception as e:
+            logger.error(f"Intraday pattern detection failed for {symbol}: {e}")
+            return []
+
 # --------------------------------------
 # Risk confirmation token helpers
 # --------------------------------------
@@ -1262,6 +1336,8 @@ def market_scan():
         logger.exception("Market scan failed")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# (removed) compat alias handled by multi-route decorator on get_active_alerts
+
 # Sentiment Ops Endpoints
 @app.route('/api/sentiment/twitter-health', methods=['GET'])
 @limiter.limit("30 per minute")
@@ -1328,7 +1404,7 @@ def get_candles():
         logger.error(f"Candles data error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/scan/start', methods=['POST'])
+@app.route('/api/scan/start', methods=['POST', 'GET'])
 @limiter.limit("5 per minute")
 def start_live_scanning():
     """Start live market scanning"""
@@ -1453,7 +1529,7 @@ def start_live_scanning():
         return jsonify({
             'success': True,
             'message': 'Live scanning started',
-            'config': {
+            'data': {
                 'symbols': symbols,
                 'interval': scan_interval,
                 'auto_alerts': auto_alerts
@@ -2066,13 +2142,13 @@ def generate_entry_exit_signals():
                 'timestamp': datetime.now().isoformat()
             }
         })
-        
     except Exception as e:
         logger.error(f"Generate entry/exit signals error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # Alert Endpoints
-@app.route('/api/get_active_alerts')
+@app.route('/api/get_active_alerts', methods=['GET'])
+@app.route('/api/get_active_alert', methods=['GET'])
 @limiter.limit("30 per minute")
 def get_active_alerts():
     """Get active alerts"""
@@ -3087,14 +3163,14 @@ def get_complete_recommendation():
         if not market_data:
             return jsonify({'success': False, 'error': 'Failed to fetch market data'}), 400
         
-        # Get pattern detection
-        pattern_data = pattern_detection_service.detect_patterns(symbol)
+        # Get pattern detection (list of PatternDetection)
+        patterns_list = pattern_service.detect_patterns(symbol)
         
         # Get sentiment analysis
         sentiment_data = sentiment_service.analyze_sentiment(symbol)
         
         # Risk analysis
-        current_price = market_data.get('current_price', 0)
+        current_price = market_data.get('price', 0)
         risk_settings = {
             'max_position_size': 10000,
             'stop_loss_percentage': 2.0,
@@ -3108,11 +3184,10 @@ def get_complete_recommendation():
         take_profit_price = current_price * (1 + risk_settings['take_profit_percentage'] / 100)
         
         # Generate recommendation
-        patterns = pattern_data.get('patterns', [])
         sentiment_score = sentiment_data.get('sentiment_score', 0)
         
         # Simple scoring system
-        pattern_score = sum(p.get('confidence', 0) for p in patterns) / max(len(patterns), 1)
+        pattern_score = sum(getattr(p, 'confidence', 0) for p in patterns_list) / max(len(patterns_list), 1)
         combined_score = (pattern_score * 0.7) + (abs(sentiment_score) * 0.3)
         
         if combined_score > 0.7:
@@ -3131,7 +3206,7 @@ def get_complete_recommendation():
             'stop_loss': stop_loss_price if action == 'BUY' else take_profit_price,
             'position_size': min(risk_amount / abs(current_price - stop_loss_price), risk_settings['max_position_size']),
             'risk_reward_ratio': risk_settings['take_profit_percentage'] / risk_settings['stop_loss_percentage'],
-            'patterns_detected': patterns,
+            'patterns_detected': [asdict(p) for p in patterns_list],
             'sentiment': {
                 'score': sentiment_score,
                 'label': 'Positive' if sentiment_score > 0.1 else 'Negative' if sentiment_score < -0.1 else 'Neutral'
@@ -3196,6 +3271,12 @@ def get_supported_assets():
     except Exception as e:
         logger.error(f"Supported assets error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# Compat alias: some frontends call /api/assets
+@app.route('/api/assets')
+@limiter.limit("30 per minute")
+def get_supported_assets_alias():
+    return get_supported_assets()
 
 @app.route('/api/features')
 @limiter.limit("20 per minute")
