@@ -1929,6 +1929,7 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                             direction = _infer_direction(alert_type, meta)
                             exit_price = None
                             hit_reason = None
+                            exit_index = None
                             if Config.AUTO_LABEL_POLICY == 'sltp':
                                 tp_pct = max(0.0001, float(Config.AUTO_LABEL_TP_PCT))
                                 sl_pct = max(0.0001, float(Config.AUTO_LABEL_SL_PCT))
@@ -1951,25 +1952,30 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                                         if low <= sl:
                                             exit_price = sl
                                             hit_reason = 'SL'
+                                            exit_index = entry_idx + i
                                             break
                                         if high >= tp:
                                             exit_price = tp
                                             hit_reason = 'TP'
+                                            exit_index = entry_idx + i
                                             break
                                     else:
                                         if high >= sl:
                                             exit_price = sl
                                             hit_reason = 'SL'
+                                            exit_index = entry_idx + i
                                             break
                                         if low <= tp:
                                             exit_price = tp
                                             hit_reason = 'TP'
+                                            exit_index = entry_idx + i
                                             break
                                 # fallback to close at max horizon if neither hit
                                 if exit_price is None:
                                     idx2 = min(entry_idx + max_bars, len(hist) - 1)
                                     exit_price = float(hist.iloc[idx2]['Close'])
                                     hit_reason = 'TIME'
+                                    exit_index = idx2
                             else:
                                 # horizon policy
                                 exit_idx = entry_idx + horizon
@@ -1977,6 +1983,7 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                                     continue
                                 exit_price = float(hist.iloc[exit_idx]['Close'])
                                 hit_reason = 'HORIZON'
+                                exit_index = exit_idx
                             pnl = (exit_price - entry_price) if direction == 'long' else (entry_price - exit_price)
 
                             # Check if an outcome for this (symbol, pattern, opened_at) exists
@@ -2008,7 +2015,7 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                                     'quantity': 1.0,
                                     'timeframe': tf_use,
                                     'opened_at': pd.to_datetime(created_at).isoformat(),
-                                    'closed_at': pd.to_datetime(hist.index[exit_idx]).isoformat(),
+                                    'closed_at': pd.to_datetime(hist.index[exit_index]).isoformat() if exit_index is not None else pd.to_datetime(created_at).isoformat(),
                                     'metadata': {
                                         'source': 'auto-label',
                                         'direction': direction,
