@@ -2034,6 +2034,8 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                                         logger.info(f"Auto-labeled outcome for {symbol} {alert_type} at {created_at} -> {hit_reason} pnl {pnl:.4f}")
                                 except Exception as ie:
                                     logger.debug(f"Auto-label insert failed: {ie}")
+                        except Exception as row_e:
+                            logger.debug(f"Auto-label per-alert error: {row_e}")
                     time.sleep(300)  # run every 5 minutes
                 except Exception as e:
                     logger.error(f"Auto-label worker error: {e}")
