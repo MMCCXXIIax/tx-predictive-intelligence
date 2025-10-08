@@ -2,6 +2,14 @@ import requests
 import time
 import threading
 from threading import Lock
+from typing import Optional
+
+try:
+    from services.http_resilience import resilient_http_get, CircuitBreaker
+except Exception:
+    # Fallbacks if module not available at import time
+    resilient_http_get = None  # type: ignore
+    CircuitBreaker = None  # type: ignore
 
 class CryptoDataService:
     def __init__(self, symbols, refresh_interval=180, candle_limit=100):
@@ -15,6 +23,9 @@ class CryptoDataService:
         self.max_retries = 5
         self.rate_limit_backoff = {symbol: 0 for symbol in symbols}  # Track rate limit backoff
         self.last_success = {symbol: 0 for symbol in symbols}  # Track last successful fetch
+
+        # Simple circuit breaker per service for HTTP vendor calls
+        self._circuit: Optional["CircuitBreaker"] = CircuitBreaker() if CircuitBreaker else None
 
         # Start threads with more spacing to avoid conflicts
         for i, symbol in enumerate(symbols):
@@ -72,15 +83,17 @@ class CryptoDataService:
         """Actual data fetching without recursion - returns status instead of raising exceptions"""
         try:
             url = f"https://api.coingecko.com/api/v3/coins/{symbol}/ohlc?vs_currency=usd&days=1"
-            
-            # Use session for better connection handling
-            with requests.Session() as session:
-                session.headers.update({
-                    'User-Agent': 'TX-Trading-Intelligence/1.0',
-                    'Accept': 'application/json'
-                })
-                
-                response = session.get(url, timeout=15)
+            headers = {
+                'User-Agent': 'TX-Trading-Intelligence/1.0',
+                'Accept': 'application/json'
+            }
+            if resilient_http_get:
+                response = resilient_http_get(url, headers=headers, timeout=10.0, retries=3, circuit=self._circuit)
+            else:
+                # Fallback to requests if resilience module not present
+                with requests.Session() as session:
+                    session.headers.update(headers)
+                    response = session.get(url, timeout=15)
                 
                 if response.status_code == 200:
                     raw = response.json()

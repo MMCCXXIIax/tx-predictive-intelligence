@@ -14,12 +14,24 @@ function Fail($msg) {
     exit 1
 }
 
-function Log-Drift($message) {
+function Write-DriftLog($message) {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     Add-Content -Path $driftLog -Value "[$timestamp] $message"
 }
 
+# Ensure drift log path exists
+$driftDir = Split-Path -Path $driftLog -Parent
+if ($driftDir -and -not (Test-Path $driftDir)) {
+    New-Item -ItemType Directory -Path $driftDir -Force | Out-Null
+}
+if (-not (Test-Path $driftLog)) {
+    New-Item -ItemType File -Path $driftLog -Force | Out-Null
+}
+
 # 1. Docker Engine running
+if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+    Fail "Docker CLI not found in PATH. Please install Docker Desktop or add docker to PATH."
+}
 if (-not (docker info --format '{{.ServerVersion}}' 2>$null)) {
     Fail "Docker Engine is not running."
 }
@@ -92,21 +104,21 @@ if (-Not (Test-Path $goldenSchema)) {
 
         if ($diff) {
             Write-Host "⚠ Database schema differs from golden reference." -ForegroundColor Yellow
-            Log-Drift "Schema drift detected."
+            Write-DriftLog "Schema drift detected."
 
             $choice = Read-Host "Apply golden schema now? (y/N)"
             if ($choice -match '^[Yy]$') {
                 try {
                     Write-Host "📥 Applying $goldenSchema to DB..."
-                    docker exec -i supabase_db_tx-predictive-intelligence psql `
-                        -U postgres -d postgres < $goldenSchema
+                    Get-Content -Raw $goldenSchema | docker exec -i supabase_db_tx-predictive-intelligence psql `
+                        -U postgres -d postgres
                     Write-Host "✅ Schema updated to golden reference." -ForegroundColor Green
-                    Log-Drift "Applied golden schema."
+                    Write-DriftLog "Applied golden schema."
                 } catch {
                     Fail "Error applying golden schema: $_"
                 }
             } else {
-                Log-Drift "Drift detected — not applied by user."
+                Write-DriftLog "Drift detected — not applied by user."
                 Fail "Schema drift detected. Aborting."
             }
         } else {

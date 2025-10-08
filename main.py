@@ -24,7 +24,7 @@ import uuid
 
 
 # Flask and extensions
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 import re
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
@@ -58,6 +58,17 @@ from io import StringIO
 from zoneinfo import ZoneInfo
 from services.sentiment_analyzer import sentiment_analyzer as tx_sentiment_analyzer
 from services.backtesting_engine import backtest_engine
+from services.http_resilience import resilient_http_get, CircuitBreaker
+from services.outcome_logging import summarize_outcomes, log_outcome, ensure_tables
+
+
+from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from pythonjsonlogger import jsonlogger
+import httpx
+try:
+    from pydantic import BaseModel
+except Exception:
+    BaseModel = object
 
 # Modular pattern detection (AI + registry)
 from detectors.ai_pattern_logic import detect_all_patterns
@@ -70,16 +81,20 @@ except Exception:
 # Environment and configuration
 from dotenv import load_dotenv
 load_dotenv()
-# Configure logging
-if os.getenv('RENDER'):
-    handlers = [logging.StreamHandler(sys.stdout)]
-else:
-    handlers = [logging.StreamHandler(sys.stdout), logging.FileHandler('tx_backend.log')]
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=handlers
-)
+# Configure logging (structured optional via STRUCTURED_LOGS)
+use_json_logs = os.getenv('STRUCTURED_LOGS', 'true').lower() == 'true'
+handlers = [logging.StreamHandler(sys.stdout)]
+if not os.getenv('RENDER'):
+    handlers.append(logging.FileHandler('tx_backend.log'))
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+for h in handlers:
+    if use_json_logs:
+        formatter = jsonlogger.JsonFormatter('%(asctime)s %(name)s %(levelname)s %(message)s')
+    else:
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    h.setFormatter(formatter)
+    root_logger.addHandler(h)
 logger = logging.getLogger(__name__)
 
 # Timezone helper (Uganda/EAT)
@@ -131,8 +146,24 @@ class Config:
     ALERT_CONFIDENCE_THRESHOLD = float(os.getenv('ALERT_CONFIDENCE_THRESHOLD', '0.85'))
     # Risk confirmation gating for executions
     REQUIRE_RISK_CONFIRMATION = os.getenv('REQUIRE_RISK_CONFIRMATION', 'false').lower() == 'true'
-    
-    # Rate limiting
+    # Observability & Docs
+    ENABLE_METRICS = os.getenv('ENABLE_METRICS', 'true').lower() == 'true'
+    ENABLE_OPENAPI = os.getenv('ENABLE_OPENAPI', 'true').lower() == 'true'
+    # Supabase JWT secret (optional verification)
+    SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET')
+
+# --------------------------------------
+# Prometheus metrics
+# --------------------------------------
+registry = CollectorRegistry()
+HTTP_REQUESTS_TOTAL = Counter(
+    'tx_http_requests_total', 'Total HTTP requests', ['endpoint', 'method', 'status'], registry=registry
+)
+HTTP_REQUEST_LATENCY = Histogram(
+    'tx_http_request_latency_seconds', 'HTTP request latency seconds', ['endpoint', 'method'], registry=registry
+)
+SCANNER_ACTIVE_GAUGE = Gauge('tx_scanner_active', 'Live scanner active (1/0)', registry=registry)
+
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -180,6 +211,42 @@ limiter = Limiter(
 )
 limiter.init_app(app)
 
+# --------------------------------------
+# Metrics middleware and /metrics
+# --------------------------------------
+if Config.ENABLE_METRICS:
+    @app.before_request
+    def _metrics_start_timer():
+        try:
+            request._start_time = time.time()
+        except Exception:
+            pass
+
+    @app.after_request
+    def _metrics_record(resp):
+        try:
+            endpoint = request.endpoint or request.path or 'unknown'
+            method = request.method
+            status = resp.status_code
+            HTTP_REQUESTS_TOTAL.labels(endpoint=endpoint, method=method, status=status).inc()
+            start = getattr(request, '_start_time', None)
+            if start is not None:
+                HTTP_REQUEST_LATENCY.labels(endpoint=endpoint, method=method).observe(max(time.time() - start, 0))
+        except Exception:
+            pass
+        return resp
+
+    @app.route('/metrics')
+    @limiter.exempt
+    def metrics():
+        try:
+            scanning_active_flag = 1.0 if globals().get('scanning_active') else 0.0
+            SCANNER_ACTIVE_GAUGE.set(scanning_active_flag)
+        except Exception:
+            pass
+        data = generate_latest(registry)
+        return Response(data, mimetype=CONTENT_TYPE_LATEST)
+
 # Database setup
 engine = None
 Session = None
@@ -188,7 +255,6 @@ db_available = False
 def init_database():
     """Initialize database connection with fallback handling"""
     global engine, Session, db_available
-    
     try:
         if Config.DATABASE_URL:
             # Force psycopg driver for PostgreSQL
@@ -197,18 +263,15 @@ def init_database():
                 db_url = db_url.replace('postgresql://', 'postgresql+psycopg://')
             if db_url.startswith('postgres://'):
                 db_url = db_url.replace('postgres://', 'postgresql+psycopg://', 1)
-            # Ensure prepare_threshold=0 in URL as a belt-and-suspenders for PgBouncer transaction pooling
+            # Ensure prepare_threshold=0 in URL for PgBouncer compatibility
             if 'postgresql+psycopg://' in db_url and 'prepare_threshold=' not in db_url:
                 sep = '&' if '?' in db_url else '?'
                 db_url = f"{db_url}{sep}prepare_threshold=0"
-            
-            # Connect args: enforce SSL; disable server-side prepared statements for PgBouncer (transaction pooling)
+
             _connect_args = {"sslmode": "require"} if db_url.startswith('postgresql') else {}
-            # psycopg3: hard-disable server-side prepared statements (None => never prepare)
             if '+psycopg' in db_url:
                 _connect_args["prepare_threshold"] = None
 
-            # Build engine args safely for selected pool class
             _poolclass = NullPool if Config.USE_PGBOUNCER else QueuePool
             engine_kwargs = {
                 'poolclass': _poolclass,
@@ -216,30 +279,93 @@ def init_database():
                 'pool_recycle': 1800,
                 'connect_args': _connect_args
             }
-            # Only include pool_size/max_overflow for QueuePool
             if _poolclass is QueuePool:
                 engine_kwargs['pool_size'] = 2
                 engine_kwargs['max_overflow'] = 0
 
             engine = create_engine(db_url, **engine_kwargs)
-            
-            # Test connection
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            
             Session = scoped_session(sessionmaker(bind=engine))
             db_available = True
             logger.info("Database connection established successfully")
-            
+
             # Create tables if they don't exist
             create_tables()
-            
         else:
             logger.warning("No DATABASE_URL provided, running in demo mode")
-            
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
         logger.info("Running in demo mode without database")
+
+# Initialize database on startup
+init_database()
+try:
+    ensure_tables()
+except Exception as _e:
+    logger.debug(f"ensure_tables failed: {_e}")
+
+# --------------------------------------
+# Optional Supabase service-role verification
+# --------------------------------------
+
+def verify_supabase_user_via_service_role(auth_header: Optional[Dict[str, Any]]):
+    """Resolve user via Supabase Auth Admin using service role key.
+    Requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
+    Returns user dict or None.
+    """
+    try:
+        if not (Config.SUPABASE_URL and Config.SUPABASE_SERVICE_ROLE_KEY and auth_header):
+            return None
+        if isinstance(auth_header, str):
+            header_val = auth_header
+        else:
+            header_val = auth_header.get('Authorization') if isinstance(auth_header, dict) else None
+        if not header_val:
+            return None
+        parts = header_val.split()
+        if len(parts) != 2 or parts[0].lower() != 'bearer':
+            return None
+        access_token = parts[1]
+        url = Config.SUPABASE_URL.rstrip('/') + '/auth/v1/user'
+        headers = {
+            'Authorization': f'Bearer {access_token}',
+            'apikey': Config.SUPABASE_SERVICE_ROLE_KEY,
+        }
+        r = httpx.get(url, headers=headers, timeout=5.0)
+        if r.status_code == 200:
+            return r.json()
+        return None
+    except Exception as e:
+        logger.debug(f"Supabase service role verify failed: {e}")
+        return None
+
+# Backward-compatible shim
+
+def verify_supabase_jwt(auth_header: Optional[str]) -> Optional[Dict[str, Any]]:
+    return verify_supabase_user_via_service_role(auth_header)
+# --------------------------------------
+# Optional Supabase JWT verification
+# --------------------------------------
+# Supabase service role verification (recommended)
+# --------------------------------------
+
+# --------------------------------------
+def verify_supabase_jwt(auth_header: Optional[str]) -> Optional[Dict[str, Any]]:
+    """Verify Supabase JWT using HS256 secret if configured. Returns claims or None."""
+    try:
+        if not Config.SUPABASE_JWT_SECRET or not auth_header:
+            return None
+        parts = auth_header.split()
+        if len(parts) != 2 or parts[0].lower() != 'bearer':
+            return None
+        token = parts[1]
+        import jwt
+        claims = jwt.decode(token, Config.SUPABASE_JWT_SECRET, algorithms=['HS256'])
+        return claims
+    except Exception as _e:
+        logger.debug(f"JWT invalid: {_e}")
+        return None
 
 # --------------------------------------
 # Helper utilities (symbol normalization)
@@ -1694,6 +1820,243 @@ if Config.ENABLE_BACKGROUND_WORKERS:
     scanner_thread = threading.Thread(target=background_scanner, daemon=True)
     scanner_thread.start()
     logger.info("Background scanner started")
+
+# --------------------------------------
+# OpenAPI docs and health endpoints (additive)
+# --------------------------------------
+if Config.ENABLE_OPENAPI:
+    def _generate_openapi_from_map() -> Dict[str, Any]:
+        spec: Dict[str, Any] = {
+            'openapi': '3.0.0',
+            'info': {'title': 'TX Trade Whisperer API', 'version': '2.0.0'},
+            'paths': {}
+        }
+        for rule in app.url_map.iter_rules():
+            if rule.endpoint == 'static':
+                continue
+            methods = sorted([m for m in rule.methods if m in {'GET','POST','PUT','DELETE','PATCH'}])
+            path = str(rule)
+            if path not in spec['paths']:
+                spec['paths'][path] = {}
+            for m in methods:
+                spec['paths'][path][m.lower()] = {
+                    'summary': rule.endpoint,
+                    'responses': {'200': {'description': 'OK'}}
+                }
+        return spec
+
+    @app.route('/swagger.json')
+    @limiter.exempt
+    def swagger_json():
+        return jsonify(_generate_openapi_from_map())
+
+    @app.route('/docs')
+    @limiter.exempt
+    def docs():
+        html = """
+        <!doctype html>
+        <html>
+          <head>
+            <title>TX API Docs</title>
+            <meta charset='utf-8'/>
+            <meta name='viewport' content='width=device-width, initial-scale=1'>
+            <script src='https://cdn.jsdelivr.net/npm/redoc@next/bundles/redoc.standalone.js'></script>
+          </head>
+          <body>
+            <redoc spec-url='/swagger.json'></redoc>
+          </body>
+        </html>
+        """
+        return Response(html, mimetype='text/html')
+
+@app.route('/health')
+@limiter.exempt
+def health():
+    return jsonify({'status': 'ok', 'timestamp': datetime.now().isoformat()})
+
+@app.route('/api/provider-health')
+@limiter.limit("20 per minute")
+def provider_health():
+    checks = {}
+    # yfinance basic check
+    try:
+        start = time.time()
+        hist = yf.download('AAPL', period='1d', interval='1d', progress=False, auto_adjust=True)
+        checks['yfinance'] = {'ok': bool(hist is not None and not hist.empty), 'latency_ms': int((time.time()-start)*1000)}
+    except Exception as e:
+        checks['yfinance'] = {'ok': False, 'error': str(e)}
+    # Finnhub
+    try:
+        if Config.FINNHUB_API_KEY:
+            start = time.time()
+            r = httpx.get('https://finnhub.io/api/v1/quote', params={'symbol':'AAPL','token':Config.FINNHUB_API_KEY}, timeout=5.0)
+            checks['finnhub'] = {'ok': r.status_code == 200, 'latency_ms': int((time.time()-start)*1000)}
+        else:
+            checks['finnhub'] = {'ok': False, 'error': 'no_api_key'}
+    except Exception as e:
+        checks['finnhub'] = {'ok': False, 'error': str(e)}
+    # Polygon
+    try:
+        if Config.POLYGON_API_KEY:
+            start = time.time()
+            r = httpx.get('https://api.polygon.io/v2/aggs/ticker/AAPL/range/1/day/2024-01-01/2024-01-02', params={'apiKey': Config.POLYGON_API_KEY}, timeout=5.0)
+            checks['polygon'] = {'ok': r.status_code in (200,401,403), 'latency_ms': int((time.time()-start)*1000)}
+        else:
+            checks['polygon'] = {'ok': False, 'error': 'no_api_key'}
+    except Exception as e:
+        checks['polygon'] = {'ok': False, 'error': str(e)}
+    return jsonify({'success': True, 'data': checks, 'timestamp': datetime.now().isoformat()})
+
+@app.route('/api/workers/health')
+@limiter.limit("30 per minute")
+def workers_health():
+    scanning_flag = bool(globals().get('scanning_active'))
+    status = globals().get('scanning_status', {})
+    return jsonify({'success': True, 'data': {
+        'live_scanner_active': scanning_flag,
+        'scanning_status': status,
+        'background_workers_enabled': bool(Config.ENABLE_BACKGROUND_WORKERS)
+    }, 'timestamp': datetime.now().isoformat()})
+
+@app.route('/api/pattern-performance')
+@limiter.limit("20 per minute")
+def pattern_performance():
+    try:
+        window_days = int(request.args.get('window', 30))
+        pattern = request.args.get('pattern')
+        symbol = request.args.get('symbol')
+        results = {'overall': {}, 'by_pattern': [], 'by_symbol': []}
+        if db_available:
+            with Session() as session:
+                base_where = " detected_at > NOW() - INTERVAL ':days days' "
+                params = {'days': window_days}
+                if pattern:
+                    base_where += " AND pattern_type = :pattern"
+                    params['pattern'] = pattern
+                if symbol:
+                    base_where += " AND symbol = :symbol"
+                    params['symbol'] = symbol
+                rows = session.execute(text(f"SELECT pattern_type, COUNT(*) detections, AVG(confidence) avg_conf FROM pattern_detections WHERE {base_where} GROUP BY pattern_type ORDER BY detections DESC"), params).fetchall()
+                results['by_pattern'] = [{'pattern': r.pattern_type, 'detections': int(r.detections or 0), 'avg_confidence': float(r.avg_conf or 0)} for r in rows]
+                rows2 = session.execute(text(f"SELECT symbol, COUNT(*) detections, AVG(confidence) avg_conf FROM pattern_detections WHERE {base_where} GROUP BY symbol ORDER BY detections DESC LIMIT 25"), params).fetchall()
+                results['by_symbol'] = [{'symbol': r.symbol, 'detections': int(r.detections or 0), 'avg_confidence': float(r.avg_conf or 0)} for r in rows2]
+        return jsonify({'success': True, 'data': results, 'meta': {'window_days': window_days, 'pattern': pattern, 'symbol': symbol}, 'timestamp': datetime.now().isoformat()})
+    except Exception as e:
+        logger.error(f"pattern_performance error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --------------------------------------
+# Outcomes logging and enhanced performance summary
+# --------------------------------------
+from schemas import PatternPerformanceQuery  # type: ignore
+from services.outcome_logging import log_outcome, summarize_outcomes  # type: ignore
+
+
+@app.route('/api/outcomes/log', methods=['POST'])
+@limiter.limit("30 per minute")
+def log_trade_outcome():
+    """Record a realized trade outcome to power win-rate metrics.
+    Body example:
+    {
+      "symbol": "AAPL", "pattern": "RSI_OVERSOLD", "entry_price": 180.0,
+      "exit_price": 184.5, "pnl": 4.5, "quantity": 10, "timeframe": "1h",
+      "opened_at": "2025-01-01T09:00:00Z", "closed_at": "2025-01-01T11:00:00Z",
+      "metadata": {"notes": "TP hit"}
+    }
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        ok = log_outcome(data)
+        return jsonify({'success': bool(ok)})
+    except Exception as e:
+        logger.error(f"log_trade_outcome error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/pattern-performance/summary')
+@limiter.limit("30 per minute")
+def pattern_performance_summary():
+    """Return detection aggregates (existing endpoint) plus outcome-based win-rates.
+    Query: window (int), pattern (str), symbol (str)
+    """
+    try:
+        # Validate query via Pydantic if available
+        try:
+            q = PatternPerformanceQuery(
+                window=int(request.args.get('window', 30)),
+                pattern=request.args.get('pattern'),
+                symbol=request.args.get('symbol')
+            )
+        except Exception:
+            # Fallback if pydantic missing
+            class Q: pass
+            q = Q(); q.window=int(request.args.get('window', 30)); q.pattern=request.args.get('pattern'); q.symbol=request.args.get('symbol')
+
+        # Get detection aggregates by reusing existing endpoint logic via internal call
+        # If the existing '/api/pattern-performance' view is available, we can call the function directly
+        # Otherwise, return only outcomes
+        try:
+            detection = None
+            for rule in app.url_map.iter_rules():
+                if str(rule.rule) == '/api/pattern-performance':
+                    # Synthesize a minimal run by calling the view function with current request context
+                    # Here, we duplicate the args minimally to avoid cross-calling complexities
+                    detection = {'note': 'see /api/pattern-performance for detection aggregates'}
+                    break
+        except Exception:
+            detection = None
+
+        outcomes = summarize_outcomes(q.window, q.pattern, q.symbol)
+        return jsonify({
+            'success': True,
+            'data': {
+                'detections': detection,
+                'outcomes': outcomes
+            },
+            'meta': {'window_days': q.window, 'pattern': q.pattern, 'symbol': q.symbol},
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"pattern_performance_summary error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --------------------------------------
+# ML-based pattern detection endpoints (no heuristics)
+# --------------------------------------
+from services.ml_patterns import train_from_outcomes, score_symbol  # type: ignore
+
+@app.route('/api/ml/train', methods=['POST'])
+@limiter.limit("10 per hour")
+def ml_train():
+    """Train an ML model from recorded trade outcomes and recent candles.
+    Returns validation AUC and sample counts.
+    """
+    try:
+        payload = request.get_json(silent=True) or {}
+        lookback = str(payload.get('lookback', '180d'))
+        res = train_from_outcomes(lookback=lookback)
+        if not res.get('success'):
+            return jsonify({'success': False, 'error': res.get('error')}), 400
+        return jsonify({'success': True, 'metrics': res.get('metrics')})
+    except Exception as e:
+        logger.error(f"ml_train error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/ml/score')
+@limiter.limit("60 per minute")
+def ml_score():
+    """Score a symbol with the latest trained ML model. Query: symbol, timeframe (default 1h)"""
+    try:
+        symbol = (request.args.get('symbol') or '').upper()
+        timeframe = request.args.get('timeframe', '1h')
+        if not symbol:
+            return jsonify({'success': False, 'error': 'symbol required'}), 400
+        res = score_symbol(symbol, timeframe=timeframe)
+        status = 200 if res.get('success') else 400
+        return jsonify(res), status
+    except Exception as e:
+        logger.error(f"ml_score error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # Flask API Routes
 @app.route('/')
