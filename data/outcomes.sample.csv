@@ -1,0 +1,4 @@
+symbol,pattern,entry_price,exit_price,pnl,quantity,timeframe,opened_at,closed_at,metadata
+AAPL,RSI_OVERSOLD,180.50,182.75,225.00,100,1h,2025-01-05T14:00:00Z,2025-01-05T18:00:00Z,"{""notes"":"Bounce after oversold"}"
+BTC-USD,GOLDEN_CROSS,42500.00,42100.00,-400.00,0.1,1h,2025-01-06T10:00:00Z,2025-01-06T16:00:00Z,"{""notes"":"Stop hit"}"
+EURUSD=X,BREAKOUT,1.1000,1.1035,350.00,10000,5m,2025-01-07T08:30:00Z,2025-01-07T09:10:00Z,"{""session"":"EU open"}"
