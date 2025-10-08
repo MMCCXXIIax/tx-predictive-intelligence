@@ -140,6 +140,16 @@ class Config:
     )
     # Per-tick batch size for scanners
     SCAN_BATCH_SIZE = int(os.getenv('SCAN_BATCH_SIZE', '6'))
+    # Auto-label outcomes from alerts
+    AUTO_LABEL_FROM_ALERTS = os.getenv('AUTO_LABEL_FROM_ALERTS', 'true').lower() == 'true'
+    AUTO_LABEL_TIMEFRAME = os.getenv('AUTO_LABEL_TIMEFRAME', '1D')
+    AUTO_LABEL_HORIZON_BARS = int(os.getenv('AUTO_LABEL_HORIZON_BARS', '3'))
+    # Auto-label policy: 'sltp' or 'horizon'
+    AUTO_LABEL_POLICY = os.getenv('AUTO_LABEL_POLICY', 'sltp').lower()
+    # SL/TP percentages for SLTP policy (e.g., 0.02 = 2%)
+    AUTO_LABEL_TP_PCT = float(os.getenv('AUTO_LABEL_TP_PCT', '0.03'))
+    AUTO_LABEL_SL_PCT = float(os.getenv('AUTO_LABEL_SL_PCT', '0.02'))
+    AUTO_LABEL_MAX_BARS = int(os.getenv('AUTO_LABEL_MAX_BARS', '10'))
     
     # Trading settings
     PAPER_TRADING_ENABLED = os.getenv('ENABLE_PAPER_TRADING', 'true').lower() == 'true'
@@ -457,6 +467,18 @@ def create_tables():
                     is_active BOOLEAN DEFAULT true,
                     metadata JSONB
                 )
+            """))
+            # Ensure processed flag exists for auto-labeling idempotency
+            conn.execute(text("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_name='alerts' AND column_name='processed'
+                    ) THEN
+                        ALTER TABLE alerts ADD COLUMN processed BOOLEAN DEFAULT false;
+                    END IF;
+                END$$;
             """))
             
             conn.commit()
@@ -1820,6 +1842,199 @@ if Config.ENABLE_BACKGROUND_WORKERS:
     scanner_thread = threading.Thread(target=background_scanner, daemon=True)
     scanner_thread.start()
     logger.info("Background scanner started")
+
+    # Start auto-label worker if enabled
+    if Config.AUTO_LABEL_FROM_ALERTS:
+        def _infer_direction(alert_type: str, meta: Dict[str, Any]) -> str:
+            try:
+                act = (meta or {}).get('suggested_action')
+                if act:
+                    a = str(act).upper()
+                    if a in {'SELL', 'SHORT'}:
+                        return 'short'
+                    if a in {'BUY', 'LONG'}:
+                        return 'long'
+                at = (alert_type or '').lower()
+                if 'bearish' in at or 'tweezer top' in at or 'shooting' in at:
+                    return 'short'
+                if 'bullish' in at or 'hammer' in at or 'engulfing (bull' in at:
+                    return 'long'
+            except Exception:
+                pass
+            return 'long'
+
+        def _yf_timeframe_to_interval(tf: str) -> str:
+            tf = (tf or '1D').upper()
+            if tf in {'1D', '1DAY', 'D', 'DAILY'}:
+                return '1d'
+            if tf in {'1H', '1HR', 'H'}:
+                return '60m'
+            if tf in {'5M', '5MIN'}:
+                return '5m'
+            if tf in {'1M', '1MIN'}:
+                return '1m'
+            return '1d'
+
+        def _auto_label_worker():
+            logger.info("Auto-label worker started")
+            while True:
+                try:
+                    if not db_available:
+                        time.sleep(60)
+                        continue
+                    horizon = max(1, int(Config.AUTO_LABEL_HORIZON_BARS))
+                    tf = Config.AUTO_LABEL_TIMEFRAME
+                    with engine.begin() as conn:
+                        rows = conn.execute(text(
+                            """
+                            SELECT id, symbol, alert_type, message, confidence, created_at, is_active, metadata
+                            FROM alerts
+                            WHERE COALESCE(processed, false) = false
+                              AND created_at < NOW() - INTERVAL '1 second'
+                            ORDER BY id DESC
+                            LIMIT 200
+                            """
+                        )).fetchall()
+
+                    for r in rows:
+                        try:
+                            symbol = r.symbol
+                            alert_type = r.alert_type
+                            created_at = r.created_at
+                            meta = (r.metadata or {}) if isinstance(r.metadata, dict) else {}
+                            # Respect timeframe if present
+                            tf_meta = (meta.get('timeframe') or tf)
+                            tf_use = str(tf_meta).upper()
+                            # Only process when we have at least horizon bars since alert
+                            yf_symbol = normalize_symbol_for_yf(symbol)
+                            interval = _yf_timeframe_to_interval(tf_use)
+                            look_period = '365d' if interval.endswith('d') else '30d'
+                            hist = yf.download(yf_symbol, period=look_period, interval=interval, auto_adjust=True, progress=False)
+                            if hist is None or hist.empty:
+                                continue
+                            hist = hist.rename(columns=str.title)  # Ensure Title-case
+                            # Find the entry bar: last bar with index <= created_at
+                            try:
+                                # yfinance index is tz-aware UTC
+                                idx_utc = pd.to_datetime(hist.index, utc=True)
+                                created_utc = pd.to_datetime(created_at, utc=True)
+                                eligible = np.where(idx_utc <= created_utc)[0]
+                                if len(eligible) == 0:
+                                    continue
+                                entry_idx = eligible[-1]
+                            except Exception:
+                                continue
+                            # Compute SL/TP or horizon
+                            entry_price = float(hist.iloc[entry_idx]['Close'])
+                            direction = _infer_direction(alert_type, meta)
+                            exit_price = None
+                            hit_reason = None
+                            if Config.AUTO_LABEL_POLICY == 'sltp':
+                                tp_pct = max(0.0001, float(Config.AUTO_LABEL_TP_PCT))
+                                sl_pct = max(0.0001, float(Config.AUTO_LABEL_SL_PCT))
+                                max_bars = max(1, int(Config.AUTO_LABEL_MAX_BARS))
+                                if direction == 'long':
+                                    tp = entry_price * (1.0 + tp_pct)
+                                    sl = entry_price * (1.0 - sl_pct)
+                                else:
+                                    tp = entry_price * (1.0 - tp_pct)
+                                    sl = entry_price * (1.0 + sl_pct)
+                                # iterate forward bars
+                                for i in range(1, max_bars + 1):
+                                    if entry_idx + i >= len(hist):
+                                        break
+                                    bar = hist.iloc[entry_idx + i]
+                                    high = float(bar['High']) if 'High' in bar else float(bar['Close'])
+                                    low = float(bar['Low']) if 'Low' in bar else float(bar['Close'])
+                                    if direction == 'long':
+                                        # SL or TP within bar
+                                        if low <= sl:
+                                            exit_price = sl
+                                            hit_reason = 'SL'
+                                            break
+                                        if high >= tp:
+                                            exit_price = tp
+                                            hit_reason = 'TP'
+                                            break
+                                    else:
+                                        if high >= sl:
+                                            exit_price = sl
+                                            hit_reason = 'SL'
+                                            break
+                                        if low <= tp:
+                                            exit_price = tp
+                                            hit_reason = 'TP'
+                                            break
+                                # fallback to close at max horizon if neither hit
+                                if exit_price is None:
+                                    idx2 = min(entry_idx + max_bars, len(hist) - 1)
+                                    exit_price = float(hist.iloc[idx2]['Close'])
+                                    hit_reason = 'TIME'
+                            else:
+                                # horizon policy
+                                exit_idx = entry_idx + horizon
+                                if exit_idx >= len(hist):
+                                    continue
+                                exit_price = float(hist.iloc[exit_idx]['Close'])
+                                hit_reason = 'HORIZON'
+                            pnl = (exit_price - entry_price) if direction == 'long' else (entry_price - exit_price)
+
+                            # Check if an outcome for this (symbol, pattern, opened_at) exists
+                            exists = False
+                            try:
+                                with engine.begin() as conn:
+                                    q = conn.execute(text(
+                                        """
+                                        SELECT 1 FROM trade_outcomes
+                                        WHERE symbol = :symbol AND pattern = :pattern AND opened_at = :opened_at
+                                        LIMIT 1
+                                        """
+                                    ), {
+                                        'symbol': symbol,
+                                        'pattern': alert_type,
+                                        'opened_at': created_at
+                                    }).fetchone()
+                                    exists = q is not None
+                            except Exception:
+                                exists = False
+
+                            if not exists:
+                                payload = {
+                                    'symbol': symbol,
+                                    'pattern': alert_type,
+                                    'entry_price': entry_price,
+                                    'exit_price': exit_price,
+                                    'pnl': float(pnl),
+                                    'quantity': 1.0,
+                                    'timeframe': tf_use,
+                                    'opened_at': pd.to_datetime(created_at).isoformat(),
+                                    'closed_at': pd.to_datetime(hist.index[exit_idx]).isoformat(),
+                                    'metadata': {
+                                        'source': 'auto-label',
+                                        'direction': direction,
+                                        'horizon_bars': horizon
+                                    }
+                                }
+                                try:
+                                    ok = log_outcome(payload)
+                                    if ok:
+                                        # mark alert as processed
+                                        try:
+                                            with engine.begin() as conn:
+                                                conn.execute(text("UPDATE alerts SET processed=true WHERE id=:id"), { 'id': r.id })
+                                        except Exception as ue:
+                                            logger.debug(f"Mark processed failed: {ue}")
+                                        logger.info(f"Auto-labeled outcome for {symbol} {alert_type} at {created_at} -> {hit_reason} pnl {pnl:.4f}")
+                                except Exception as ie:
+                                    logger.debug(f"Auto-label insert failed: {ie}")
+                    time.sleep(300)  # run every 5 minutes
+                except Exception as e:
+                    logger.error(f"Auto-label worker error: {e}")
+                    time.sleep(60)
+
+        auto_label_thread = threading.Thread(target=_auto_label_worker, daemon=True)
+        auto_label_thread.start()
+        logger.info("Auto-label worker started")
 
 # --------------------------------------
 # OpenAPI docs and health endpoints (additive)
