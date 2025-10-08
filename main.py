@@ -140,15 +140,16 @@ app.config.from_object(Config)
 # Initialize extensions
 _default_cors_strings = [
     "https://tx-trade-whisperer.onrender.com",
-    # Lovable preview domains explicitly used
     "https://preview--tx-trade-whisperer.lovable.app",
     # Add the current Lovable deploy the frontend shared
     "https://id-preview--23172b0b-3460-43d6-96ee-0ae883210c36.lovable.app",
+    # Additional allowed frontend origins
+    "https://recipevault-zc20.onrender.com",
+    "https://tx-figma-frontend.onrender.com",
     # Root domains
     "https://lovable.app",
     "https://lovableproject.com",
 ]
-# Flask-CORS supports regex, so allow all subdomains for Lovable
 _wildcard_regex = [
     re.compile(r"https://.*\\.lovable\\.app"),
     re.compile(r"https://.*\\.lovableproject\\.com"),
