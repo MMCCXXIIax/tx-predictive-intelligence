@@ -1925,7 +1925,8 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                             except Exception:
                                 continue
                             # Compute SL/TP or horizon
-                            entry_price = float(hist.iloc[entry_idx]['Close'])
+                            # Avoid FutureWarning: cast from column-first selection
+                            entry_price = float(hist['Close'].iloc[int(entry_idx)])
                             direction = _infer_direction(alert_type, meta)
                             exit_price = None
                             hit_reason = None
@@ -1944,9 +1945,14 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                                 for i in range(1, max_bars + 1):
                                     if entry_idx + i >= len(hist):
                                         break
-                                    bar = hist.iloc[entry_idx + i]
-                                    high = float(bar['High']) if 'High' in bar else float(bar['Close'])
-                                    low = float(bar['Low']) if 'Low' in bar else float(bar['Close'])
+                                    bar_idx = int(entry_idx + i)
+                                    if 'High' in hist.columns and 'Low' in hist.columns:
+                                        high = float(hist['High'].iloc[bar_idx])
+                                        low = float(hist['Low'].iloc[bar_idx])
+                                    else:
+                                        cval = float(hist['Close'].iloc[bar_idx])
+                                        high = cval
+                                        low = cval
                                     if direction == 'long':
                                         # SL or TP within bar
                                         if low <= sl:
@@ -1972,16 +1978,16 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                                             break
                                 # fallback to close at max horizon if neither hit
                                 if exit_price is None:
-                                    idx2 = min(entry_idx + max_bars, len(hist) - 1)
-                                    exit_price = float(hist.iloc[idx2]['Close'])
+                                    idx2 = int(min(entry_idx + max_bars, len(hist) - 1))
+                                    exit_price = float(hist['Close'].iloc[idx2])
                                     hit_reason = 'TIME'
                                     exit_index = idx2
                             else:
                                 # horizon policy
-                                exit_idx = entry_idx + horizon
+                                exit_idx = int(entry_idx + horizon)
                                 if exit_idx >= len(hist):
                                     continue
-                                exit_price = float(hist.iloc[exit_idx]['Close'])
+                                exit_price = float(hist['Close'].iloc[exit_idx])
                                 hit_reason = 'HORIZON'
                                 exit_index = exit_idx
                             pnl = (exit_price - entry_price) if direction == 'long' else (entry_price - exit_price)
@@ -2247,7 +2253,7 @@ def pattern_performance_summary():
 # --------------------------------------
 # ML-based pattern detection endpoints (no heuristics)
 # --------------------------------------
-from services.ml_patterns import train_from_outcomes, score_symbol  # type: ignore
+from services.ml_patterns import train_from_outcomes, score_symbol, score_symbol_with_pattern  # type: ignore
 
 @app.route('/api/ml/train', methods=['POST'])
 @limiter.limit("10 per hour")
