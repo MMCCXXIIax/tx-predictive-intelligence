@@ -1925,8 +1925,9 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                             except Exception:
                                 continue
                             # Compute SL/TP or horizon
-                            # Avoid FutureWarning: cast from column-first selection
-                            entry_price = float(hist['Close'].iloc[int(entry_idx)])
+                            # Avoid FutureWarning: ensure scalar before float()
+                            _ep_val = hist['Close'].iloc[int(entry_idx)]
+                            entry_price = float(_ep_val.iloc[0]) if isinstance(_ep_val, pd.Series) else float(_ep_val)
                             direction = _infer_direction(alert_type, meta)
                             exit_price = None
                             hit_reason = None
@@ -1947,10 +1948,13 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                                         break
                                     bar_idx = int(entry_idx + i)
                                     if 'High' in hist.columns and 'Low' in hist.columns:
-                                        high = float(hist['High'].iloc[bar_idx])
-                                        low = float(hist['Low'].iloc[bar_idx])
+                                        _hi = hist['High'].iloc[bar_idx]
+                                        _lo = hist['Low'].iloc[bar_idx]
+                                        high = float(_hi.iloc[0]) if isinstance(_hi, pd.Series) else float(_hi)
+                                        low = float(_lo.iloc[0]) if isinstance(_lo, pd.Series) else float(_lo)
                                     else:
-                                        cval = float(hist['Close'].iloc[bar_idx])
+                                        _c = hist['Close'].iloc[bar_idx]
+                                        cval = float(_c.iloc[0]) if isinstance(_c, pd.Series) else float(_c)
                                         high = cval
                                         low = cval
                                     if direction == 'long':
@@ -1979,7 +1983,8 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                                 # fallback to close at max horizon if neither hit
                                 if exit_price is None:
                                     idx2 = int(min(entry_idx + max_bars, len(hist) - 1))
-                                    exit_price = float(hist['Close'].iloc[idx2])
+                                    _ex = hist['Close'].iloc[idx2]
+                                    exit_price = float(_ex.iloc[0]) if isinstance(_ex, pd.Series) else float(_ex)
                                     hit_reason = 'TIME'
                                     exit_index = idx2
                             else:
@@ -1987,7 +1992,8 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                                 exit_idx = int(entry_idx + horizon)
                                 if exit_idx >= len(hist):
                                     continue
-                                exit_price = float(hist['Close'].iloc[exit_idx])
+                                _hx = hist['Close'].iloc[exit_idx]
+                                exit_price = float(_hx.iloc[0]) if isinstance(_hx, pd.Series) else float(_hx)
                                 hit_reason = 'HORIZON'
                                 exit_index = exit_idx
                             pnl = (exit_price - entry_price) if direction == 'long' else (entry_price - exit_price)
