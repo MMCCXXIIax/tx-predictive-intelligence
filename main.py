@@ -96,6 +96,11 @@ for h in handlers:
     h.setFormatter(formatter)
     root_logger.addHandler(h)
 logger = logging.getLogger(__name__)
+# Suppress noisy yfinance logs (rate-limit, 401)
+try:
+    logging.getLogger('yfinance').setLevel(logging.WARNING)
+except Exception:
+    pass
 
 # Timezone helper (Uganda/EAT)
 def to_eat_iso(dt: datetime) -> str:
@@ -129,14 +134,15 @@ class Config:
     
     # Background workers
     ENABLE_BACKGROUND_WORKERS = os.getenv('ENABLE_BACKGROUND_WORKERS', 'true').lower() == 'true'
-    BACKEND_SCAN_INTERVAL = int(os.getenv('BACKEND_SCAN_INTERVAL', '180'))  # 3 minutes
+    # Reduce default scan frequency to ease provider pressure
+    BACKEND_SCAN_INTERVAL = int(os.getenv('BACKEND_SCAN_INTERVAL', '300'))  # 5 minutes default
     CACHE_DURATION = int(os.getenv('CACHE_DURATION', '60'))  # 1 minute
     # Comma-separated list of symbols to scan (supports stocks, crypto, forex)
     SCAN_SYMBOLS = os.getenv(
         'SCAN_SYMBOLS',
+        # Exclude FX pairs by default to avoid Yahoo FX rate limits; can be re-enabled via env
         'AAPL,GOOGL,MSFT,AMZN,TSLA,NVDA,META,NFLX,'
-        'BTC-USD,ETH-USD,'
-        'EURUSD=X,GBPUSD=X,USDJPY=X,USDCHF=X'
+        'BTC-USD,ETH-USD'
     )
     # Per-tick batch size for scanners
     SCAN_BATCH_SIZE = int(os.getenv('SCAN_BATCH_SIZE', '6'))
