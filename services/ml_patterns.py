@@ -1,5 +1,7 @@
 import os
 import math
+import time
+import random
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, timedelta
 
@@ -62,6 +64,34 @@ def _get_engine() -> Optional[sa.Engine]:
     return create_engine(db_url, pool_pre_ping=True, pool_recycle=1800, connect_args=connect_args)
 
 
+def _safe_yf_download(symbol: str, *, period: Optional[str] = None, interval: Optional[str] = None,
+                      start: Optional[str] = None, end: Optional[str] = None, max_attempts: int = 3) -> Optional[pd.DataFrame]:
+    """Safe wrapper for yfinance.download with retries and handling of 401/Invalid Crumb."""
+    backoff_base = 0.6
+    last_err: Optional[Exception] = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            df = yf.download(symbol, period=period, interval=interval, start=start, end=end,
+                             auto_adjust=True, progress=False)
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                return df
+            # Treat empty as retryable
+            raise ValueError("yfinance download returned empty history")
+        except Exception as e:
+            last_err = e
+            msg = str(e).lower()
+            if any(tok in msg for tok in ['401', 'unauthorized', 'invalid crumb', 'forbidden', '403']):
+                # Hard fail for auth issues (callers can degrade gracefully)
+                return None
+            if 'rate limit' in msg or 'too many requests' in msg or '999' in msg:
+                # Short sleep and give up to avoid hammering
+                time.sleep(2.0 + random.uniform(0, 1.0))
+                return None
+            if attempt < max_attempts:
+                time.sleep(backoff_base * (2 ** (attempt - 1)) + random.uniform(0, 0.3))
+            else:
+                return None
+
 def _download_candles(symbol: str, timeframe: str = '1h', lookback: str = '180d') -> pd.DataFrame:
     interval = timeframe
     # Map some common timeframe aliases to yfinance intervals if needed
@@ -69,10 +99,11 @@ def _download_candles(symbol: str, timeframe: str = '1h', lookback: str = '180d'
         '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m', '1h': '60m', '1d': '1d'
     }
     interval = tf_map.get(timeframe, timeframe)
-    df = yf.download(symbol, period=lookback, interval=interval, auto_adjust=True, progress=False)
+    df = _safe_yf_download(symbol, period=lookback, interval=interval)
     if isinstance(df, pd.DataFrame) and not df.empty:
         df = df.rename(columns=str.lower)
-    return df
+        return df
+    return pd.DataFrame()
 
 
 def _build_features(df: pd.DataFrame) -> pd.DataFrame:

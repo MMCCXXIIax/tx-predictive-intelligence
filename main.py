@@ -308,12 +308,7 @@ def init_database():
         logger.error(f"Database initialization failed: {e}")
         logger.info("Running in demo mode without database")
 
-# Initialize database on startup
-init_database()
-try:
-    ensure_tables()
-except Exception as _e:
-    logger.debug(f"ensure_tables failed: {_e}")
+# Initialize database on startup (moved below after create_tables is defined)
 
 # --------------------------------------
 # Optional Supabase service-role verification
@@ -557,6 +552,89 @@ class MarketDataService:
         # Stocks: use raw ticker for Polygon
         return symbol.upper()
 
+    # --- Safe yfinance helpers ---
+    def _safe_yf_history(self, yf_symbol: str, period: str = '1mo', interval: Optional[str] = None,
+                         max_attempts: int = 3) -> Optional[pd.DataFrame]:
+        """Fetch ticker.history safely with retries and cooldown on 401/429.
+        Respects per-symbol cooldowns stored in self.cooldowns.
+        """
+        try:
+            # Respect cooldown
+            cd_until = self.cooldowns.get(yf_symbol)
+            if cd_until and time.time() < cd_until:
+                return None
+            backoff_base = 0.6
+            last_err: Optional[Exception] = None
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    ticker = yf.Ticker(yf_symbol)
+                    hist = ticker.history(period=period, interval=interval) if interval else ticker.history(period=period)
+                    if hist is not None and not hist.empty:
+                        return hist
+                    # Treat empty as failure for retry purposes
+                    raise ValueError("yfinance returned empty history")
+                except Exception as e:
+                    last_err = e
+                    msg = str(e).lower()
+                    if any(tok in msg for tok in ['401', 'unauthorized', 'invalid crumb', 'forbidden', '403']):
+                        # Longer cooldown for auth errors
+                        cooldown = 300 + int(random.uniform(0, 120))
+                        self.cooldowns[yf_symbol] = time.time() + cooldown
+                        logger.info(f"yfinance auth blocked for {yf_symbol}. Cooldown {cooldown}s")
+                        return None
+                    if 'rate limit' in msg or 'too many requests' in msg or '999' in msg:
+                        cooldown = 90 + int(random.uniform(0, 60))
+                        self.cooldowns[yf_symbol] = time.time() + cooldown
+                        logger.info(f"yfinance rate-limited for {yf_symbol}. Cooldown {cooldown}s")
+                        return None
+                    if attempt < max_attempts:
+                        time.sleep(backoff_base * (2 ** (attempt - 1)) + random.uniform(0, 0.3))
+                    else:
+                        logger.debug(f"yfinance history failed for {yf_symbol}: {e}")
+                        return None
+        except Exception as e:
+            logger.debug(f"_safe_yf_history unexpected error for {yf_symbol}: {e}")
+            return None
+
+    def _safe_yf_download(self, yf_symbol: str, *, period: Optional[str] = None, interval: Optional[str] = None,
+                           start: Optional[str] = None, end: Optional[str] = None, max_attempts: int = 3) -> Optional[pd.DataFrame]:
+        """Fetch yf.download safely with retries and cooldown on 401/429."""
+        try:
+            # Respect cooldown
+            cd_until = self.cooldowns.get(yf_symbol)
+            if cd_until and time.time() < cd_until:
+                return None
+            backoff_base = 0.6
+            last_err: Optional[Exception] = None
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    hist = yf.download(yf_symbol, period=period, interval=interval, start=start, end=end,
+                                       auto_adjust=True, progress=False)
+                    if hist is not None and not hist.empty:
+                        return hist
+                    raise ValueError("yfinance download returned empty history")
+                except Exception as e:
+                    last_err = e
+                    msg = str(e).lower()
+                    if any(tok in msg for tok in ['401', 'unauthorized', 'invalid crumb', 'forbidden', '403']):
+                        cooldown = 300 + int(random.uniform(0, 120))
+                        self.cooldowns[yf_symbol] = time.time() + cooldown
+                        logger.info(f"yfinance auth blocked for {yf_symbol}. Cooldown {cooldown}s")
+                        return None
+                    if 'rate limit' in msg or 'too many requests' in msg or '999' in msg:
+                        cooldown = 90 + int(random.uniform(0, 60))
+                        self.cooldowns[yf_symbol] = time.time() + cooldown
+                        logger.info(f"yfinance rate-limited for {yf_symbol}. Cooldown {cooldown}s")
+                        return None
+                    if attempt < max_attempts:
+                        time.sleep(backoff_base * (2 ** (attempt - 1)) + random.uniform(0, 0.3))
+                    else:
+                        logger.debug(f"yfinance download failed for {yf_symbol}: {e}")
+                        return None
+        except Exception as e:
+            logger.debug(f"_safe_yf_download unexpected error for {yf_symbol}: {e}")
+            return None
+
     @staticmethod
     def _is_stock(symbol: str) -> bool:
         return (not MarketDataService._is_crypto(symbol)) and (not MarketDataService._is_forex(symbol))
@@ -795,34 +873,29 @@ class MarketDataService:
                 self.cache_timestamps[cache_key] = time.time()
                 return data
 
-        # 3) Fallback to yfinance
-        try:
-            yf_symbol = normalize_symbol_for_yf(symbol)
-            ticker = yf.Ticker(yf_symbol)
-            hist = ticker.history(period=period)
-            if hist.empty:
-                return None
-            latest = hist.iloc[-1]
-            info = getattr(ticker, 'info', {}) or {}
-            data = {
-                'symbol': symbol,
-                'price': float(latest['Close']),
-                'change': float(latest['Close'] - hist.iloc[-2]['Close']) if len(hist) > 1 else 0,
-                'change_percent': float((latest['Close'] - hist.iloc[-2]['Close']) / hist.iloc[-2]['Close'] * 100) if len(hist) > 1 else 0,
-                'volume': int(latest['Volume']),
-                'high': float(latest['High']),
-                'low': float(latest['Low']),
-                'open': float(latest['Open']),
-                'market_cap': info.get('marketCap', 0),
-                'pe_ratio': info.get('trailingPE', 0),
-                'timestamp': datetime.now().isoformat()
-            }
-            self.cache[cache_key] = data
-            self.cache_timestamps[cache_key] = time.time()
-            return data
-        except Exception as e:
-            logger.error(f"Failed to fetch data for {symbol}: {e}")
+        # 3) Fallback to yfinance (safe)
+        yf_symbol = normalize_symbol_for_yf(symbol)
+        hist = self._safe_yf_history(yf_symbol, period=period)
+        if hist is None or hist.empty:
             return None
+        latest = hist.iloc[-1]
+        # Do not access ticker.info to avoid additional HTTP calls; leave market_cap/pe_ratio as 0
+        data = {
+            'symbol': symbol,
+            'price': float(latest['Close']),
+            'change': float(latest['Close'] - hist.iloc[-2]['Close']) if len(hist) > 1 else 0,
+            'change_percent': float((latest['Close'] - hist.iloc[-2]['Close']) / hist.iloc[-2]['Close'] * 100) if len(hist) > 1 else 0,
+            'volume': int(latest['Volume']) if 'Volume' in latest else 0,
+            'high': float(latest['High']) if 'High' in latest else float(latest['Close']),
+            'low': float(latest['Low']) if 'Low' in latest else float(latest['Close']),
+            'open': float(latest['Open']) if 'Open' in latest else float(latest['Close']),
+            'market_cap': 0,
+            'pe_ratio': 0,
+            'timestamp': datetime.now().isoformat()
+        }
+        self.cache[cache_key] = data
+        self.cache_timestamps[cache_key] = time.time()
+        return data
     
     def get_market_scan(self, scan_type: str = 'trending', symbols_override: Optional[List[str]] = None) -> List[Dict[str, Any]]:
         """Get market scan data"""
@@ -873,28 +946,11 @@ class PatternDetectionService:
                 logger.debug(f"Polygon daily history unavailable for {symbol}: {e}")
 
             if hist is None:
-                # Fallback to yfinance with retry/backoff
+                # Fallback to yfinance (safe)
                 yf_symbol = normalize_symbol_for_yf(symbol)
-                ticker = yf.Ticker(yf_symbol)
-                max_attempts = 3
-                backoff_base = 0.6
-                last_err = None
-                for attempt in range(1, max_attempts + 1):
-                    try:
-                        hist = ticker.history(period='3mo')
-                        break
-                    except Exception as e:
-                        last_err = e
-                        msg = str(e)
-                        if 'rate limit' in msg.lower() or 'too many requests' in msg.lower():
-                            cooldown = 90 + int(random.uniform(0, 60))
-                            self.cooldowns[symbol] = time.time() + cooldown
-                            logger.error(f"Pattern rate-limited for {symbol}. Cooldown {cooldown}s")
-                            return []
-                        if attempt < max_attempts:
-                            time.sleep(backoff_base * (2 ** (attempt - 1)) + random.uniform(0, 0.3))
-                        else:
-                            raise last_err
+                hist = self.market_data._safe_yf_history(yf_symbol, period='3mo')
+                if hist is None:
+                    return []
             
             if hist.empty or len(hist) < 20:
                 return []
@@ -1159,28 +1215,11 @@ class PatternDetectionService:
                 logger.debug(f"Polygon intraday history unavailable for {symbol}: {e}")
 
             if hist is None:
-                # Fallback to yfinance with retry/backoff
+                # Fallback to yfinance (safe)
                 yf_symbol = normalize_symbol_for_yf(symbol)
-                ticker = yf.Ticker(yf_symbol)
-                max_attempts = 3
-                backoff_base = 0.6
-                last_err = None
-                for attempt in range(1, max_attempts + 1):
-                    try:
-                        hist = ticker.history(period=period, interval=interval)
-                        break
-                    except Exception as e:
-                        last_err = e
-                        msg = str(e)
-                        if 'rate limit' in msg.lower() or 'too many requests' in msg.lower():
-                            cooldown = 90 + int(random.uniform(0, 60))
-                            self.cooldowns[symbol] = time.time() + cooldown
-                            logger.error(f"Intraday pattern rate-limited for {symbol}. Cooldown {cooldown}s")
-                            return []
-                        if attempt < max_attempts:
-                            time.sleep(backoff_base * (2 ** (attempt - 1)) + random.uniform(0, 0.3))
-                        else:
-                            raise last_err
+                hist = self.market_data._safe_yf_history(yf_symbol, period=period, interval=interval)
+                if hist is None:
+                    return []
 
             if hist.empty or len(hist) < 5:
                 return []
@@ -1317,10 +1356,9 @@ def _verify_risk_token(token: str, expected: Dict[str, Any]) -> bool:
         """Detect candlestick patterns using intraday candles for real-time scanning"""
         try:
             yf_symbol = normalize_symbol_for_yf(symbol)
-            ticker = yf.Ticker(yf_symbol)
-            hist = ticker.history(period=period, interval=interval)
+            hist = self.market_data._safe_yf_history(yf_symbol, period=period, interval=interval)
 
-            if hist.empty or len(hist) < 5:
+            if hist is None or hist.empty or len(hist) < 5:
                 return []
 
             patterns: List[PatternDetection] = []
@@ -1409,6 +1447,7 @@ class SentimentAnalysisService:
         
         try:
             # Get news data
+            # Keep direct call for news (no safe wrapper for this endpoint)
             ticker = yf.Ticker(symbol)
             news = ticker.news
             
@@ -1909,7 +1948,7 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                             yf_symbol = normalize_symbol_for_yf(symbol)
                             interval = _yf_timeframe_to_interval(tf_use)
                             look_period = '365d' if interval.endswith('d') else '30d'
-                            hist = yf.download(yf_symbol, period=look_period, interval=interval, auto_adjust=True, progress=False)
+                            hist = market_data_service._safe_yf_download(yf_symbol, period=look_period, interval=interval)
                             if hist is None or hist.empty:
                                 continue
                             hist = hist.rename(columns=str.title)  # Ensure Title-case
@@ -2114,10 +2153,10 @@ def health():
 @limiter.limit("20 per minute")
 def provider_health():
     checks = {}
-    # yfinance basic check
+    # yfinance basic check (safe)
     try:
         start = time.time()
-        hist = yf.download('AAPL', period='1d', interval='1d', progress=False, auto_adjust=True)
+        hist = market_data_service._safe_yf_download('AAPL', period='1d', interval='1d')
         checks['yfinance'] = {'ok': bool(hist is not None and not hist.empty), 'latency_ms': int((time.time()-start)*1000)}
     except Exception as e:
         checks['yfinance'] = {'ok': False, 'error': str(e)}
@@ -2392,10 +2431,10 @@ def get_candles():
         if not symbol:
             return jsonify({'success': False, 'error': 'Symbol is required'}), 400
         
-        ticker = yf.Ticker(symbol)
-        hist = ticker.history(period=period, interval=interval)
+        yf_symbol = normalize_symbol_for_yf(symbol)
+        hist = market_data_service._safe_yf_history(yf_symbol, period=period, interval=interval)
         
-        if hist.empty:
+        if hist is None or hist.empty:
             return jsonify({'success': False, 'error': 'No data found for symbol'}), 404
         
         # Convert to candlestick format
@@ -3473,7 +3512,7 @@ def run_backtest():
         end_date = payload.get('end_date', datetime.now().strftime('%Y-%m-%d'))
 
         # Fetch historical daily data
-        hist = yf.download(symbol, start=start_date, end=end_date, progress=False, auto_adjust=True)
+        hist = market_data_service._safe_yf_download(symbol, start=start_date, end=end_date)
         if hist is None or hist.empty:
             return jsonify({'success': False, 'error': 'No historical data found for symbol/date range'}), 404
 
@@ -4522,13 +4561,12 @@ def pre_trade_check():
 
         # Fetch recent data
         yf_symbol = normalize_symbol_for_yf(symbol)
-        ticker = yf.Ticker(yf_symbol)
-        # try intraday for spread/slippage estimation
+        # try intraday for spread/slippage estimation (safe)
         try:
-            hist_i = ticker.history(period='5d', interval='1m')
+            hist_i = market_data_service._safe_yf_history(yf_symbol, period='5d', interval='1m')
         except Exception:
             hist_i = pd.DataFrame()
-        hist_d = ticker.history(period='1mo')
+        hist_d = market_data_service._safe_yf_history(yf_symbol, period='1mo')
         if hist_d is None or hist_d.empty:
             return jsonify({'success': False, 'error': 'No market data'}), 404
 
