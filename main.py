@@ -70,6 +70,15 @@ try:
 except Exception:
     BaseModel = object
 
+# Sentry error tracking
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.flask import FlaskIntegration
+    SENTRY_AVAILABLE = True
+except ImportError:
+    SENTRY_AVAILABLE = False
+    logger.warning("Sentry SDK not available. Install with: pip install sentry-sdk[flask]")
+
 # Modular pattern detection (AI + registry)
 from detectors.ai_pattern_logic import detect_all_patterns
 try:
@@ -156,6 +165,9 @@ class Config:
     AUTO_LABEL_TP_PCT = float(os.getenv('AUTO_LABEL_TP_PCT', '0.03'))
     AUTO_LABEL_SL_PCT = float(os.getenv('AUTO_LABEL_SL_PCT', '0.02'))
     AUTO_LABEL_MAX_BARS = int(os.getenv('AUTO_LABEL_MAX_BARS', '10'))
+    # ML retrain worker settings
+    ML_RETRAIN_INTERVAL_SECONDS = int(os.getenv('ML_RETRAIN_INTERVAL_SECONDS', '180'))
+    ML_PROMOTION_AUC = float(os.getenv('ML_PROMOTION_AUC', '0.6'))
     
     # Trading settings
     PAPER_TRADING_ENABLED = os.getenv('ENABLE_PAPER_TRADING', 'true').lower() == 'true'
@@ -167,6 +179,11 @@ class Config:
     ENABLE_OPENAPI = os.getenv('ENABLE_OPENAPI', 'true').lower() == 'true'
     # Supabase JWT secret (optional verification)
     SUPABASE_JWT_SECRET = os.getenv('SUPABASE_JWT_SECRET')
+    
+    # Error tracking
+    SENTRY_DSN = os.getenv('SENTRY_DSN')
+    SENTRY_ENVIRONMENT = os.getenv('SENTRY_ENVIRONMENT', 'production')
+    SENTRY_TRACES_SAMPLE_RATE = float(os.getenv('SENTRY_TRACES_SAMPLE_RATE', '0.1'))
 
 # --------------------------------------
 # Prometheus metrics
@@ -179,6 +196,17 @@ HTTP_REQUEST_LATENCY = Histogram(
     'tx_http_request_latency_seconds', 'HTTP request latency seconds', ['endpoint', 'method'], registry=registry
 )
 SCANNER_ACTIVE_GAUGE = Gauge('tx_scanner_active', 'Live scanner active (1/0)', registry=registry)
+
+# Initialize Sentry (if configured)
+if SENTRY_AVAILABLE and Config.SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=Config.SENTRY_DSN,
+        integrations=[FlaskIntegration()],
+        traces_sample_rate=Config.SENTRY_TRACES_SAMPLE_RATE,
+        environment=Config.SENTRY_ENVIRONMENT,
+        send_default_pii=False  # Don't send PII for privacy
+    )
+    logger.info(f"Sentry initialized for environment: {Config.SENTRY_ENVIRONMENT}")
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -481,16 +509,23 @@ def create_tables():
                     END IF;
                 END$$;
             """))
-            
+
+            # Create table for ML predictions logging used by services.ml_patterns
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS model_predictions (
+                    id SERIAL PRIMARY KEY,
+                    symbol VARCHAR(32) NOT NULL,
+                    prediction FLOAT NOT NULL,
+                    actual INT NULL,
+                    predicted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+
             conn.commit()
             logger.info("Database tables created/verified successfully")
-            
+        
     except Exception as e:
         logger.error(f"Failed to create tables: {e}")
-
-# Initialize database on startup
-init_database()
-
 # Data Models and Classes
 @dataclass
 class PatternDetection:
@@ -1755,10 +1790,175 @@ class AlertService:
                         )
                         new_alerts.append(alert)
                         
+                        # ============================================
+                        # ENHANCED ML PIPELINE: Multi-TF + Deep Learning + Sentiment
+                        # ============================================
+                        ml_info = {}
+                        tf_score = None
+                        
+                        try:
+                            # Extract timeframe from pattern metadata
+                            _md = alert.metadata if isinstance(alert.metadata, dict) else (pattern.metadata or {})
+                            if isinstance(_md, dict):
+                                tf_score = _md.get('timeframe') or _md.get('tf') or _md.get('interval')
+                            tf_score = str(tf_score or '1h')
+                            
+                            # 1. DEEP LEARNING PATTERN DETECTION
+                            deep_patterns = None
+                            try:
+                                deep_res = detect_patterns_deep(alert.symbol, tf_score)
+                                if deep_res.get('success'):
+                                    deep_patterns = deep_res.get('patterns', [])
+                                    ml_info['deep_learning'] = {
+                                        'detector': 'cnn_lstm',
+                                        'patterns_detected': len(deep_patterns),
+                                        'patterns': deep_patterns[:3]  # Top 3
+                                    }
+                                    logger.info(f"Deep learning detected {len(deep_patterns)} patterns for {alert.symbol}")
+                            except Exception as de:
+                                logger.debug(f"Deep detection failed: {de}")
+                                ml_info['deep_learning'] = {'error': str(de), 'available': False}
+                            
+                            # 2. MULTI-TIMEFRAME FUSION SCORING
+                            multi_tf_result = None
+                            try:
+                                # Determine market regime (can be enhanced with regime detector)
+                                regime = 'default'  # Can be: trending, ranging, volatile
+                                multi_tf_result = score_multi_timeframe(alert.symbol, score_symbol, regime)
+                                
+                                if multi_tf_result.get('success'):
+                                    ml_info['multi_timeframe'] = {
+                                        'fused_score': multi_tf_result['fused_score'],
+                                        'confidence': multi_tf_result['confidence'],
+                                        'recommendation': multi_tf_result['recommendation'],
+                                        'timeframe_breakdown': multi_tf_result['timeframe_breakdown'],
+                                        'alignment_score': multi_tf_result['metadata'].get('alignment_score'),
+                                        'divergence_detected': multi_tf_result['metadata'].get('divergence_detected')
+                                    }
+                                    logger.info(f"Multi-TF score for {alert.symbol}: {multi_tf_result['fused_score']:.2f} ({multi_tf_result['recommendation']})")
+                            except Exception as mte:
+                                logger.debug(f"Multi-TF fusion failed: {mte}")
+                                ml_info['multi_timeframe'] = {'error': str(mte)}
+                            
+                            # 3. SINGLE TIMEFRAME ML SCORE (existing)
+                            single_tf_ml = None
+                            try:
+                                ml_res = score_symbol(alert.symbol, timeframe=tf_score)
+                                single_tf_ml = ml_res
+                                ml_info['single_timeframe'] = ml_res
+                                
+                                # Persist prediction if available
+                                pred = ml_res.get('prediction') or ml_res.get('score') or ml_res.get('prob') or ml_res.get('probability')
+                                if db_available and pred is not None:
+                                    try:
+                                        with engine.begin() as conn:
+                                            conn.execute(text(
+                                                """
+                                                INSERT INTO model_predictions (symbol, prediction)
+                                                VALUES (:symbol, :prediction)
+                                                """
+                                            ), { 'symbol': alert.symbol, 'prediction': float(pred) })
+                                    except Exception as pe:
+                                        logger.debug(f"model_predictions insert failed: {pe}")
+                            except Exception as me:
+                                logger.debug(f"Single TF ML score failed: {me}")
+                                ml_info['single_timeframe'] = {'error': str(me)}
+                            
+                            # 4. SENTIMENT INTEGRATION (if available)
+                            try:
+                                from services.sentiment_analyzer import TXSentimentAnalyzer
+                                sentiment_analyzer = TXSentimentAnalyzer()
+                                sentiment = sentiment_analyzer.analyze_symbol_sentiment(alert.symbol)
+                                if sentiment:
+                                    ml_info['sentiment'] = {
+                                        'score': sentiment.overall_sentiment,
+                                        'confidence': sentiment.confidence,
+                                        'label': sentiment._get_sentiment_label(),
+                                        'volume': sentiment.volume,
+                                        'trending': sentiment.trending_score
+                                    }
+                            except Exception as se:
+                                logger.debug(f"Sentiment extraction failed: {se}")
+                            
+                            # 5. COMPOSITE QUALITY SCORE
+                            # Combine all signals into a single quality metric
+                            quality_score = pattern.confidence  # Start with pattern confidence
+                            quality_factors = []
+                            
+                            # Factor in multi-TF if available
+                            if multi_tf_result and multi_tf_result.get('success'):
+                                mtf_score = multi_tf_result['fused_score']
+                                quality_score = (quality_score * 0.4) + (mtf_score * 0.6)  # Weight multi-TF higher
+                                quality_factors.append(f"multi_tf={mtf_score:.2f}")
+                            
+                            # Factor in deep learning confirmation
+                            if deep_patterns:
+                                # Check if deep learning confirms the pattern
+                                deep_confirms = any(dp['pattern_type'] == pattern.pattern_type for dp in deep_patterns)
+                                if deep_confirms:
+                                    quality_score *= 1.15  # 15% boost for confirmation
+                                    quality_factors.append("deep_confirm=yes")
+                            
+                            # Factor in sentiment alignment
+                            if 'sentiment' in ml_info:
+                                sent_score = ml_info['sentiment']['score']
+                                # Bullish pattern + bullish sentiment = boost
+                                # Bearish pattern + bearish sentiment = boost
+                                pattern_bullish = 'BULL' in pattern.pattern_type.upper() or 'BOTTOM' in pattern.pattern_type.upper()
+                                pattern_bearish = 'BEAR' in pattern.pattern_type.upper() or 'TOP' in pattern.pattern_type.upper()
+                                
+                                if (pattern_bullish and sent_score > 0.2) or (pattern_bearish and sent_score < -0.2):
+                                    quality_score *= 1.10  # 10% boost for sentiment alignment
+                                    quality_factors.append(f"sentiment_aligned={sent_score:.2f}")
+                            
+                            # Cap at 1.0
+                            quality_score = min(1.0, quality_score)
+                            
+                            ml_info['composite_quality'] = {
+                                'score': quality_score,
+                                'factors': quality_factors,
+                                'original_confidence': pattern.confidence
+                            }
+                            
+                            # Update alert confidence with composite score
+                            alert.confidence = quality_score
+                            
+                            logger.info(f"Alert quality for {alert.symbol}: {quality_score:.2f} (factors: {', '.join(quality_factors)})")
+                            
+                        except Exception as pipeline_error:
+                            logger.error(f"ML pipeline error for {alert.symbol}: {pipeline_error}")
+                            ml_info['pipeline_error'] = str(pipeline_error)
+
                         # Store in database
                         if db_available:
                             try:
                                 with Session() as session:
+                                    # Merge enhanced ML info into metadata before insert
+                                    _meta = pattern.metadata or {}
+                                    try:
+                                        if isinstance(_meta, dict):
+                                            meta_to_store = dict(_meta)
+                                        else:
+                                            meta_to_store = {}
+                                    except Exception:
+                                        meta_to_store = {}
+                                    
+                                    # Add all ML enrichment data
+                                    if ml_info:
+                                        try:
+                                            meta_to_store['ml_enhanced'] = ml_info
+                                            # Add quality badge for frontend
+                                            quality = ml_info.get('composite_quality', {}).get('score', pattern.confidence)
+                                            if quality >= 0.85:
+                                                meta_to_store['quality_badge'] = 'ELITE'
+                                            elif quality >= 0.75:
+                                                meta_to_store['quality_badge'] = 'HIGH'
+                                            elif quality >= 0.65:
+                                                meta_to_store['quality_badge'] = 'GOOD'
+                                            else:
+                                                meta_to_store['quality_badge'] = 'MODERATE'
+                                        except Exception:
+                                            pass
                                     session.execute(text("""
                                         INSERT INTO alerts (symbol, alert_type, message, confidence, created_at, metadata)
                                         VALUES (:symbol, :alert_type, :message, :confidence, :created_at, :metadata)
@@ -1768,7 +1968,7 @@ class AlertService:
                                         'message': alert.message,
                                         'confidence': alert.confidence,
                                         'created_at': alert.timestamp,
-                                        'metadata': json.dumps(pattern.metadata or {})
+                                        'metadata': json.dumps(meta_to_store)
                                     })
                                     session.commit()
                             except Exception as e:
@@ -2093,7 +2293,7 @@ if Config.ENABLE_BACKGROUND_WORKERS:
                                     logger.debug(f"Auto-label insert failed: {ie}")
                         except Exception as row_e:
                             logger.debug(f"Auto-label per-alert error: {row_e}")
-                    time.sleep(300)  # run every 5 minutes
+                    time.sleep(180)  # run every 5 minutes
                 except Exception as e:
                     logger.error(f"Auto-label worker error: {e}")
                     time.sleep(60)
@@ -2101,6 +2301,28 @@ if Config.ENABLE_BACKGROUND_WORKERS:
         auto_label_thread = threading.Thread(target=_auto_label_worker, daemon=True)
         auto_label_thread.start()
         logger.info("Auto-label worker started")
+
+        # --------------------------------------
+        # ML retrain background worker
+        # --------------------------------------
+        def _ml_retrain_worker():
+            interval = Config.ML_RETRAIN_INTERVAL_SECONDS
+            while True:
+                try:
+                    res = train_from_outcomes(lookback='180d')
+                    try:
+                        summary = res.get('result') or res
+                    except Exception:
+                        summary = res
+                    logger.info(f"ML retrain tick (interval={interval}s): {summary}")
+                except Exception as e:
+                    logger.error(f"ML retrain worker error: {e}")
+                time.sleep(interval)
+
+        if Config.ENABLE_BACKGROUND_WORKERS:
+            ml_retrain_thread = threading.Thread(target=_ml_retrain_worker, daemon=True)
+            ml_retrain_thread.start()
+            logger.info(f"ML retrain worker started (interval={Config.ML_RETRAIN_INTERVAL_SECONDS}s)")
 
 # --------------------------------------
 # OpenAPI docs and health endpoints (additive)
@@ -2304,7 +2526,23 @@ def pattern_performance_summary():
 # --------------------------------------
 # ML-based pattern detection endpoints (no heuristics)
 # --------------------------------------
-from services.ml_patterns import train_from_outcomes, score_symbol, score_symbol_with_pattern  # type: ignore
+from services.ml_patterns_loader import (
+    train_from_outcomes,
+    score_symbol,
+    score_symbol_with_pattern,
+    list_available_models as ml_list_available_models,
+    get_model_info as ml_get_model_info,
+    get_feature_contributions as ml_get_feature_contributions,
+    promote_model as ml_promote_model,
+    get_active_version as ml_get_active_version,
+)  # type: ignore
+
+# Advanced ML modules
+from services.deep_pattern_detector import detect_patterns_deep, get_deep_detector
+from services.multi_timeframe_fusion import score_multi_timeframe
+from services.sentiment_ml_integration import SentimentFeatureEngineer
+from services.rl_trading_agent import get_rl_agent, TradingState
+from services.online_learning import get_online_learning_system
 
 @app.route('/api/ml/train', methods=['POST'])
 @limiter.limit("10 per hour")
@@ -2318,7 +2556,8 @@ def ml_train():
         res = train_from_outcomes(lookback=lookback)
         if not res.get('success'):
             return jsonify({'success': False, 'error': res.get('error')}), 400
-        return jsonify({'success': True, 'metrics': res.get('metrics')})
+        # Align with new ML system: return the full result structure (includes summary and trained/skipped lists)
+        return jsonify({'success': True, 'result': res})
     except Exception as e:
         logger.error(f"ml_train error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -2333,10 +2572,241 @@ def ml_score():
         if not symbol:
             return jsonify({'success': False, 'error': 'symbol required'}), 400
         res = score_symbol(symbol, timeframe=timeframe)
+        # Persist prediction for monitoring
+        try:
+            pred = res.get('prediction') or res.get('score') or res.get('prob') or res.get('probability')
+            if db_available and res.get('success') and pred is not None:
+                with engine.begin() as conn:
+                    conn.execute(text(
+                        """
+                        INSERT INTO model_predictions (symbol, prediction)
+                        VALUES (:symbol, :prediction)
+                        """
+                    ), { 'symbol': symbol, 'prediction': float(pred) })
+        except Exception as pe:
+            logger.debug(f"model_predictions insert from /api/ml/score failed: {pe}")
         status = 200 if res.get('success') else 400
         return jsonify(res), status
     except Exception as e:
         logger.error(f"ml_score error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# --------------------------------------
+# Optional ML utility endpoints
+# --------------------------------------
+
+@app.route('/api/ml/models', methods=['GET'])
+@limiter.limit("30 per minute")
+def ml_list_models():
+    """List available trained models (global and pattern)."""
+    try:
+        res = ml_list_available_models()
+        return jsonify({'success': True, 'models': res}), 200
+    except Exception as e:
+        logger.error(f"ml_list_models error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ml/model-info', methods=['GET'])
+@limiter.limit("30 per minute")
+def ml_model_info():
+    """Get model info and feature importance.
+    Query params: asset_class, timeframe, regime=all, version=latest
+    """
+    try:
+        asset_class = request.args.get('asset_class')
+        timeframe = request.args.get('timeframe')
+        regime = request.args.get('regime', 'all')
+        version = request.args.get('version', 'latest')
+        if not asset_class or not timeframe:
+            return jsonify({'success': False, 'error': 'asset_class and timeframe are required'}), 400
+        res = ml_get_model_info(asset_class, timeframe, regime, version)
+        status = 200 if res.get('success') else 404
+        return jsonify(res), status
+    except Exception as e:
+        logger.error(f"ml_model_info error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ml/feature-contrib', methods=['GET'])
+@limiter.limit("30 per minute")
+def ml_feature_contributions():
+    """Get simple feature contribution scores for the latest prediction.
+    Query params: symbol, timeframe=1h
+    """
+    try:
+        symbol = (request.args.get('symbol') or '').upper()
+        timeframe = request.args.get('timeframe', '1h')
+        if not symbol:
+            return jsonify({'success': False, 'error': 'symbol required'}), 400
+        res = ml_get_feature_contributions(symbol, timeframe)
+        status = 200 if res.get('success') else 400
+        return jsonify(res), status
+    except Exception as e:
+        logger.error(f"ml_feature_contributions error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# Admin: promote a model version to active
+@app.route('/api/ml/promote', methods=['POST'])
+@limiter.limit("10 per minute")
+def ml_promote():
+    try:
+        data = request.get_json(silent=True) or {}
+        asset_class = data.get('asset_class')
+        timeframe = data.get('timeframe')
+        regime = data.get('regime', 'all')
+        to_version = data.get('to_version')
+        pattern = data.get('pattern')
+        if not asset_class or not timeframe or not to_version:
+            return jsonify({'success': False, 'error': 'asset_class, timeframe, to_version required'}), 400
+        res = ml_promote_model(asset_class, timeframe, regime, to_version, pattern)
+        status = 200 if res.get('success') else 400
+        return jsonify(res), status
+    except Exception as e:
+        logger.error(f"ml_promote error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# Read active version for a model namespace
+@app.route('/api/ml/active-version', methods=['GET'])
+@limiter.limit("30 per minute")
+def ml_active_version():
+    try:
+        asset_class = request.args.get('asset_class')
+        timeframe = request.args.get('timeframe')
+        regime = request.args.get('regime', 'all')
+        pattern = request.args.get('pattern')
+        if not asset_class or not timeframe:
+            return jsonify({'success': False, 'error': 'asset_class and timeframe required'}), 400
+        res = ml_get_active_version(asset_class, timeframe, regime, pattern)
+        return jsonify(res), 200
+    except Exception as e:
+        logger.error(f"ml_active_version error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# --------------------------------------
+# Advanced ML Endpoints (Deep Learning, Multi-TF, RL, Online)
+# --------------------------------------
+
+@app.route('/api/ml/deep-detect', methods=['GET'])
+@limiter.limit("30 per minute")
+def ml_deep_detect():
+    """Deep learning pattern detection using CNN/LSTM. Query: symbol, timeframe"""
+    try:
+        symbol = (request.args.get('symbol') or '').upper()
+        timeframe = request.args.get('timeframe', '1h')
+        if not symbol:
+            return jsonify({'success': False, 'error': 'symbol required'}), 400
+        res = detect_patterns_deep(symbol, timeframe)
+        return jsonify(res), 200 if res.get('success') else 400
+    except Exception as e:
+        logger.error(f"ml_deep_detect error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ml/multi-timeframe', methods=['GET'])
+@limiter.limit("30 per minute")
+def ml_multi_timeframe():
+    """Multi-timeframe fusion scoring. Query: symbol, regime (default, trending, ranging, volatile)"""
+    try:
+        symbol = (request.args.get('symbol') or '').upper()
+        regime = request.args.get('regime', 'default')
+        if not symbol:
+            return jsonify({'success': False, 'error': 'symbol required'}), 400
+        res = score_multi_timeframe(symbol, score_symbol, regime)
+        return jsonify(res), 200 if res.get('success') else 400
+    except Exception as e:
+        logger.error(f"ml_multi_timeframe error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ml/rl-action', methods=['POST'])
+@limiter.limit("60 per minute")
+def ml_rl_action():
+    """Get optimal trading action from RL agent. Body: state dict with price, volume, rsi, etc."""
+    try:
+        data = request.get_json(silent=True) or {}
+        state = TradingState(
+            price=float(data.get('price', 0)),
+            volume=float(data.get('volume', 0)),
+            rsi=float(data.get('rsi', 50)),
+            macd=float(data.get('macd', 0)),
+            bb_position=float(data.get('bb_position', 0.5)),
+            sentiment=float(data.get('sentiment', 0)),
+            position=int(data.get('position', 0)),
+            pnl=float(data.get('pnl', 0)),
+            time_in_position=int(data.get('time_in_position', 0))
+        )
+        agent = get_rl_agent()
+        res = agent.get_optimal_action(state)
+        return jsonify({'success': True, 'result': res}), 200
+    except Exception as e:
+        logger.error(f"ml_rl_action error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ml/online-predict', methods=['POST'])
+@limiter.limit("60 per minute")
+def ml_online_predict():
+    """Online learning prediction. Body: asset_class, timeframe, regime, features (array)"""
+    try:
+        data = request.get_json(silent=True) or {}
+        asset_class = data.get('asset_class')
+        timeframe = data.get('timeframe')
+        regime = data.get('regime', 'all')
+        features = data.get('features')
+        
+        if not asset_class or not timeframe or not features:
+            return jsonify({'success': False, 'error': 'asset_class, timeframe, features required'}), 400
+        
+        X = np.array(features).reshape(1, -1)
+        system = get_online_learning_system()
+        res = system.predict(asset_class, timeframe, regime, X)
+        return jsonify(res), 200 if res.get('success') else 400
+    except Exception as e:
+        logger.error(f"ml_online_predict error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ml/online-update', methods=['POST'])
+@limiter.limit("30 per minute")
+def ml_online_update():
+    """Update online model with new outcome. Body: asset_class, timeframe, regime, features, label"""
+    try:
+        data = request.get_json(silent=True) or {}
+        asset_class = data.get('asset_class')
+        timeframe = data.get('timeframe')
+        regime = data.get('regime', 'all')
+        features = data.get('features')
+        label = data.get('label')
+        
+        if not asset_class or not timeframe or features is None or label is None:
+            return jsonify({'success': False, 'error': 'asset_class, timeframe, features, label required'}), 400
+        
+        X = np.array(features).reshape(1, -1)
+        y = np.array([int(label)])
+        
+        system = get_online_learning_system()
+        res = system.update_model(asset_class, timeframe, regime, X, y)
+        return jsonify(res), 200 if res.get('success') else 400
+    except Exception as e:
+        logger.error(f"ml_online_update error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/ml/online-status', methods=['GET'])
+@limiter.limit("30 per minute")
+def ml_online_status():
+    """Get status of all online learning models"""
+    try:
+        system = get_online_learning_system()
+        res = system.get_all_models_status()
+        return jsonify({'success': True, 'status': res}), 200
+    except Exception as e:
+        logger.error(f"ml_online_status error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # Flask API Routes
@@ -2354,7 +2824,7 @@ def index():
 @app.route('/health')
 @limiter.exempt
 def health_check():
-    """Health check endpoint"""
+    """Basic health check endpoint"""
     return jsonify({
         'status': 'healthy',
         'service': 'TX Trade Whisperer Backend',
@@ -2362,6 +2832,133 @@ def health_check():
         'database': 'connected' if db_available else 'demo_mode',
         'timestamp': datetime.now().isoformat()
     })
+
+@app.route('/health/detailed')
+@limiter.exempt
+def health_detailed():
+    """Detailed health check with all system components"""
+    import psutil
+    
+    health_status = {
+        'status': 'healthy',
+        'service': 'TX Trade Whisperer Backend',
+        'version': '2.0.0',
+        'timestamp': datetime.now().isoformat(),
+        'components': {}
+    }
+    
+    # Database check
+    try:
+        if db_available and engine:
+            with engine.connect() as conn:
+                conn.execute(text('SELECT 1'))
+            health_status['components']['database'] = {
+                'status': 'healthy',
+                'type': 'postgresql',
+                'pooling': 'pgbouncer' if Config.USE_PGBOUNCER else 'direct'
+            }
+        else:
+            health_status['components']['database'] = {
+                'status': 'unavailable',
+                'message': 'Running in demo mode'
+            }
+    except Exception as e:
+        health_status['components']['database'] = {
+            'status': 'unhealthy',
+            'error': str(e)
+        }
+        health_status['status'] = 'degraded'
+    
+    # ML Models check
+    try:
+        from services.ml_patterns_loader import list_available_models
+        models = list_available_models()
+        health_status['components']['ml_models'] = {
+            'status': 'healthy',
+            'total_models': len(models.get('global', [])) + len(models.get('pattern', [])),
+            'global_models': len(models.get('global', [])),
+            'pattern_models': len(models.get('pattern', []))
+        }
+    except Exception as e:
+        health_status['components']['ml_models'] = {
+            'status': 'error',
+            'error': str(e)
+        }
+    
+    # Deep Learning check
+    try:
+        import torch
+        health_status['components']['deep_learning'] = {
+            'status': 'available',
+            'pytorch_version': torch.__version__,
+            'cuda_available': torch.cuda.is_available(),
+            'device': 'cuda' if torch.cuda.is_available() else 'cpu'
+        }
+    except ImportError:
+        health_status['components']['deep_learning'] = {
+            'status': 'unavailable',
+            'message': 'PyTorch not installed'
+        }
+    
+    # Online Learning check
+    try:
+        from services.online_learning import get_online_learning_system
+        online_system = get_online_learning_system()
+        status = online_system.get_all_models_status()
+        health_status['components']['online_learning'] = {
+            'status': 'healthy',
+            'total_models': status.get('total_models', 0),
+            'queue_size': status.get('queue_size', 0)
+        }
+    except Exception as e:
+        health_status['components']['online_learning'] = {
+            'status': 'error',
+            'error': str(e)
+        }
+    
+    # System resources
+    try:
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        health_status['components']['system'] = {
+            'status': 'healthy',
+            'memory': {
+                'total_gb': round(memory.total / (1024**3), 2),
+                'available_gb': round(memory.available / (1024**3), 2),
+                'percent_used': memory.percent
+            },
+            'disk': {
+                'total_gb': round(disk.total / (1024**3), 2),
+                'free_gb': round(disk.free / (1024**3), 2),
+                'percent_used': disk.percent
+            },
+            'cpu_percent': psutil.cpu_percent(interval=0.1)
+        }
+        
+        # Flag if resources are critical
+        if memory.percent > 90 or disk.percent > 90:
+            health_status['status'] = 'degraded'
+            health_status['components']['system']['warning'] = 'High resource usage'
+    except Exception as e:
+        health_status['components']['system'] = {
+            'status': 'error',
+            'error': str(e)
+        }
+    
+    # Background workers
+    health_status['components']['workers'] = {
+        'status': 'configured' if Config.ENABLE_BACKGROUND_WORKERS else 'disabled',
+        'auto_label': Config.AUTO_LABEL_FROM_ALERTS,
+        'ml_retrain_interval': Config.ML_RETRAIN_INTERVAL_SECONDS
+    }
+    
+    # Error tracking
+    health_status['components']['error_tracking'] = {
+        'status': 'enabled' if (SENTRY_AVAILABLE and Config.SENTRY_DSN) else 'disabled',
+        'provider': 'sentry' if SENTRY_AVAILABLE else None
+    }
+    
+    return jsonify(health_status)
 
 # Market Data Endpoints
 @app.route('/api/market-scan')

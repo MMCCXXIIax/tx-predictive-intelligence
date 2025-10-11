@@ -611,6 +611,9 @@ class TradingMLSystem:
                    version: str = 'latest') -> str:
         """Generate model path for global models with versioning"""
         safe_regime = regime.lower().replace(' ', '_')
+        # Resolve active version when requested
+        if version == 'latest':
+            version = self._get_active_version(asset, timeframe, safe_regime) or 'latest'
         d = os.path.join(self.model_base, asset, timeframe, safe_regime, version)
         self._ensure_dir(d)
         return os.path.join(d, 'model.pkl')
@@ -620,9 +623,72 @@ class TradingMLSystem:
         """Generate model path for pattern-specific models with versioning"""
         safe_pat = (pattern or 'UNKNOWN').replace('/', '_').replace(' ', '_').upper()
         safe_regime = regime.lower().replace(' ', '_')
+        if version == 'latest':
+            version = self._get_active_version(asset, timeframe, safe_regime, pattern=safe_pat) or 'latest'
         d = os.path.join(self.model_base, asset, timeframe, safe_pat, safe_regime, version)
         self._ensure_dir(d)
         return os.path.join(d, 'model.pkl')
+
+    # ------------------------------
+    # Minimal version selection
+    # ------------------------------
+    def _active_version_file(self, asset: str, timeframe: str, regime: str, *, pattern: Optional[str] = None) -> str:
+        """Return the path to the active_version.txt for a given model namespace."""
+        parts = [self.model_base, asset, timeframe]
+        if pattern:
+            parts.append(pattern)
+        parts.append(regime)
+        dir_path = os.path.join(*parts)
+        self._ensure_dir(dir_path)
+        return os.path.join(dir_path, 'active_version.txt')
+
+    def _get_active_version(self, asset: str, timeframe: str, regime: str, *, pattern: Optional[str] = None) -> Optional[str]:
+        """Read active version from file if present; otherwise None."""
+        try:
+            fpath = self._active_version_file(asset, timeframe, regime, pattern=pattern)
+            if os.path.exists(fpath):
+                with open(fpath, 'r', encoding='utf-8') as f:
+                    v = (f.read() or '').strip()
+                    return v or None
+        except Exception:
+            pass
+        return None
+
+    def set_active_version(self, asset: str, timeframe: str, regime: str, version: str, *, pattern: Optional[str] = None) -> bool:
+        """Persist active version. Returns True on success."""
+        try:
+            regime_s = regime.lower().replace(' ', '_')
+            fpath = self._active_version_file(asset, timeframe, regime_s, pattern=pattern)
+            with open(fpath, 'w', encoding='utf-8') as f:
+                f.write(str(version).strip())
+            return True
+        except Exception as e:
+            logger.error(f"Failed to set active version: {e}")
+            return False
+
+    def promote_model(self, asset: str, timeframe: str, regime: str, to_version: str, *, pattern: Optional[str] = None) -> Dict[str, Any]:
+        """Minimal promotion: set active_version.txt to to_version if directory exists."""
+        try:
+            regime_s = regime.lower().replace(' ', '_')
+            if pattern:
+                safe_pat = (pattern or 'UNKNOWN').replace('/', '_').replace(' ', '_').upper()
+                base_dir = os.path.join(self.model_base, asset, timeframe, safe_pat, regime_s, to_version)
+            else:
+                base_dir = os.path.join(self.model_base, asset, timeframe, regime_s, to_version)
+            if not os.path.isdir(base_dir):
+                return {'success': False, 'error': f'version directory not found: {base_dir}'}
+            ok = self.set_active_version(asset, timeframe, regime_s, to_version, pattern=(safe_pat if pattern else None))
+            return {'success': bool(ok), 'active_version': to_version}
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def get_active_version(self, asset: str, timeframe: str, regime: str, *, pattern: Optional[str] = None) -> Optional[str]:
+        """Public accessor for active version resolution."""
+        try:
+            regime_s = regime.lower().replace(' ', '_')
+            return self._get_active_version(asset, timeframe, regime_s, pattern=pattern)
+        except Exception:
+            return None
 
     def _safe_yf_download(self, symbol: str, *, period: Optional[str] = None, 
                          interval: Optional[str] = None, start: Optional[str] = None, 
