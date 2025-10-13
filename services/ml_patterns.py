@@ -577,8 +577,9 @@ class TradingMLSystem:
         # Handle PostgreSQL URL formatting
         if db_url.startswith('postgres://'):
             db_url = db_url.replace('postgres://', 'postgresql://', 1)
+        # Use psycopg (version 3) instead of psycopg2
         if db_url.startswith('postgresql://') and 'psycopg' not in db_url:
-            db_url = db_url.replace('postgresql://', 'postgresql+psycopg2://')
+            db_url = db_url.replace('postgresql://', 'postgresql+psycopg://')
             
         connect_args = {'sslmode': 'require'} if db_url.startswith('postgresql') else {}
         if '+psycopg' in db_url:
