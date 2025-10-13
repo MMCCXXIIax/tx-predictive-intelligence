@@ -2292,6 +2292,9 @@ if Config.ENABLE_BACKGROUND_WORKERS:
         # ML retrain background worker
         # --------------------------------------
         def _ml_retrain_worker():
+            # Import inside worker to ensure it's available when worker starts
+            from services.ml_patterns_loader import train_from_outcomes
+            
             interval = Config.ML_RETRAIN_INTERVAL_SECONDS
             while True:
                 try:
@@ -3302,39 +3305,7 @@ def set_scan_config():
         logger.error(f"Set scan config error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/detect-enhanced', methods=['POST'])
-@limiter.limit("20 per minute")
-def detect_enhanced():
-    """Enhanced pattern detection endpoint"""
-    try:
-        data = request.get_json()
-        symbol = data.get('symbol', '').upper()
-        
-        if not symbol:
-            return jsonify({'success': False, 'error': 'Symbol is required'}), 400
-        
-        patterns = pattern_service.detect_patterns(symbol)
-        
-        # Convert to dict format for JSON response
-        pattern_data = []
-        for pattern in patterns:
-            pattern_dict = asdict(pattern)
-            # Add additional fields expected by frontend
-            pattern_dict.update({
-                'entry_signal': 'BUY' if pattern.confidence > 0.75 else 'HOLD',
-                'exit_signal': 'SELL' if pattern.confidence < 0.3 else 'HOLD',
-                'market_context': f"Pattern detected with {pattern.confidence:.1%} confidence",
-                'keywords': [pattern.pattern_type.lower().replace(' ', '_')],
-                'sentiment_score': min(pattern.confidence * 100, 100),
-                'confidence_pct': round(float(pattern.confidence) * 100.0, 1)
-            })
-            pattern_data.append(pattern_dict)
-        
-        return jsonify({'success': True, 'data': pattern_data})
-        
-    except Exception as e:
-        logger.error(f"Enhanced detection error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+# REMOVED: Duplicate endpoint - using the enhanced version at line 5353 instead
 
 @app.route('/api/pattern-stats')
 @limiter.limit("10 per minute")
