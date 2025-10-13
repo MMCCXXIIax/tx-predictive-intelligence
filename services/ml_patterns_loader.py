@@ -67,6 +67,10 @@ def _load_ml_module() -> types.ModuleType:
 
     mod = types.ModuleType('services.ml_patterns_sanitized')
     mod.__file__ = _ML_PATH
+    
+    # CRITICAL: Register module in sys.modules for Python 3.13 dataclass compatibility
+    sys.modules['services.ml_patterns_sanitized'] = mod
+    
     # Provide builtins and minimal globals expected by the ML file
     g: Dict[str, Any] = mod.__dict__
 
@@ -75,6 +79,8 @@ def _load_ml_module() -> types.ModuleType:
     except Exception as e:
         # Surface useful debugging info, but do not modify original file
         tb = traceback.format_exc()
+        # Clean up on failure
+        sys.modules.pop('services.ml_patterns_sanitized', None)
         raise ImportError(f"Failed to dynamically load sanitized ml_patterns.py: {e}\n{tb}")
 
     _ml_mod = mod
