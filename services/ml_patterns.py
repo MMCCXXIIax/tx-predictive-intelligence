@@ -961,17 +961,18 @@ class TradingMLSystem:
             
         try:
             with self.engine.connect() as conn:
-                query = text("""
+                # Use string formatting for interval since PostgreSQL doesn't support parameter binding for INTERVAL
+                query = text(f"""
                     SELECT symbol, pattern, entry_price, exit_price, pnl, quantity, 
                            timeframe, opened_at, closed_at
                     FROM trade_outcomes 
-                    WHERE closed_at > NOW() - INTERVAL :days::text || ' days'
+                    WHERE closed_at > NOW() - INTERVAL '{int(window_days)} days'
                     AND pnl IS NOT NULL
                     ORDER BY closed_at DESC
                     LIMIT 5000
                 """)
                 
-                rows = conn.execute(query, {'days': str(int(window_days))}).fetchall()
+                rows = conn.execute(query).fetchall()
                 
                 data = []
                 for r in rows:
