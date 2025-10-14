@@ -1691,11 +1691,45 @@ class PaperTradingService:
                         # Update database
                         if db_available:
                             with Session() as session:
+                                # Get trade details before closing
+                                trade_details = session.execute(text("""
+                                    SELECT symbol, entry_price, executed_at, pattern_type
+                                    FROM tx.paper_trades 
+                                    WHERE symbol = :symbol AND status = 'OPEN'
+                                    LIMIT 1
+                                """), {'symbol': symbol}).fetchone()
+                                
+                                # Close the trade
                                 session.execute(text("""
                                     UPDATE tx.paper_trades 
                                     SET status = 'CLOSED', pnl = :pnl, exit_price = :price, closed_at = NOW()
                                     WHERE symbol = :symbol AND status = 'OPEN'
                                 """), {'symbol': symbol, 'pnl': pnl, 'price': price})
+                                
+                                # Auto-log to trade_outcomes for ML training
+                                if trade_details:
+                                    try:
+                                        session.execute(text("""
+                                            INSERT INTO trade_outcomes 
+                                            (symbol, pattern, entry_price, exit_price, pnl, quantity, 
+                                             timeframe, opened_at, closed_at, metadata)
+                                            VALUES (:symbol, :pattern, :entry_price, :exit_price, :pnl, :quantity,
+                                                    :timeframe, :opened_at, NOW(), :metadata)
+                                        """), {
+                                            'symbol': symbol,
+                                            'pattern': trade_details.pattern_type or 'Unknown',
+                                            'entry_price': trade_details.entry_price,
+                                            'exit_price': price,
+                                            'pnl': pnl,
+                                            'quantity': quantity,
+                                            'timeframe': '1h',
+                                            'opened_at': trade_details.executed_at,
+                                            'metadata': None
+                                        })
+                                        logger.info(f"Auto-logged trade outcome: {symbol} PNL=${pnl:.2f}")
+                                    except Exception as log_err:
+                                        logger.warning(f"Failed to auto-log trade outcome: {log_err}")
+                                
                                 session.commit()
                         
                         # Remove from positions
