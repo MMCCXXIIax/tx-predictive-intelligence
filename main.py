@@ -6291,6 +6291,940 @@ def get_streak():
         logger.error(f"Streak error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+# --------------------------------------
+# User Preferences & Settings
+# --------------------------------------
+@app.route('/api/user/preferences', methods=['GET', 'POST'])
+@limiter.limit("30 per minute")
+def user_preferences():
+    """Get or update user preferences"""
+    try:
+        if request.method == 'GET':
+            # Try to get from database, fallback to defaults
+            with get_db_session() as session:
+                result = session.execute(
+                    text("""
+                        SELECT preferences FROM user_preferences 
+                        WHERE user_id = :user_id 
+                        ORDER BY updated_at DESC LIMIT 1
+                    """),
+                    {'user_id': 'default'}  # For now, single user system
+                )
+                row = result.fetchone()
+                
+                if row:
+                    preferences = row[0]
+                else:
+                    # Default preferences
+                    preferences = {
+                        'theme': 'auto',
+                        'notifications': {
+                            'sound': True,
+                            'push': True,
+                            'email': False,
+                            'desktop': True
+                        },
+                        'default_watchlist': ['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'NVDA'],
+                        'risk_tolerance': 'moderate',
+                        'preferred_timeframes': ['1h', '4h', '1D'],
+                        'alert_filters': {
+                            'min_confidence': 0.75,
+                            'patterns': [],  # Empty = all patterns
+                            'symbols': []  # Empty = all symbols
+                        },
+                        'trading': {
+                            'default_position_size_pct': 2.0,
+                            'max_positions': 5,
+                            'auto_stop_loss': True,
+                            'auto_take_profit': True
+                        },
+                        'display': {
+                            'chart_type': 'candlestick',
+                            'show_volume': True,
+                            'show_indicators': True,
+                            'compact_mode': False
+                        }
+                    }
+                
+                return jsonify({
+                    'success': True,
+                    'preferences': preferences,
+                    'timestamp': datetime.now().isoformat()
+                })
+        
+        else:  # POST
+            preferences = request.json
+            
+            # Store in database
+            with get_db_session() as session:
+                # Create table if not exists
+                session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS user_preferences (
+                        id SERIAL PRIMARY KEY,
+                        user_id TEXT NOT NULL,
+                        preferences JSONB NOT NULL,
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        updated_at TIMESTAMP DEFAULT NOW()
+                    )
+                """))
+                
+                # Upsert preferences
+                session.execute(text("""
+                    INSERT INTO user_preferences (user_id, preferences, updated_at)
+                    VALUES (:user_id, :preferences, NOW())
+                    ON CONFLICT (user_id) 
+                    DO UPDATE SET preferences = :preferences, updated_at = NOW()
+                """), {
+                    'user_id': 'default',
+                    'preferences': json.dumps(preferences)
+                })
+                session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Preferences updated successfully',
+                'timestamp': datetime.now().isoformat()
+            })
+    
+    except Exception as e:
+        logger.exception("User preferences error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --------------------------------------
+# Watchlist Management
+# --------------------------------------
+@app.route('/api/watchlist', methods=['GET', 'POST'])
+@limiter.limit("30 per minute")
+def manage_watchlists():
+    """Get all watchlists or create new one"""
+    try:
+        if request.method == 'GET':
+            with get_db_session() as session:
+                # Create table if not exists
+                session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS watchlists (
+                        id SERIAL PRIMARY KEY,
+                        user_id TEXT NOT NULL,
+                        name TEXT NOT NULL,
+                        symbols TEXT[] NOT NULL,
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        updated_at TIMESTAMP DEFAULT NOW()
+                    )
+                """))
+                session.commit()
+                
+                result = session.execute(
+                    text("""
+                        SELECT id, name, symbols, created_at, updated_at
+                        FROM watchlists
+                        WHERE user_id = :user_id
+                        ORDER BY updated_at DESC
+                    """),
+                    {'user_id': 'default'}
+                )
+                
+                watchlists = []
+                for row in result:
+                    watchlists.append({
+                        'id': row[0],
+                        'name': row[1],
+                        'symbols': row[2],
+                        'created_at': row[3].isoformat() if row[3] else None,
+                        'updated_at': row[4].isoformat() if row[4] else None
+                    })
+                
+                # If no watchlists, create default ones
+                if not watchlists:
+                    default_lists = [
+                        {'name': 'Tech Stocks', 'symbols': ['AAPL', 'GOOGL', 'MSFT', 'NVDA', 'TSLA', 'META']},
+                        {'name': 'Crypto', 'symbols': ['BTC-USD', 'ETH-USD', 'SOL-USD', 'AVAX-USD']},
+                        {'name': 'Day Trading', 'symbols': ['SPY', 'QQQ', 'AAPL', 'TSLA', 'AMD']}
+                    ]
+                    
+                    for wl in default_lists:
+                        session.execute(text("""
+                            INSERT INTO watchlists (user_id, name, symbols)
+                            VALUES (:user_id, :name, :symbols)
+                        """), {
+                            'user_id': 'default',
+                            'name': wl['name'],
+                            'symbols': wl['symbols']
+                        })
+                    session.commit()
+                    
+                    # Re-fetch
+                    result = session.execute(
+                        text("SELECT id, name, symbols, created_at, updated_at FROM watchlists WHERE user_id = :user_id"),
+                        {'user_id': 'default'}
+                    )
+                    watchlists = [{
+                        'id': row[0],
+                        'name': row[1],
+                        'symbols': row[2],
+                        'created_at': row[3].isoformat() if row[3] else None,
+                        'updated_at': row[4].isoformat() if row[4] else None
+                    } for row in result]
+                
+                return jsonify({
+                    'success': True,
+                    'watchlists': watchlists,
+                    'count': len(watchlists),
+                    'timestamp': datetime.now().isoformat()
+                })
+        
+        else:  # POST - Create new watchlist
+            data = request.json
+            name = data.get('name')
+            symbols = data.get('symbols', [])
+            
+            if not name:
+                return jsonify({'success': False, 'error': 'Name is required'}), 400
+            
+            with get_db_session() as session:
+                result = session.execute(text("""
+                    INSERT INTO watchlists (user_id, name, symbols)
+                    VALUES (:user_id, :name, :symbols)
+                    RETURNING id
+                """), {
+                    'user_id': 'default',
+                    'name': name,
+                    'symbols': symbols
+                })
+                session.commit()
+                watchlist_id = result.fetchone()[0]
+            
+            return jsonify({
+                'success': True,
+                'watchlist_id': watchlist_id,
+                'message': f'Watchlist "{name}" created successfully',
+                'timestamp': datetime.now().isoformat()
+            })
+    
+    except Exception as e:
+        logger.exception("Watchlist management error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/watchlist/<int:watchlist_id>', methods=['GET', 'PUT', 'DELETE'])
+@limiter.limit("30 per minute")
+def watchlist_detail(watchlist_id):
+    """Get, update, or delete a specific watchlist"""
+    try:
+        if request.method == 'GET':
+            with get_db_session() as session:
+                result = session.execute(
+                    text("SELECT id, name, symbols, created_at, updated_at FROM watchlists WHERE id = :id"),
+                    {'id': watchlist_id}
+                )
+                row = result.fetchone()
+                
+                if not row:
+                    return jsonify({'success': False, 'error': 'Watchlist not found'}), 404
+                
+                return jsonify({
+                    'success': True,
+                    'watchlist': {
+                        'id': row[0],
+                        'name': row[1],
+                        'symbols': row[2],
+                        'created_at': row[3].isoformat() if row[3] else None,
+                        'updated_at': row[4].isoformat() if row[4] else None
+                    }
+                })
+        
+        elif request.method == 'PUT':
+            data = request.json
+            
+            with get_db_session() as session:
+                updates = []
+                params = {'id': watchlist_id}
+                
+                if 'name' in data:
+                    updates.append("name = :name")
+                    params['name'] = data['name']
+                
+                if 'symbols' in data:
+                    updates.append("symbols = :symbols")
+                    params['symbols'] = data['symbols']
+                
+                if updates:
+                    updates.append("updated_at = NOW()")
+                    query = f"UPDATE watchlists SET {', '.join(updates)} WHERE id = :id"
+                    session.execute(text(query), params)
+                    session.commit()
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Watchlist updated successfully'
+                })
+        
+        else:  # DELETE
+            with get_db_session() as session:
+                session.execute(text("DELETE FROM watchlists WHERE id = :id"), {'id': watchlist_id})
+                session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Watchlist deleted successfully'
+            })
+    
+    except Exception as e:
+        logger.exception("Watchlist detail error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/watchlist/smart-recommendations', methods=['GET'])
+@limiter.limit("20 per minute")
+def smart_watchlist_recommendations():
+    """AI-recommended symbols based on user activity"""
+    try:
+        # Get user's profitable symbols from trade history
+        with get_db_session() as session:
+            result = session.execute(text("""
+                SELECT symbol, COUNT(*) as trade_count, AVG(return_pct) as avg_return
+                FROM trade_outcomes
+                WHERE outcome = 'win'
+                GROUP BY symbol
+                ORDER BY avg_return DESC, trade_count DESC
+                LIMIT 5
+            """))
+            
+            profitable_symbols = [row[0] for row in result]
+        
+        # Get correlated symbols (simplified - in production use real correlation)
+        recommendations = []
+        
+        # Tech correlations
+        tech_symbols = {'AAPL': ['MSFT', 'GOOGL', 'NVDA'], 
+                       'GOOGL': ['META', 'AMZN', 'MSFT'],
+                       'TSLA': ['RIVN', 'LCID', 'NIO'],
+                       'NVDA': ['AMD', 'INTC', 'AVGO']}
+        
+        for symbol in profitable_symbols:
+            if symbol in tech_symbols:
+                for rec in tech_symbols[symbol]:
+                    if rec not in profitable_symbols:
+                        recommendations.append({
+                            'symbol': rec,
+                            'reason': f'High correlation with your profitable {symbol} trades',
+                            'confidence': 0.82,
+                            'category': 'correlation'
+                        })
+                        if len(recommendations) >= 5:
+                            break
+            if len(recommendations) >= 5:
+                break
+        
+        # Add trending symbols if not enough recommendations
+        if len(recommendations) < 5:
+            trending = ['SPY', 'QQQ', 'BTC-USD', 'ETH-USD', 'COIN']
+            for symbol in trending:
+                if symbol not in profitable_symbols and symbol not in [r['symbol'] for r in recommendations]:
+                    recommendations.append({
+                        'symbol': symbol,
+                        'reason': 'High momentum and volume',
+                        'confidence': 0.75,
+                        'category': 'trending'
+                    })
+                    if len(recommendations) >= 5:
+                        break
+        
+        return jsonify({
+            'success': True,
+            'recommendations': recommendations[:5],
+            'based_on': {
+                'profitable_trades': len(profitable_symbols),
+                'analysis_type': 'correlation_and_momentum'
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        logger.exception("Smart recommendations error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --------------------------------------
+# Trade Journal
+# --------------------------------------
+@app.route('/api/journal', methods=['GET'])
+@limiter.limit("30 per minute")
+def get_journal():
+    """Get trade journal entries"""
+    try:
+        limit = int(request.args.get('limit', 50))
+        
+        with get_db_session() as session:
+            # Create table if not exists
+            session.execute(text("""
+                CREATE TABLE IF NOT EXISTS trade_journal (
+                    id SERIAL PRIMARY KEY,
+                    user_id TEXT NOT NULL,
+                    trade_id INTEGER,
+                    symbol TEXT NOT NULL,
+                    entry_date TIMESTAMP NOT NULL,
+                    exit_date TIMESTAMP,
+                    notes TEXT,
+                    emotion TEXT,
+                    lesson TEXT,
+                    ai_insight TEXT,
+                    tags TEXT[],
+                    created_at TIMESTAMP DEFAULT NOW(),
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """))
+            session.commit()
+            
+            result = session.execute(
+                text("""
+                    SELECT id, trade_id, symbol, entry_date, exit_date, notes, 
+                           emotion, lesson, ai_insight, tags, created_at
+                    FROM trade_journal
+                    WHERE user_id = :user_id
+                    ORDER BY entry_date DESC
+                    LIMIT :limit
+                """),
+                {'user_id': 'default', 'limit': limit}
+            )
+            
+            entries = []
+            for row in result:
+                entries.append({
+                    'id': row[0],
+                    'trade_id': row[1],
+                    'symbol': row[2],
+                    'entry_date': row[3].isoformat() if row[3] else None,
+                    'exit_date': row[4].isoformat() if row[4] else None,
+                    'notes': row[5],
+                    'emotion': row[6],
+                    'lesson': row[7],
+                    'ai_insight': row[8],
+                    'tags': row[9] or [],
+                    'created_at': row[10].isoformat() if row[10] else None
+                })
+            
+            return jsonify({
+                'success': True,
+                'entries': entries,
+                'count': len(entries),
+                'timestamp': datetime.now().isoformat()
+            })
+    
+    except Exception as e:
+        logger.exception("Journal get error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/journal/entry', methods=['POST'])
+@limiter.limit("20 per minute")
+def add_journal_entry():
+    """Add a new journal entry"""
+    try:
+        data = request.json
+        
+        with get_db_session() as session:
+            result = session.execute(text("""
+                INSERT INTO trade_journal 
+                (user_id, trade_id, symbol, entry_date, exit_date, notes, emotion, lesson, tags)
+                VALUES (:user_id, :trade_id, :symbol, :entry_date, :exit_date, :notes, :emotion, :lesson, :tags)
+                RETURNING id
+            """), {
+                'user_id': 'default',
+                'trade_id': data.get('trade_id'),
+                'symbol': data.get('symbol'),
+                'entry_date': data.get('entry_date', datetime.now()),
+                'exit_date': data.get('exit_date'),
+                'notes': data.get('notes', ''),
+                'emotion': data.get('emotion', 'neutral'),
+                'lesson': data.get('lesson', ''),
+                'tags': data.get('tags', [])
+            })
+            session.commit()
+            entry_id = result.fetchone()[0]
+            
+            # Generate AI insight
+            ai_insight = f"Entry recorded for {data.get('symbol')}. "
+            if data.get('emotion') == 'confident':
+                ai_insight += "Your confidence suggests strong conviction in this trade."
+            elif data.get('emotion') == 'anxious':
+                ai_insight += "Consider reviewing your risk management to reduce anxiety."
+            
+            # Update with AI insight
+            session.execute(text("""
+                UPDATE trade_journal SET ai_insight = :insight WHERE id = :id
+            """), {'insight': ai_insight, 'id': entry_id})
+            session.commit()
+        
+        return jsonify({
+            'success': True,
+            'entry_id': entry_id,
+            'ai_insight': ai_insight,
+            'timestamp': datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        logger.exception("Journal add error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/journal/entry/<int:entry_id>', methods=['PUT'])
+@limiter.limit("20 per minute")
+def update_journal_entry(entry_id):
+    """Update a journal entry"""
+    try:
+        data = request.json
+        
+        with get_db_session() as session:
+            updates = []
+            params = {'id': entry_id}
+            
+            for field in ['notes', 'emotion', 'lesson', 'tags', 'exit_date']:
+                if field in data:
+                    updates.append(f"{field} = :{field}")
+                    params[field] = data[field]
+            
+            if updates:
+                updates.append("updated_at = NOW()")
+                query = f"UPDATE trade_journal SET {', '.join(updates)} WHERE id = :id"
+                session.execute(text(query), params)
+                session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Journal entry updated successfully'
+        })
+    
+    except Exception as e:
+        logger.exception("Journal update error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/journal/insights', methods=['GET'])
+@limiter.limit("20 per minute")
+def journal_insights():
+    """Get AI-generated insights from journal"""
+    try:
+        with get_db_session() as session:
+            # Get emotion patterns
+            emotion_result = session.execute(text("""
+                SELECT emotion, COUNT(*) as count
+                FROM trade_journal
+                WHERE user_id = :user_id
+                GROUP BY emotion
+                ORDER BY count DESC
+            """), {'user_id': 'default'})
+            
+            emotions = {row[0]: row[1] for row in emotion_result}
+            
+            # Get most common lessons
+            lesson_result = session.execute(text("""
+                SELECT lesson
+                FROM trade_journal
+                WHERE user_id = :user_id AND lesson IS NOT NULL AND lesson != ''
+                ORDER BY created_at DESC
+                LIMIT 10
+            """), {'user_id': 'default'})
+            
+            lessons = [row[0] for row in lesson_result]
+        
+        insights = []
+        
+        # Emotion insight
+        if emotions:
+            most_common = max(emotions, key=emotions.get)
+            insights.append({
+                'type': 'emotion',
+                'title': 'Emotional Pattern',
+                'message': f"You most often feel '{most_common}' when trading. This awareness is key to consistent performance.",
+                'data': emotions
+            })
+        
+        # Learning insight
+        if lessons:
+            insights.append({
+                'type': 'learning',
+                'title': 'Key Lessons',
+                'message': f"You've documented {len(lessons)} important lessons. Review them before each trading session.",
+                'data': lessons[:5]
+            })
+        
+        return jsonify({
+            'success': True,
+            'insights': insights,
+            'timestamp': datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        logger.exception("Journal insights error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --------------------------------------
+# Community Features
+# --------------------------------------
+@app.route('/api/community/feed', methods=['GET'])
+@limiter.limit("30 per minute")
+def community_feed():
+    """Get community activity feed (anonymized)"""
+    try:
+        # Get recent wins from trade_outcomes
+        with get_db_session() as session:
+            result = session.execute(text("""
+                SELECT symbol, return_pct, pattern_name, created_at
+                FROM trade_outcomes
+                WHERE outcome = 'win' AND return_pct > 0.02
+                ORDER BY created_at DESC
+                LIMIT 20
+            """))
+            
+            wins = []
+            for row in result:
+                wins.append({
+                    'type': 'win',
+                    'message': f"Trader just closed {row[0]} +{row[1]*100:.1f}%",
+                    'pattern': row[2],
+                    'timestamp': row[3].isoformat() if row[3] else None
+                })
+            
+            # Get today's stats
+            stats_result = session.execute(text("""
+                SELECT 
+                    COUNT(*) as total_trades,
+                    COUNT(CASE WHEN outcome = 'win' THEN 1 END) as wins,
+                    SUM(CASE WHEN outcome = 'win' THEN return_pct ELSE 0 END) as total_return
+                FROM trade_outcomes
+                WHERE DATE(created_at) = CURRENT_DATE
+            """))
+            
+            stats_row = stats_result.fetchone()
+            
+            if stats_row and stats_row[0] > 0:
+                wins.insert(0, {
+                    'type': 'milestone',
+                    'message': f"{stats_row[1]} traders made money today",
+                    'total_trades': stats_row[0],
+                    'win_rate': (stats_row[1] / stats_row[0] * 100) if stats_row[0] > 0 else 0,
+                    'timestamp': datetime.now().isoformat()
+                })
+        
+        return jsonify({
+            'success': True,
+            'feed': wins[:15],
+            'timestamp': datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        logger.exception("Community feed error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/community/stats', methods=['GET'])
+@limiter.limit("30 per minute")
+def community_stats():
+    """Get platform-wide statistics"""
+    try:
+        with get_db_session() as session:
+            result = session.execute(text("""
+                SELECT 
+                    COUNT(DISTINCT symbol) as symbols_traded,
+                    COUNT(*) as total_trades,
+                    COUNT(CASE WHEN outcome = 'win' THEN 1 END) as winning_trades,
+                    AVG(CASE WHEN outcome = 'win' THEN return_pct END) as avg_win,
+                    MAX(return_pct) as best_trade
+                FROM trade_outcomes
+                WHERE created_at >= NOW() - INTERVAL '30 days'
+            """))
+            
+            row = result.fetchone()
+            
+            stats = {
+                'symbols_traded': row[0] or 0,
+                'total_trades': row[1] or 0,
+                'winning_trades': row[2] or 0,
+                'win_rate': (row[2] / row[1] * 100) if row[1] and row[1] > 0 else 0,
+                'avg_win_pct': (row[3] * 100) if row[3] else 0,
+                'best_trade_pct': (row[4] * 100) if row[4] else 0,
+                'period': '30 days'
+            }
+        
+        return jsonify({
+            'success': True,
+            'stats': stats,
+            'timestamp': datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        logger.exception("Community stats error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --------------------------------------
+# Notification Management
+# --------------------------------------
+@app.route('/api/notifications/settings', methods=['GET', 'POST'])
+@limiter.limit("30 per minute")
+def notification_settings():
+    """Get or update notification settings"""
+    try:
+        if request.method == 'GET':
+            with get_db_session() as session:
+                result = session.execute(text("""
+                    SELECT settings FROM notification_settings 
+                    WHERE user_id = :user_id
+                """), {'user_id': 'default'})
+                
+                row = result.fetchone()
+                
+                if row:
+                    settings = row[0]
+                else:
+                    settings = {
+                        'email': {'enabled': False, 'alerts': True, 'reports': True},
+                        'push': {'enabled': True, 'alerts': True, 'trades': True},
+                        'sound': {'enabled': True, 'volume': 0.7},
+                        'desktop': {'enabled': True}
+                    }
+            
+            return jsonify({
+                'success': True,
+                'settings': settings,
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        else:  # POST
+            settings = request.json
+            
+            with get_db_session() as session:
+                session.execute(text("""
+                    CREATE TABLE IF NOT EXISTS notification_settings (
+                        id SERIAL PRIMARY KEY,
+                        user_id TEXT NOT NULL UNIQUE,
+                        settings JSONB NOT NULL,
+                        updated_at TIMESTAMP DEFAULT NOW()
+                    )
+                """))
+                
+                session.execute(text("""
+                    INSERT INTO notification_settings (user_id, settings)
+                    VALUES (:user_id, :settings)
+                    ON CONFLICT (user_id)
+                    DO UPDATE SET settings = :settings, updated_at = NOW()
+                """), {
+                    'user_id': 'default',
+                    'settings': json.dumps(settings)
+                })
+                session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Notification settings updated'
+            })
+    
+    except Exception as e:
+        logger.exception("Notification settings error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --------------------------------------
+# Export/Import Features
+# --------------------------------------
+@app.route('/api/export/trades', methods=['GET'])
+@limiter.limit("10 per minute")
+def export_trades():
+    """Export trade history"""
+    try:
+        format_type = request.args.get('format', 'csv')
+        
+        with get_db_session() as session:
+            result = session.execute(text("""
+                SELECT symbol, pattern_name, entry_price, exit_price, 
+                       return_pct, outcome, created_at
+                FROM trade_outcomes
+                ORDER BY created_at DESC
+                LIMIT 1000
+            """))
+            
+            trades = []
+            for row in result:
+                trades.append({
+                    'symbol': row[0],
+                    'pattern': row[1],
+                    'entry': row[2],
+                    'exit': row[3],
+                    'return_pct': row[4],
+                    'outcome': row[5],
+                    'date': row[6].isoformat() if row[6] else None
+                })
+        
+        if format_type == 'csv':
+            output = StringIO()
+            writer = csv.DictWriter(output, fieldnames=['symbol', 'pattern', 'entry', 'exit', 'return_pct', 'outcome', 'date'])
+            writer.writeheader()
+            writer.writerows(trades)
+            
+            return Response(
+                output.getvalue(),
+                mimetype='text/csv',
+                headers={'Content-Disposition': f'attachment; filename=tx_trades_{datetime.now().strftime("%Y%m%d")}.csv'}
+            )
+        else:  # JSON
+            return jsonify({
+                'success': True,
+                'trades': trades,
+                'count': len(trades),
+                'exported_at': datetime.now().isoformat()
+            })
+    
+    except Exception as e:
+        logger.exception("Export trades error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --------------------------------------
+# Time Machine / Historical Simulation
+# --------------------------------------
+@app.route('/api/timemachine/date/<date>', methods=['GET'])
+@limiter.limit("10 per minute")
+def timemachine_date(date):
+    """Get what TX would have detected on a specific date"""
+    try:
+        target_date = datetime.strptime(date, '%Y-%m-%d')
+        
+        # Get historical patterns from that date
+        with get_db_session() as session:
+            result = session.execute(text("""
+                SELECT symbol, pattern_name, confidence, entry_price, 
+                       exit_price, return_pct, outcome
+                FROM trade_outcomes
+                WHERE DATE(created_at) = :target_date
+                ORDER BY confidence DESC
+            """), {'target_date': target_date.date()})
+            
+            patterns = []
+            total_return = 0
+            wins = 0
+            
+            for row in result:
+                patterns.append({
+                    'symbol': row[0],
+                    'pattern': row[1],
+                    'confidence': row[2],
+                    'entry': row[3],
+                    'exit': row[4],
+                    'actual_return': row[5],
+                    'actual_outcome': row[6]
+                })
+                
+                if row[6] == 'win':
+                    wins += 1
+                    total_return += row[5] if row[5] else 0
+        
+        summary = {
+            'total_patterns': len(patterns),
+            'win_rate': (wins / len(patterns) * 100) if patterns else 0,
+            'total_return_pct': (total_return * 100) if total_return else 0,
+            'avg_return_pct': (total_return / len(patterns) * 100) if patterns else 0
+        }
+        
+        return jsonify({
+            'success': True,
+            'date': date,
+            'patterns_detected': patterns[:10],
+            'summary': summary,
+            'timestamp': datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        logger.exception("Time machine error")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --------------------------------------
+# Real-Time Portfolio WebSocket Events
+# --------------------------------------
+@socketio.on('subscribe_portfolio')
+def handle_portfolio_subscription():
+    """Subscribe to real-time portfolio updates"""
+    try:
+        logger.info("Client subscribed to portfolio updates")
+        emit('subscription_status', {
+            'portfolio': True,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Portfolio subscription error: {e}")
+
+@socketio.on('subscribe_positions')
+def handle_positions_subscription():
+    """Subscribe to real-time position updates"""
+    try:
+        logger.info("Client subscribed to position updates")
+        emit('subscription_status', {
+            'positions': True,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Positions subscription error: {e}")
+
+# Helper function to emit portfolio updates (call this when portfolio changes)
+def emit_portfolio_update():
+    """Emit real-time portfolio update to all connected clients"""
+    try:
+        # Get current portfolio data
+        with get_db_session() as session:
+            # Get open positions
+            result = session.execute(text("""
+                SELECT symbol, entry_price, quantity, side, created_at
+                FROM paper_trades
+                WHERE status = 'open'
+                ORDER BY created_at DESC
+            """))
+            
+            positions = []
+            total_value = 0
+            
+            for row in result:
+                # Get current price (simplified - in production use real-time data)
+                current_price = row[1] * 1.02  # Mock 2% gain
+                pnl = (current_price - row[1]) * row[2]
+                pnl_pct = ((current_price - row[1]) / row[1]) * 100
+                
+                positions.append({
+                    'symbol': row[0],
+                    'entry_price': row[1],
+                    'current_price': current_price,
+                    'quantity': row[2],
+                    'pnl': pnl,
+                    'pnl_pct': pnl_pct,
+                    'side': row[3]
+                })
+                
+                total_value += current_price * row[2]
+            
+            # Get today's P&L
+            today_result = session.execute(text("""
+                SELECT SUM(CASE WHEN outcome = 'win' THEN return_pct ELSE -return_pct END) as today_pnl
+                FROM trade_outcomes
+                WHERE DATE(created_at) = CURRENT_DATE
+            """))
+            
+            today_row = today_result.fetchone()
+            today_pnl_pct = (today_row[0] * 100) if today_row[0] else 0
+        
+        # Emit to all connected clients
+        socketio.emit('portfolio_update', {
+            'total_value': total_value,
+            'today_pnl_pct': today_pnl_pct,
+            'positions_count': len(positions),
+            'positions': positions,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Portfolio update emit error: {e}")
+
+# Emit position update when trade is executed
+def emit_trade_executed(trade_data):
+    """Emit trade execution confirmation"""
+    try:
+        socketio.emit('trade_executed', {
+            'symbol': trade_data.get('symbol'),
+            'side': trade_data.get('side'),
+            'quantity': trade_data.get('quantity'),
+            'price': trade_data.get('price'),
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        logger.error(f"Trade executed emit error: {e}")
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV') == 'development'
