@@ -3307,6 +3307,34 @@ def set_scan_config():
 
 # REMOVED: Duplicate endpoint - using the enhanced version at line 5353 instead
 
+@app.route('/api/detect', methods=['POST'])
+@limiter.limit("30 per minute")
+def detect_patterns_endpoint():
+    """Simple pattern detection endpoint"""
+    try:
+        data = request.get_json() or {}
+        symbol = (data.get('symbol') or '').upper()
+        
+        if not symbol:
+            return jsonify({'success': False, 'error': 'Symbol required'}), 400
+        
+        # Detect patterns using the AI detection logic
+        patterns = detect_all_patterns(symbol)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'symbol': symbol,
+                'patterns': patterns,
+                'count': len(patterns),
+                'timestamp': datetime.now().isoformat()
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Pattern detection error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/pattern-stats')
 @limiter.limit("10 per minute")
 def pattern_stats():
