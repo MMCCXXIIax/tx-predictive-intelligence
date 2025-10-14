@@ -45,7 +45,8 @@ except ImportError:
     try:
         import psycopg2
     except ImportError:
-        print("Warning: Neither psycopg nor psycopg2 found. Database features may not work.")
+        import sys
+        sys.stderr.write("Warning: Neither psycopg nor psycopg2 found. Database features may not work.\n")
 
 import yfinance as yf
 import requests
@@ -2982,6 +2983,84 @@ def health_detailed():
     }
     
     return jsonify(health_status)
+
+# --------------------------------------
+# Production Error Handlers
+# --------------------------------------
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 errors"""
+    return jsonify({
+        'success': False,
+        'error': 'Endpoint not found',
+        'message': 'The requested endpoint does not exist'
+    }), 404
+
+@app.errorhandler(405)
+def method_not_allowed(error):
+    """Handle 405 errors"""
+    return jsonify({
+        'success': False,
+        'error': 'Method not allowed',
+        'message': 'The HTTP method is not allowed for this endpoint'
+    }), 405
+
+@app.errorhandler(429)
+def rate_limit_exceeded(error):
+    """Handle rate limit errors"""
+    return jsonify({
+        'success': False,
+        'error': 'Rate limit exceeded',
+        'message': 'Too many requests. Please try again later.'
+    }), 429
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle 500 errors"""
+    logger.error(f"Internal server error: {error}")
+    return jsonify({
+        'success': False,
+        'error': 'Internal server error',
+        'message': 'An unexpected error occurred. Please try again later.'
+    }), 500
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    """Handle all unhandled exceptions"""
+    logger.error(f"Unhandled exception: {error}", exc_info=True)
+    
+    # Don't expose internal error details in production
+    if Config.DEBUG:
+        return jsonify({
+            'success': False,
+            'error': str(error),
+            'type': type(error).__name__
+        }), 500
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error',
+            'message': 'An unexpected error occurred. Please try again later.'
+        }), 500
+
+# --------------------------------------
+# Security Headers Middleware
+# --------------------------------------
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses"""
+    # Prevent clickjacking
+    response.headers['X-Frame-Options'] = 'DENY'
+    # Prevent MIME type sniffing
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    # Enable XSS protection
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    # Referrer policy
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    # Content Security Policy (adjust as needed)
+    if not Config.DEBUG:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return response
 
 # Market Data Endpoints
 @app.route('/api/market-scan')
@@ -6205,7 +6284,7 @@ def get_streak():
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
-    debug = os.getenv('FLASK_ENV') == 'production'
+    debug = os.getenv('FLASK_ENV') == 'development'
     
     if debug:
         # Development mode
