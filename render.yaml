@@ -6,11 +6,13 @@ services:
   buildCommand: |
     pip install -r requirements.txt
   startCommand: |
-    gunicorn -k gthread --threads 4 -w 1 -b 0.0.0.0:$PORT main:app
+    gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 -b 0.0.0.0:$PORT main:app
   healthCheckPath: /health
   envVars:
     - key: FLASK_ENV
       value: production
+    - key: CORS_ORIGINS
+      value: https://tx-figma-frontend.onrender.com,http://localhost:3000,http://localhost:5173
     - key: BACKEND_SCAN_INTERVAL
       value: 180
     - key: ALERT_CONFIDENCE_THRESHOLD

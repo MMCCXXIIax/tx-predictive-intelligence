@@ -6,12 +6,11 @@ import os
 bind = f"0.0.0.0:{os.environ.get('PORT', 5000)}"
 backlog = 2048
 
-# Worker processes (use gthread to avoid gevent monkey-patching warnings)
+# Worker processes (use geventwebsocket for WebSocket support)
 workers = int(os.environ.get('WEB_CONCURRENCY', 1))
-worker_class = 'gthread'
-threads = int(os.environ.get('THREADS', 4))
-timeout = int(os.environ.get('GUNICORN_TIMEOUT', 60))
-keepalive = 2
+worker_class = 'geventwebsocket.gunicorn.workers.GeventWebSocketWorker'
+timeout = int(os.environ.get('GUNICORN_TIMEOUT', 120))
+keepalive = 5
 
 # Restart workers after this many requests, to help prevent memory leaks
 max_requests = 1000

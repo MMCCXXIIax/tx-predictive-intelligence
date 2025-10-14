@@ -213,7 +213,7 @@ if SENTRY_AVAILABLE and Config.SENTRY_DSN:
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Initialize CORS Configuration - Only use environment variable
+# Initialize CORS Configuration - Production + Development origins
 _cors_from_env = os.getenv('CORS_ORIGINS')
 if _cors_from_env:
     # Use only origins from environment variable (comma-separated)
@@ -221,10 +221,11 @@ if _cors_from_env:
     cors_origins = allowed_origins
     socketio_origins = allowed_origins
 else:
-    # Default: localhost only (for local development)
+    # Default: Production frontend + localhost for development
     cors_origins = [
-        "http://localhost:3000",
-        "http://localhost:5173",
+        "https://tx-figma-frontend.onrender.com",  # Production frontend
+        "http://localhost:3000",                    # Local development
+        "http://localhost:5173",                    # Vite dev server
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173"
     ]
@@ -233,9 +234,17 @@ else:
 cors = CORS(
     app,
     origins=cors_origins,
-    supports_credentials=True
+    supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 )
-socketio = SocketIO(app, cors_allowed_origins=socketio_origins, async_mode='threading')
+socketio = SocketIO(
+    app, 
+    cors_allowed_origins=socketio_origins, 
+    async_mode='threading',
+    logger=True,
+    engineio_logger=True
+)
 limiter = Limiter(
     key_func=get_remote_address,
     storage_uri=os.getenv('RATELIMIT_STORAGE_URI', 'memory://')
