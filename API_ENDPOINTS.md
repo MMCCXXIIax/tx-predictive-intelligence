@@ -298,6 +298,32 @@ Get latest detection ID
 - **Rate Limit:** 30/min
 - **Response:** `{ "latest_id": 12345 }`
 
+### GET `/api/analytics/attribution`
+**NEW!** Performance attribution analysis
+- **Rate Limit:** 20/min
+- **Query:** `?period=30d`
+- **Response:** Performance breakdown by AI layers, contribution percentages, insights
+
+### GET `/api/analytics/forecast`
+**NEW!** Predictive portfolio forecast
+- **Rate Limit:** 20/min
+- **Query:** `?symbol=AAPL&timeframe=7d`
+- **Response:** Forecasted values, confidence intervals, trend insights
+
+---
+
+## 🏆 GAMIFICATION
+
+### GET `/api/achievements`
+**NEW!** Get user achievements and progress
+- **Rate Limit:** 30/min
+- **Response:** Unlocked achievements, progress tracking, recent unlocks
+
+### GET `/api/streak`
+**NEW!** Get current trading streak
+- **Rate Limit:** 30/min
+- **Response:** Current streak, longest streak, milestones, streak type (winning/losing)
+
 ---
 
 ## 🎯 SIGNALS & ENTRIES
@@ -452,7 +478,7 @@ Interactive API documentation
 
 ---
 
-## 📊 TOTAL ENDPOINTS: 73+
+## 📊 TOTAL ENDPOINTS: 77+
 
 ### By Category:
 - **Health & Monitoring:** 5
@@ -462,7 +488,8 @@ Interactive API documentation
 - **Live Scanning:** 5
 - **Paper Trading:** 5
 - **Machine Learning:** 12
-- **Statistics:** 8
+- **Statistics & Analytics:** 10 ✨ (+2 new)
+- **Gamification:** 2 ✨ (NEW!)
 - **Signals:** 3
 - **Risk Management:** 3
 - **Backtesting:** 3
