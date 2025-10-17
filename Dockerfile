@@ -13,7 +13,12 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements
 COPY requirements.txt .
 
-# Install Python packages
+# Install PyTorch first with pre-built wheels (MUCH faster!)
+RUN pip install --no-cache-dir --user \
+    torch==2.9.0 \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining packages
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Final stage
