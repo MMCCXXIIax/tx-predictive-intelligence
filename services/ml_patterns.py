@@ -789,96 +789,109 @@ class TradingMLSystem:
             feature_row = {}
             
             try:
+                # Extract scalar values from current row to avoid Series ambiguity
+                current_close = float(current['close'])
+                current_open = float(current['open'])
+                current_high = float(current['high'])
+                current_low = float(current['low'])
+                current_volume = float(current['volume'])
+                
+                # Ensure all series are 1D (flatten if needed)
+                close_series = pd.Series(window['close'].values.ravel(), index=window.index)
+                high_series = pd.Series(window['high'].values.ravel(), index=window.index)
+                low_series = pd.Series(window['low'].values.ravel(), index=window.index)
+                volume_series = pd.Series(window['volume'].values.ravel(), index=window.index)
+                
                 # RSI
                 if len(window) >= 14:
-                    rsi = RSIIndicator(window['close'], window=14).rsi()
+                    rsi = RSIIndicator(close_series, window=14).rsi()
                     feature_row['rsi14'] = rsi.iloc[-1] if not rsi.empty else np.nan
                 
                 # Stochastic
                 if len(window) >= 14:
                     stoch = StochasticOscillator(
-                        window['high'], window['low'], window['close']
+                        high_series, low_series, close_series
                     )
                     feature_row['stoch_k'] = stoch.stoch().iloc[-1]
                     feature_row['stoch_d'] = stoch.stoch_signal().iloc[-1]
                 
                 # MACD
                 if len(window) >= 26:
-                    macd = MACD(window['close'])
+                    macd = MACD(close_series)
                     feature_row['macd'] = macd.macd().iloc[-1]
                     feature_row['macd_signal'] = macd.macd_signal().iloc[-1]
                     feature_row['macd_diff'] = feature_row['macd'] - feature_row['macd_signal']
                 
                 # SMAs and EMAs
-                feature_row['sma20'] = window['close'].rolling(20).mean().iloc[-1]
-                feature_row['sma50'] = window['close'].rolling(50).mean().iloc[-1]
-                feature_row['sma200'] = window['close'].rolling(200).mean().iloc[-1] if len(window) >= 200 else np.nan
-                feature_row['ema12'] = window['close'].ewm(span=12).mean().iloc[-1]
-                feature_row['ema26'] = window['close'].ewm(span=26).mean().iloc[-1]
+                feature_row['sma20'] = close_series.rolling(20).mean().iloc[-1]
+                feature_row['sma50'] = close_series.rolling(50).mean().iloc[-1]
+                feature_row['sma200'] = close_series.rolling(200).mean().iloc[-1] if len(window) >= 200 else np.nan
+                feature_row['ema12'] = close_series.ewm(span=12).mean().iloc[-1]
+                feature_row['ema26'] = close_series.ewm(span=26).mean().iloc[-1]
                 
                 # Price position relative to MAs
-                feature_row['price_to_sma20'] = (current['close'] - feature_row['sma20']) / feature_row['sma20'] if feature_row['sma20'] > 0 else 0
-                feature_row['price_to_sma50'] = (current['close'] - feature_row['sma50']) / feature_row['sma50'] if feature_row['sma50'] > 0 else 0
+                feature_row['price_to_sma20'] = (current_close - feature_row['sma20']) / feature_row['sma20'] if feature_row['sma20'] > 0 else 0
+                feature_row['price_to_sma50'] = (current_close - feature_row['sma50']) / feature_row['sma50'] if feature_row['sma50'] > 0 else 0
                 feature_row['ema_cross'] = 1 if feature_row['ema12'] > feature_row['ema26'] else 0
                 
                 # ADX (trend strength)
                 if len(window) >= 14:
-                    adx = ADXIndicator(window['high'], window['low'], window['close'])
+                    adx = ADXIndicator(high_series, low_series, close_series)
                     feature_row['adx'] = adx.adx().iloc[-1]
                     feature_row['adx_pos'] = adx.adx_pos().iloc[-1]
                     feature_row['adx_neg'] = adx.adx_neg().iloc[-1]
                 
                 # Bollinger Bands
                 if len(window) >= 20:
-                    bb = BollingerBands(window['close'], window=20, window_dev=2)
+                    bb = BollingerBands(close_series, window=20, window_dev=2)
                     feature_row['bb_high'] = bb.bollinger_hband().iloc[-1]
                     feature_row['bb_low'] = bb.bollinger_lband().iloc[-1]
                     feature_row['bb_mid'] = bb.bollinger_mavg().iloc[-1]
-                    feature_row['bb_width'] = (feature_row['bb_high'] - feature_row['bb_low']) / current['close']
-                    feature_row['bb_position'] = (current['close'] - feature_row['bb_low']) / (feature_row['bb_high'] - feature_row['bb_low']) if (feature_row['bb_high'] - feature_row['bb_low']) > 0 else 0.5
+                    feature_row['bb_width'] = (feature_row['bb_high'] - feature_row['bb_low']) / current_close
+                    feature_row['bb_position'] = (current_close - feature_row['bb_low']) / (feature_row['bb_high'] - feature_row['bb_low']) if (feature_row['bb_high'] - feature_row['bb_low']) > 0 else 0.5
                     feature_row['bb_squeeze'] = 1 if feature_row['bb_width'] < 0.02 else 0
                 
                 # Keltner Channels
                 if len(window) >= 20:
-                    kc = KeltnerChannel(window['high'], window['low'], window['close'])
+                    kc = KeltnerChannel(high_series, low_series, close_series)
                     feature_row['kc_high'] = kc.keltner_channel_hband().iloc[-1]
                     feature_row['kc_low'] = kc.keltner_channel_lband().iloc[-1]
                 
                 # ATR
                 if len(window) >= 14:
-                    atr = AverageTrueRange(window['high'], window['low'], window['close'], window=14)
+                    atr = AverageTrueRange(high_series, low_series, close_series, window=14)
                     feature_row['atr14'] = atr.average_true_range().iloc[-1]
-                    feature_row['atr_pct'] = feature_row['atr14'] / current['close']
+                    feature_row['atr_pct'] = feature_row['atr14'] / current_close
                 
                 # Returns (multiple timeframes)
-                feature_row['ret_1'] = window['close'].pct_change(1).iloc[-1]
-                feature_row['ret_5'] = window['close'].pct_change(5).iloc[-1] if len(window) >= 5 else np.nan
-                feature_row['ret_10'] = window['close'].pct_change(10).iloc[-1] if len(window) >= 10 else np.nan
-                feature_row['ret_20'] = window['close'].pct_change(20).iloc[-1] if len(window) >= 20 else np.nan
+                feature_row['ret_1'] = close_series.pct_change(1).iloc[-1]
+                feature_row['ret_5'] = close_series.pct_change(5).iloc[-1] if len(window) >= 5 else np.nan
+                feature_row['ret_10'] = close_series.pct_change(10).iloc[-1] if len(window) >= 10 else np.nan
+                feature_row['ret_20'] = close_series.pct_change(20).iloc[-1] if len(window) >= 20 else np.nan
                 
                 # Volatility
-                feature_row['vol_5'] = window['close'].pct_change().rolling(5).std().iloc[-1] if len(window) >= 5 else np.nan
-                feature_row['vol_20'] = window['close'].pct_change().rolling(20).std().iloc[-1] if len(window) >= 20 else np.nan
+                feature_row['vol_5'] = close_series.pct_change().rolling(5).std().iloc[-1] if len(window) >= 5 else np.nan
+                feature_row['vol_20'] = close_series.pct_change().rolling(20).std().iloc[-1] if len(window) >= 20 else np.nan
                 feature_row['vol_ratio'] = feature_row['vol_5'] / feature_row['vol_20'] if feature_row['vol_20'] > 0 else 1
                 
                 # Volume features
-                vol_ma20 = window['volume'].rolling(20).mean().iloc[-1]
+                vol_ma20 = volume_series.rolling(20).mean().iloc[-1]
                 feature_row['vol_ma20'] = vol_ma20
-                feature_row['volume_ratio'] = current['volume'] / vol_ma20 if vol_ma20 > 0 else np.nan
+                feature_row['volume_ratio'] = current_volume / vol_ma20 if vol_ma20 > 0 else np.nan
                 
                 # OBV and CMF
                 if len(window) >= 20:
-                    obv = OnBalanceVolumeIndicator(window['close'], window['volume'])
+                    obv = OnBalanceVolumeIndicator(close_series, volume_series)
                     feature_row['obv'] = obv.on_balance_volume().iloc[-1]
                     
-                    cmf = ChaikinMoneyFlowIndicator(window['high'], window['low'], 
-                                                    window['close'], window['volume'])
+                    cmf = ChaikinMoneyFlowIndicator(high_series, low_series, 
+                                                    close_series, volume_series)
                     feature_row['cmf'] = cmf.chaikin_money_flow().iloc[-1]
                 
                 # Momentum
-                feature_row['momentum_5'] = current['close'] - window['close'].iloc[-6] if len(window) >= 6 else np.nan
-                feature_row['momentum_10'] = current['close'] - window['close'].iloc[-11] if len(window) >= 11 else np.nan
-                feature_row['roc_5'] = ((current['close'] / window['close'].iloc[-6]) - 1) * 100 if len(window) >= 6 else np.nan
+                feature_row['momentum_5'] = current_close - close_series.iloc[-6] if len(window) >= 6 else np.nan
+                feature_row['momentum_10'] = current_close - close_series.iloc[-11] if len(window) >= 11 else np.nan
+                feature_row['roc_5'] = ((current_close / close_series.iloc[-6]) - 1) * 100 if len(window) >= 6 else np.nan
                 
                 # Trend regime (enhanced)
                 feature_row['trend_up'] = 1 if (not np.isnan(feature_row['sma50']) and not np.isnan(feature_row['sma200']) and feature_row['sma50'] > feature_row['sma200']) else 0
@@ -898,13 +911,13 @@ class TradingMLSystem:
                 feature_row['is_overnight'] = 1 if (feature_row['hour'] < 9 or feature_row['hour'] >= 16) else 0
                 
                 # Candlestick features (enhanced)
-                rng = current['high'] - current['low']
-                body = abs(current['close'] - current['open'])
+                rng = current_high - current_low
+                body = abs(current_close - current_open)
                 
                 if rng > 0:
                     feature_row['body_pct'] = body / rng
-                    feature_row['upper_wick_pct'] = (current['high'] - max(current['open'], current['close'])) / rng
-                    feature_row['lower_wick_pct'] = (min(current['open'], current['close']) - current['low']) / rng
+                    feature_row['upper_wick_pct'] = (current_high - max(current_open, current_close)) / rng
+                    feature_row['lower_wick_pct'] = (min(current_open, current_close) - current_low) / rng
                 else:
                     feature_row['body_pct'] = 0
                     feature_row['upper_wick_pct'] = 0
@@ -918,15 +931,15 @@ class TradingMLSystem:
                 feature_row['engulfing_potential'] = body / window['close'].rolling(2).mean().iloc[-1] if len(window) >= 2 else 0
                 
                 # Price action
-                feature_row['is_bullish'] = 1 if current['close'] > current['open'] else 0
-                feature_row['body_size'] = body / current['close']
-                feature_row['gap'] = (current['open'] - window['close'].iloc[-2]) / window['close'].iloc[-2] if len(window) >= 2 else 0
+                feature_row['is_bullish'] = 1 if current_close > current_open else 0
+                feature_row['body_size'] = body / current_close
+                feature_row['gap'] = (current_open - window['close'].iloc[-2]) / window['close'].iloc[-2] if len(window) >= 2 else 0
                 
                 # Support/Resistance proximity
-                recent_high = window['high'].rolling(20).max().iloc[-1]
-                recent_low = window['low'].rolling(20).min().iloc[-1]
-                feature_row['dist_to_high'] = (recent_high - current['close']) / current['close']
-                feature_row['dist_to_low'] = (current['close'] - recent_low) / current['close']
+                recent_high = high_series.rolling(20).max().iloc[-1]
+                recent_low = low_series.rolling(20).min().iloc[-1]
+                feature_row['dist_to_high'] = (recent_high - current_close) / current_close
+                feature_row['dist_to_low'] = (current_close - recent_low) / current_close
                 
                 feature_row['timestamp'] = window.index[-1]
                 features_data.append(feature_row)
