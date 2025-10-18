@@ -112,11 +112,16 @@ RUN pip install --no-cache-dir \
     websocket>=0.2.1 \
     simple-websocket
 
-# Layer 9: External APIs and data sources
-RUN pip install --no-cache-dir \
+# Layer 9: External APIs and data sources (with retry logic)
+# Split into smaller chunks to handle network interruptions better
+RUN pip install --no-cache-dir --retries 10 --timeout 300 \
     requests>=2.32.0 \
-    httpx>=0.27.0 \
-    supabase>=2.0.0 \
+    httpx>=0.27.0
+
+RUN pip install --no-cache-dir --retries 10 --timeout 300 \
+    supabase>=2.0.0
+
+RUN pip install --no-cache-dir --retries 10 --timeout 300 \
     yfinance>=0.2.0 \
     ccxt>=4.4.86
 
