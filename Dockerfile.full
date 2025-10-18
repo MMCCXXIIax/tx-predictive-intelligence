@@ -189,7 +189,9 @@ CMD gunicorn \
      -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker \
      -w 1 \
      -b 0.0.0.0:${PORT:-5000} \
-     --timeout 120 \
+     --timeout 300 \
+     --graceful-timeout 300 \
+     --worker-tmp-dir /dev/shm \
      --log-level info \
      --access-logfile - \
      --error-logfile - \
