@@ -76,11 +76,11 @@ RUN pip install --no-cache-dir \
     joblib>=1.4.0 \
     imbalanced-learn>=0.11.0
 
-# Layer 4: PyTorch (FROM SOURCE - this is the big one!)
-# This will take 20-30 minutes but gives you FULL capabilities
+# Layer 4: PyTorch (optimized pre-built wheels)
+# Using CPU-optimized wheels for faster build and full functionality
 RUN pip install --no-cache-dir \
     torch>=2.0.0 \
-    --no-binary torch
+    --index-url https://download.pytorch.org/whl/cpu
 
 # Layer 5: Flask and web framework
 RUN pip install --no-cache-dir \
