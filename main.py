@@ -213,35 +213,8 @@ if SENTRY_AVAILABLE and Config.SENTRY_DSN:
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Import and register API blueprints
-try:
-    from routes.alerts import alerts_bp
-    from routes.scan import scan_bp
-    from routes.patterns import patterns_bp
-    from routes.candles import candles_bp
-    from routes.signals import signals_bp
-    from routes.stats import stats_bp
-    from routes.risk import risk_bp
-    from routes.backtest import backtest_bp
-    from routes.coverage import coverage_bp
-    from routes.ml import ml_bp
-    
-    # Register all blueprints
-    app.register_blueprint(alerts_bp, url_prefix='/api')
-    app.register_blueprint(scan_bp, url_prefix='/api')
-    app.register_blueprint(patterns_bp, url_prefix='/api')
-    app.register_blueprint(candles_bp, url_prefix='/api')
-    app.register_blueprint(signals_bp, url_prefix='/api')
-    app.register_blueprint(stats_bp, url_prefix='/api')
-    app.register_blueprint(risk_bp, url_prefix='/api')
-    app.register_blueprint(backtest_bp, url_prefix='/api')
-    app.register_blueprint(coverage_bp, url_prefix='/api')
-    app.register_blueprint(ml_bp, url_prefix='/api')
-    
-    logger.info("All API blueprints registered successfully")
-except Exception as e:
-    logger.error(f"Failed to register API blueprints: {e}")
-    logger.warning("API endpoints may not be available")
+# Note: All API endpoints are defined directly in main.py (no separate routes/ folder)
+# See below for all @app.route('/api/*') definitions
 
 # Initialize CORS Configuration - Production + Development origins
 _cors_from_env = os.getenv('CORS_ORIGINS')
