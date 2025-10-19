@@ -214,6 +214,11 @@ class DeepPatternDetectorSystem:
             return []
         
         try:
+            # Ensure symbol is a string (handle tuple/list cases)
+            if isinstance(symbol, (tuple, list)):
+                symbol = symbol[0] if len(symbol) > 0 else str(symbol)
+            symbol = str(symbol).strip()
+            
             # Download data
             df = self._download_data(symbol, timeframe)
             if df.empty or len(df) < self.sequence_length:
@@ -263,6 +268,11 @@ class DeepPatternDetectorSystem:
     def _download_data(self, symbol: str, timeframe: str) -> pd.DataFrame:
         """Download OHLCV data"""
         try:
+            # Ensure symbol is a string (handle tuple/list cases)
+            if isinstance(symbol, (tuple, list)):
+                symbol = symbol[0] if len(symbol) > 0 else str(symbol)
+            symbol = str(symbol).strip()
+            
             tf_map = {
                 '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m',
                 '1h': '60m', '4h': '240m', '1d': '1d'
