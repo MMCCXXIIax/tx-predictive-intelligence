@@ -6883,64 +6883,7 @@ def update_journal_entry(entry_id):
         logger.exception("Journal update error")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/journal/insights', methods=['GET'])
-@limiter.limit("20 per minute")
-def journal_insights():
-    """Get AI-generated insights from journal"""
-    try:
-        with get_db_session() as session:
-            # Get emotion patterns
-            emotion_result = session.execute(text("""
-                SELECT emotion, COUNT(*) as count
-                FROM trade_journal
-                WHERE user_id = :user_id
-                GROUP BY emotion
-                ORDER BY count DESC
-            """), {'user_id': 'default'})
-            
-            emotions = {row[0]: row[1] for row in emotion_result}
-            
-            # Get most common lessons
-            lesson_result = session.execute(text("""
-                SELECT lesson
-                FROM trade_journal
-                WHERE user_id = :user_id AND lesson IS NOT NULL AND lesson != ''
-                ORDER BY created_at DESC
-                LIMIT 10
-            """), {'user_id': 'default'})
-            
-            lessons = [row[0] for row in lesson_result]
-        
-        insights = []
-        
-        # Emotion insight
-        if emotions:
-            most_common = max(emotions, key=emotions.get)
-            insights.append({
-                'type': 'emotion',
-                'title': 'Emotional Pattern',
-                'message': f"You most often feel '{most_common}' when trading. This awareness is key to consistent performance.",
-                'data': emotions
-            })
-        
-        # Learning insight
-        if lessons:
-            insights.append({
-                'type': 'learning',
-                'title': 'Key Lessons',
-                'message': f"You've documented {len(lessons)} important lessons. Review them before each trading session.",
-                'data': lessons[:5]
-            })
-        
-        return jsonify({
-            'success': True,
-            'insights': insights,
-            'timestamp': datetime.now().isoformat()
-        })
-    
-    except Exception as e:
-        logger.exception("Journal insights error")
-        return jsonify({'success': False, 'error': str(e)}), 500
+# Removed duplicate journal_insights endpoint - using the AI-powered version below
 
 # --------------------------------------
 # Community Features
