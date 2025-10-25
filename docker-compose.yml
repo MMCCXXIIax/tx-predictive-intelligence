@@ -1,0 +1,170 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: tx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tx_intelligence}
+      POSTGRES_USER: ${POSTGRES_USER:-txuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-txpassword}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-txuser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tx-network
+
+  # Redis (for caching and Celery)
+  redis:
+    image: redis:7-alpine
+    container_name: tx-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tx-network
+
+  # TX Backend Application
+  tx-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tx-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-5000}:5000"
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-txuser}:${POSTGRES_PASSWORD:-txpassword}@postgres:5432/${POSTGRES_DB:-tx_intelligence}
+      
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      
+      # Flask
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      
+      # API Keys (Optional - for enhanced features)
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
+      NEWS_API_KEY: ${NEWS_API_KEY:-}
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
+      POLYGON_API_KEY: ${POLYGON_API_KEY:-}
+      
+      # Sentry (Optional - for error tracking)
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      
+      # CORS
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      # Mount logs directory
+      - ./logs:/app/logs
+      # Mount models directory (for ML models)
+      - ./models:/app/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 40s
+      retries: 3
+    networks:
+      - tx-network
+
+  # Celery Worker (for background tasks)
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tx-celery-worker
+    restart: unless-stopped
+    command: celery -A main.celery worker --loglevel=info
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-txuser}:${POSTGRES_PASSWORD:-txpassword}@postgres:5432/${POSTGRES_DB:-tx_intelligence}
+      
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      
+      # Flask
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      
+      # API Keys
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY:-}
+      NEWS_API_KEY: ${NEWS_API_KEY:-}
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
+      POLYGON_API_KEY: ${POLYGON_API_KEY:-}
+      
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+      - ./models:/app/models
+    networks:
+      - tx-network
+
+  # Celery Beat (for scheduled tasks)
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tx-celery-beat
+    restart: unless-stopped
+    command: celery -A main.celery beat --loglevel=info
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-txuser}:${POSTGRES_PASSWORD:-txpassword}@postgres:5432/${POSTGRES_DB:-tx_intelligence}
+      
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      
+      # Flask
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:-change-this-in-production}
+      
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - tx-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  tx-network:
+    driver: bridge

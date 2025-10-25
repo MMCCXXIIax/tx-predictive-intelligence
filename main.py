@@ -4363,66 +4363,153 @@ def run_backtest():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/backtest/pattern', methods=['POST'])
-@limiter.limit("5 per minute")
+@limiter.limit("10 per minute")
 def backtest_pattern():
-    """Backtest a specific pattern"""
+    """Backtest a specific pattern using real historical data"""
     try:
         data = request.get_json()
-        pattern_name = data.get('pattern_name', 'Golden Cross')
-        symbol = data.get('symbol', 'AAPL').upper()
+        pattern_name = data.get('pattern_name', 'Bullish Engulfing')
+        symbol = data.get('symbol', 'AAPL')
         start_date = data.get('start_date', '2023-01-01')
         end_date = data.get('end_date', '2024-01-01')
+        stop_loss_pct = float(data.get('stop_loss_pct', 5.0))
+        take_profit_pct = float(data.get('take_profit_pct', 10.0))
         
-        # Simulate pattern-specific backtest results
-        import random
-        random.seed(hash(pattern_name) % 1000)  # Consistent results per pattern
+        # Fetch real historical data
+        yf_symbol = normalize_symbol_for_yf(symbol)
+        hist_df = yf.download(yf_symbol, start=start_date, end=end_date, progress=False, auto_adjust=True)
         
-        # Pattern-specific performance characteristics
-        pattern_performance = {
-            'Golden Cross': {'base_return': 15, 'volatility': 20, 'win_rate': 72},
-            'RSI Oversold': {'base_return': 8, 'volatility': 25, 'win_rate': 65},
-            'Bollinger Breakout': {'base_return': 12, 'volatility': 30, 'win_rate': 68},
-            'Support Bounce': {'base_return': 10, 'volatility': 22, 'win_rate': 70},
-            'Resistance Break': {'base_return': 14, 'volatility': 28, 'win_rate': 66}
-        }
+        if hist_df.empty or len(hist_df) < 20:
+            return jsonify({
+                'success': False, 
+                'error': f'Insufficient historical data for {symbol}'
+            }), 400
         
-        perf = pattern_performance.get(pattern_name, pattern_performance['Golden Cross'])
+        # Normalize column names
+        hist_df.columns = [c.lower() for c in hist_df.columns]
         
-        # Add some randomness to base performance
-        total_return = perf['base_return'] + random.uniform(-5, 10)
-        volatility = perf['volatility'] + random.uniform(-5, 5)
-        win_rate = perf['win_rate'] + random.uniform(-10, 10)
+        # Detect patterns in historical data using real detection engine
+        from detectors.ai_pattern_logic import detect_all_patterns
         
-        # Calculate other metrics
-        sharpe_ratio = total_return / volatility if volatility > 0 else 0
-        max_drawdown = random.uniform(-20, -8)
-        total_trades = random.randint(30, 120)
-        profitable_trades = int(total_trades * win_rate / 100)
+        trades = []
+        total_return = 0.0
+        winning_trades = 0
+        losing_trades = 0
+        returns_list = []
+        equity_curve = [10000]  # Start with $10k
+        
+        # Scan through historical data
+        for i in range(20, len(hist_df)):
+            window_df = hist_df.iloc[max(0, i-50):i+1].copy()
+            
+            # Detect patterns in this window
+            patterns = detect_all_patterns(window_df, symbol)
+            
+            # Check if our target pattern was detected
+            pattern_detected = any(
+                p.get('pattern', '').lower() == pattern_name.lower() or
+                pattern_name.lower() in p.get('pattern', '').lower()
+                for p in patterns
+            )
+            
+            if pattern_detected and i + 5 < len(hist_df):
+                entry_price = hist_df.iloc[i]['close']
+                entry_date = hist_df.index[i]
+                
+                # Simulate trade execution over next 5-20 days
+                exit_idx = min(i + 20, len(hist_df) - 1)
+                exit_found = False
+                exit_price = entry_price
+                exit_date = hist_df.index[exit_idx]
+                exit_reason = 'time_limit'
+                
+                # Check for stop loss or take profit
+                for j in range(i + 1, exit_idx + 1):
+                    current_price = hist_df.iloc[j]['close']
+                    pnl_pct = ((current_price - entry_price) / entry_price) * 100
+                    
+                    if pnl_pct >= take_profit_pct:
+                        exit_price = current_price
+                        exit_date = hist_df.index[j]
+                        exit_reason = 'take_profit'
+                        exit_found = True
+                        break
+                    elif pnl_pct <= -stop_loss_pct:
+                        exit_price = current_price
+                        exit_date = hist_df.index[j]
+                        exit_reason = 'stop_loss'
+                        exit_found = True
+                        break
+                
+                if not exit_found:
+                    exit_price = hist_df.iloc[exit_idx]['close']
+                
+                # Calculate trade results
+                trade_return = ((exit_price - entry_price) / entry_price) * 100
+                total_return += trade_return
+                returns_list.append(trade_return)
+                
+                if trade_return > 0:
+                    winning_trades += 1
+                else:
+                    losing_trades += 1
+                
+                # Update equity curve
+                equity_curve.append(equity_curve[-1] * (1 + trade_return / 100))
+                
+                trades.append({
+                    'entry_date': entry_date.strftime('%Y-%m-%d'),
+                    'exit_date': exit_date.strftime('%Y-%m-%d'),
+                    'entry_price': round(float(entry_price), 2),
+                    'exit_price': round(float(exit_price), 2),
+                    'return_pct': round(trade_return, 2),
+                    'exit_reason': exit_reason
+                })
+        
+        # Calculate metrics
+        total_trades = len(trades)
+        win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
+        avg_return = (total_return / total_trades) if total_trades > 0 else 0
+        
+        # Calculate max drawdown
+        peak = equity_curve[0]
+        max_dd = 0
+        for equity in equity_curve:
+            if equity > peak:
+                peak = equity
+            dd = ((peak - equity) / peak) * 100
+            if dd > max_dd:
+                max_dd = dd
+        
+        # Calculate Sharpe ratio
+        if len(returns_list) > 1:
+            import statistics
+            avg_ret = statistics.mean(returns_list)
+            std_ret = statistics.stdev(returns_list)
+            sharpe = (avg_ret / std_ret) * (252 ** 0.5) if std_ret > 0 else 0
+        else:
+            sharpe = 0
         
         results = {
             'pattern_name': pattern_name,
             'symbol': symbol,
             'period': f"{start_date} to {end_date}",
             'total_return': round(total_return, 2),
-            'annualized_return': round(total_return * 0.9, 2),
-            'sharpe_ratio': round(sharpe_ratio, 2),
-            'max_drawdown': round(max_drawdown, 2),
+            'annualized_return': round(total_return * (365 / max(1, (hist_df.index[-1] - hist_df.index[0]).days)), 2),
+            'sharpe_ratio': round(sharpe, 2),
+            'max_drawdown': round(max_dd, 2),
             'win_rate': round(win_rate, 1),
             'total_trades': total_trades,
-            'profitable_trades': profitable_trades,
-            'losing_trades': total_trades - profitable_trades,
-            'avg_trade_return': round(total_return / total_trades, 2),
-            'best_trade': round(random.uniform(8, 25), 2),
-            'worst_trade': round(random.uniform(-15, -3), 2),
-            'volatility': round(volatility, 2),
-            'pattern_frequency': round(total_trades / 365 * 30, 1),  # patterns per month
-            'avg_hold_time': random.randint(3, 21),  # days
-            'success_by_market_condition': {
-                'bull_market': round(win_rate + random.uniform(5, 15), 1),
-                'bear_market': round(win_rate - random.uniform(10, 20), 1),
-                'sideways_market': round(win_rate + random.uniform(-5, 5), 1)
-            },
-            'timestamp': datetime.now().isoformat()
+            'profitable_trades': winning_trades,
+            'losing_trades': losing_trades,
+            'avg_trade_return': round(avg_return, 2),
+            'best_trade': round(max(returns_list), 2) if returns_list else 0,
+            'worst_trade': round(min(returns_list), 2) if returns_list else 0,
+            'volatility': round(statistics.stdev(returns_list), 2) if len(returns_list) > 1 else 0,
+            'final_equity': round(equity_curve[-1], 2),
+            'trades': trades[:10],  # Return first 10 trades
+            'timestamp': datetime.now().isoformat(),
+            'data_source': 'real_historical_yfinance'
         }
         
         return jsonify({'success': True, 'data': results})
@@ -7131,6 +7218,486 @@ def timemachine_date(date):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # --------------------------------------
+# AI-Powered Advanced Features
+# --------------------------------------
+
+# Import new AI services
+from services.ai_risk_manager import get_risk_manager
+from services.ai_trading_journal import get_trading_journal
+from services.smart_alert_system import get_alert_system
+
+@app.route('/api/risk/calculate-position', methods=['POST'])
+@limiter.limit("30 per minute")
+def calculate_position_size():
+    """Calculate optimal position size using AI risk management"""
+    try:
+        data = request.get_json()
+        
+        entry_price = float(data.get('entry_price'))
+        stop_loss = float(data.get('stop_loss'))
+        symbol = data.get('symbol', 'UNKNOWN')
+        account_balance = float(data.get('account_balance', 10000))
+        atr = float(data.get('atr')) if data.get('atr') else None
+        win_rate = float(data.get('win_rate')) if data.get('win_rate') else None
+        
+        risk_manager = get_risk_manager(account_balance)
+        result = risk_manager.calculate_position_size(
+            entry_price=entry_price,
+            stop_loss_price=stop_loss,
+            symbol=symbol,
+            atr=atr,
+            win_rate=win_rate
+        )
+        
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        logger.error(f"Position size calculation error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/risk/check-trade', methods=['POST'])
+@limiter.limit("30 per minute")
+def check_trade_approval():
+    """AI-powered trade approval system"""
+    try:
+        data = request.get_json()
+        
+        symbol = data.get('symbol')
+        entry_price = float(data.get('entry_price'))
+        position_size = float(data.get('position_size'))
+        stop_loss = float(data.get('stop_loss'))
+        account_balance = float(data.get('account_balance', 10000))
+        
+        risk_manager = get_risk_manager(account_balance)
+        result = risk_manager.check_trade_approval(
+            symbol=symbol,
+            entry_price=entry_price,
+            position_size=position_size,
+            stop_loss=stop_loss
+        )
+        
+        return jsonify({'success': True, 'data': result})
+    except Exception as e:
+        logger.error(f"Trade approval check error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/risk/metrics', methods=['GET'])
+@limiter.limit("30 per minute")
+def get_risk_metrics():
+    """Get comprehensive risk metrics"""
+    try:
+        account_balance = float(request.args.get('account_balance', 10000))
+        risk_manager = get_risk_manager(account_balance)
+        metrics = risk_manager.get_risk_metrics()
+        
+        return jsonify({
+            'success': True,
+            'metrics': {
+                'portfolio_heat': metrics.portfolio_heat,
+                'max_position_size': metrics.max_position_size,
+                'daily_loss_limit': metrics.daily_loss_limit,
+                'weekly_loss_limit': metrics.weekly_loss_limit,
+                'risk_of_ruin': metrics.risk_of_ruin,
+                'sharpe_ratio': metrics.sharpe_ratio,
+                'max_drawdown': metrics.max_drawdown
+            }
+        })
+    except Exception as e:
+        logger.error(f"Risk metrics error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Trading Journal Endpoints
+@app.route('/api/journal/log-trade', methods=['POST'])
+@limiter.limit("60 per minute")
+def journal_log_trade():
+    """Log a trade to AI journal"""
+    try:
+        data = request.get_json()
+        journal = get_trading_journal()
+        trade = journal.log_trade(data)
+        
+        return jsonify({
+            'success': True,
+            'trade_id': trade.trade_id,
+            'message': 'Trade logged successfully'
+        })
+    except Exception as e:
+        logger.error(f"Journal log trade error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/journal/performance', methods=['GET'])
+@limiter.limit("30 per minute")
+def journal_performance():
+    """Get performance analysis from journal"""
+    try:
+        days = int(request.args.get('days', 30))
+        journal = get_trading_journal()
+        analysis = journal.analyze_performance(days=days)
+        
+        return jsonify(analysis)
+    except Exception as e:
+        logger.error(f"Journal performance error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/journal/insights', methods=['GET'])
+@limiter.limit("20 per minute")
+def journal_insights():
+    """Get AI-generated insights from trading history"""
+    try:
+        days = int(request.args.get('days', 30))
+        journal = get_trading_journal()
+        insights = journal.get_ai_insights(days=days)
+        
+        return jsonify({
+            'success': True,
+            'insights': [
+                {
+                    'type': i.insight_type,
+                    'title': i.title,
+                    'description': i.description,
+                    'severity': i.severity,
+                    'recommendation': i.recommendation,
+                    'impact_score': i.impact_score
+                }
+                for i in insights
+            ]
+        })
+    except Exception as e:
+        logger.error(f"Journal insights error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/journal/history', methods=['GET'])
+@limiter.limit("30 per minute")
+def journal_history():
+    """Get trade history from journal"""
+    try:
+        limit = int(request.args.get('limit', 50))
+        symbol = request.args.get('symbol')
+        outcome = request.args.get('outcome')
+        pattern = request.args.get('pattern')
+        
+        filters = {}
+        if symbol:
+            filters['symbol'] = symbol
+        if outcome:
+            filters['outcome'] = outcome
+        if pattern:
+            filters['pattern'] = pattern
+        
+        journal = get_trading_journal()
+        history = journal.get_trade_history(limit=limit, filters=filters if filters else None)
+        
+        return jsonify({'success': True, 'trades': history})
+    except Exception as e:
+        logger.error(f"Journal history error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Smart Alert System Endpoints
+@app.route('/api/alerts/preferences', methods=['GET', 'POST'])
+@limiter.limit("30 per minute")
+def alert_preferences():
+    """Get or set user alert preferences"""
+    try:
+        alert_system = get_alert_system()
+        
+        if request.method == 'POST':
+            data = request.get_json()
+            user_id = data.get('user_id', 'default_user')
+            prefs = alert_system.set_user_preferences(user_id, data)
+            
+            return jsonify({
+                'success': True,
+                'message': 'Alert preferences updated',
+                'preferences': {
+                    'email_enabled': prefs.email_enabled,
+                    'sms_enabled': prefs.sms_enabled,
+                    'push_enabled': prefs.push_enabled,
+                    'smartwatch_enabled': prefs.smartwatch_enabled,
+                    'min_confidence': prefs.min_confidence,
+                    'max_alerts_per_hour': prefs.max_alerts_per_hour,
+                    'max_alerts_per_day': prefs.max_alerts_per_day
+                }
+            })
+        else:
+            user_id = request.args.get('user_id', 'default_user')
+            prefs = alert_system.get_user_preferences(user_id)
+            
+            if prefs:
+                return jsonify({'success': True, 'preferences': prefs})
+            else:
+                return jsonify({'success': False, 'error': 'Preferences not found'}), 404
+    except Exception as e:
+        logger.error(f"Alert preferences error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/alerts/send', methods=['POST'])
+@limiter.limit("60 per minute")
+def send_alert():
+    """Send alert through configured channels"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id', 'default_user')
+        
+        alert_system = get_alert_system()
+        result = alert_system.send_alert(user_id, data)
+        
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Send alert error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/alerts/history', methods=['GET'])
+@limiter.limit("30 per minute")
+def alert_history():
+    """Get alert history"""
+    try:
+        user_id = request.args.get('user_id', 'default_user')
+        limit = int(request.args.get('limit', 50))
+        
+        alert_system = get_alert_system()
+        history = alert_system.get_alert_history(user_id, limit=limit)
+        
+        return jsonify({'success': True, 'alerts': history})
+    except Exception as e:
+        logger.error(f"Alert history error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --------------------------------------
+# World-Class Trader Skills (10 Skills)
+# --------------------------------------
+
+from services.advanced_pattern_recognition import get_pattern_recognition
+from services.multi_timeframe_analyzer import get_mtf_analyzer
+from services.market_regime_detector import get_regime_detector
+from services.world_class_trader_integration import get_world_class_system
+
+@app.route('/api/skills/pattern-scan', methods=['POST'])
+@limiter.limit("20 per minute")
+def advanced_pattern_scan():
+    """Advanced pattern recognition with completion probability and historical DNA"""
+    try:
+        data = request.get_json()
+        symbols = data.get('symbols', [])
+        timeframe = data.get('timeframe', '1h')
+        
+        if not symbols:
+            return jsonify({'success': False, 'error': 'symbols required'}), 400
+        
+        pattern_recognition = get_pattern_recognition()
+        matches = pattern_recognition.scan_multiple_symbols(symbols, timeframe)
+        
+        return jsonify({
+            'success': True,
+            'matches': [
+                {
+                    'pattern_name': m.pattern_name,
+                    'symbol': m.symbol,
+                    'confidence': m.confidence,
+                    'completion_probability': m.completion_probability,
+                    'historical_win_rate': m.historical_win_rate,
+                    'expected_move': m.expected_move,
+                    'entry_price': m.entry_price,
+                    'stop_loss': m.stop_loss,
+                    'take_profit': m.take_profit,
+                    'risk_reward_ratio': m.risk_reward_ratio,
+                    'strength_score': m.strength_score,
+                    'institutional_confirmation': m.institutional_confirmation,
+                    'multi_timeframe_aligned': m.multi_timeframe_aligned
+                }
+                for m in matches[:20]  # Top 20 matches
+            ]
+        })
+    except Exception as e:
+        logger.error(f"Advanced pattern scan error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/skills/mtf-analysis', methods=['GET'])
+@limiter.limit("30 per minute")
+def multi_timeframe_analysis():
+    """Multi-timeframe analysis with confluence scoring"""
+    try:
+        symbol = request.args.get('symbol')
+        timeframes = request.args.get('timeframes', '15m,1h,4h,1d').split(',')
+        
+        if not symbol:
+            return jsonify({'success': False, 'error': 'symbol required'}), 400
+        
+        mtf_analyzer = get_mtf_analyzer()
+        analysis = mtf_analyzer.analyze_symbol(symbol, timeframes)
+        
+        return jsonify({
+            'success': True,
+            'analysis': {
+                'symbol': analysis.symbol,
+                'confluence_score': analysis.confluence_score,
+                'trend_direction': analysis.trend_direction,
+                'entry_timeframe': analysis.entry_timeframe,
+                'stop_loss_timeframe': analysis.stop_loss_timeframe,
+                'take_profit_timeframe': analysis.take_profit_timeframe,
+                'institutional_flow': analysis.institutional_flow,
+                'all_timeframes_aligned': analysis.all_timeframes_aligned,
+                'recommended_action': analysis.recommended_action,
+                'risk_reward_ratio': analysis.risk_reward_ratio,
+                'timeframe_details': analysis.timeframe_details
+            }
+        })
+    except Exception as e:
+        logger.error(f"MTF analysis error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/skills/market-regime', methods=['GET'])
+@limiter.limit("30 per minute")
+def market_regime_detection():
+    """Market regime detection with strategy recommendation"""
+    try:
+        symbol = request.args.get('symbol')
+        timeframe = request.args.get('timeframe', '1h')
+        
+        if not symbol:
+            return jsonify({'success': False, 'error': 'symbol required'}), 400
+        
+        regime_detector = get_regime_detector()
+        regime = regime_detector.detect_regime(symbol, timeframe)
+        
+        return jsonify({
+            'success': True,
+            'regime': {
+                'regime_type': regime.regime_type,
+                'confidence': regime.confidence,
+                'volatility_level': regime.volatility_level,
+                'recommended_strategy': regime.recommended_strategy,
+                'edge_probability': regime.edge_probability,
+                'risk_on_off': regime.risk_on_off,
+                'market_phase': regime.market_phase,
+                'optimal_timeframe': regime.optimal_timeframe,
+                'should_trade': regime.should_trade,
+                'regime_strength': regime.regime_strength,
+                'expected_duration': regime.expected_duration,
+                'metrics': regime.metrics
+            }
+        })
+    except Exception as e:
+        logger.error(f"Market regime detection error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/skills/complete-analysis', methods=['POST'])
+@limiter.limit("10 per minute")
+def complete_trade_analysis():
+    """Complete trade analysis using all 10 world-class skills"""
+    try:
+        data = request.get_json()
+        symbol = data.get('symbol')
+        timeframe = data.get('timeframe', '1h')
+        account_balance = float(data.get('account_balance', 10000))
+        
+        if not symbol:
+            return jsonify({'success': False, 'error': 'symbol required'}), 400
+        
+        world_class_system = get_world_class_system()
+        setup = world_class_system.analyze_trade_setup(symbol, timeframe, account_balance)
+        
+        return jsonify({
+            'success': True,
+            'setup': {
+                'symbol': setup.symbol,
+                'timeframe': setup.timeframe,
+                'overall_score': setup.overall_score,
+                'trade_quality': setup.trade_quality,
+                'should_trade': setup.should_trade,
+                'ai_recommendation': setup.ai_recommendation,
+                
+                'pattern': {
+                    'name': setup.pattern_name,
+                    'confidence': setup.pattern_confidence,
+                    'completion_probability': setup.pattern_completion_probability,
+                    'historical_win_rate': setup.historical_win_rate
+                },
+                
+                'risk_management': {
+                    'position_size': setup.position_size,
+                    'dollar_risk': setup.dollar_risk,
+                    'risk_percentage': setup.risk_percentage,
+                    'portfolio_heat': setup.portfolio_heat,
+                    'trade_approved': setup.trade_approved,
+                    'risk_score': setup.risk_score
+                },
+                
+                'multi_timeframe': {
+                    'confluence_score': setup.mtf_confluence_score,
+                    'all_aligned': setup.all_timeframes_aligned,
+                    'institutional_flow': setup.institutional_flow
+                },
+                
+                'market_conditions': {
+                    'regime': setup.market_regime,
+                    'volatility': setup.volatility_level,
+                    'risk_sentiment': setup.risk_sentiment,
+                    'edge_probability': setup.edge_probability
+                },
+                
+                'execution': {
+                    'entry_price': setup.entry_price,
+                    'stop_loss': setup.stop_loss,
+                    'take_profit': setup.take_profit,
+                    'risk_reward_ratio': setup.risk_reward_ratio
+                },
+                
+                'psychology': {
+                    'emotional_state': setup.emotional_state,
+                    'overtrading_risk': setup.overtrading_risk,
+                    'revenge_trading_risk': setup.revenge_trading_risk
+                },
+                
+                'performance': {
+                    'backtest_win_rate': setup.backtest_win_rate,
+                    'similar_past_trades': setup.similar_past_trades,
+                    'past_performance': setup.past_performance_this_pattern
+                }
+            }
+        })
+    except Exception as e:
+        logger.error(f"Complete trade analysis error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/skills/market-scan', methods=['POST'])
+@limiter.limit("5 per minute")
+def world_class_market_scan():
+    """Scan market for high-quality setups using all 10 skills"""
+    try:
+        data = request.get_json()
+        symbols = data.get('symbols', [])
+        timeframe = data.get('timeframe', '1h')
+        min_score = float(data.get('min_score', 70))
+        
+        if not symbols:
+            return jsonify({'success': False, 'error': 'symbols required'}), 400
+        
+        world_class_system = get_world_class_system()
+        setups = world_class_system.scan_market_for_setups(symbols, timeframe, min_score)
+        
+        return jsonify({
+            'success': True,
+            'setups_found': len(setups),
+            'setups': [
+                {
+                    'symbol': s.symbol,
+                    'overall_score': s.overall_score,
+                    'trade_quality': s.trade_quality,
+                    'pattern_name': s.pattern_name,
+                    'ai_recommendation': s.ai_recommendation,
+                    'entry_price': s.entry_price,
+                    'stop_loss': s.stop_loss,
+                    'take_profit': s.take_profit,
+                    'risk_reward_ratio': s.risk_reward_ratio,
+                    'edge_probability': s.edge_probability
+                }
+                for s in setups[:10]  # Top 10 setups
+            ]
+        })
+    except Exception as e:
+        logger.error(f"Market scan error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --------------------------------------
 # Real-Time Portfolio WebSocket Events
 # --------------------------------------
 @socketio.on('subscribe_portfolio')
@@ -7175,22 +7742,65 @@ def emit_portfolio_update():
             total_value = 0
             
             for row in result:
-                # Get current price (simplified - in production use real-time data)
-                current_price = row[1] * 1.02  # Mock 2% gain
-                pnl = (current_price - row[1]) * row[2]
-                pnl_pct = ((current_price - row[1]) / row[1]) * 100
+                symbol = row[0]
+                entry_price = row[1]
+                quantity = row[2]
+                side = row[3]
+                
+                # Get REAL current price from market data service
+                try:
+                    yf_symbol = normalize_symbol_for_yf(symbol)
+                    ticker = yf.Ticker(yf_symbol)
+                    
+                    # Try to get current price from multiple sources
+                    current_price = None
+                    
+                    # Method 1: Get from info
+                    try:
+                        info = ticker.info
+                        current_price = info.get('currentPrice') or info.get('regularMarketPrice')
+                    except:
+                        pass
+                    
+                    # Method 2: Get from recent history
+                    if not current_price:
+                        try:
+                            hist = ticker.history(period='1d', interval='1m')
+                            if not hist.empty:
+                                current_price = float(hist['Close'].iloc[-1])
+                        except:
+                            pass
+                    
+                    # Method 3: Fallback to market data service
+                    if not current_price:
+                        market_data = market_data_service.get_current_price(symbol)
+                        if market_data:
+                            current_price = market_data.get('price')
+                    
+                    # Last resort: use entry price (no gain/loss)
+                    if not current_price:
+                        current_price = entry_price
+                        logger.warning(f"Could not fetch current price for {symbol}, using entry price")
+                    
+                except Exception as e:
+                    logger.error(f"Error fetching current price for {symbol}: {e}")
+                    current_price = entry_price
+                
+                # Calculate P&L
+                pnl = (current_price - entry_price) * quantity
+                pnl_pct = ((current_price - entry_price) / entry_price) * 100
                 
                 positions.append({
-                    'symbol': row[0],
-                    'entry_price': row[1],
-                    'current_price': current_price,
-                    'quantity': row[2],
-                    'pnl': pnl,
-                    'pnl_pct': pnl_pct,
-                    'side': row[3]
+                    'symbol': symbol,
+                    'entry_price': entry_price,
+                    'current_price': round(current_price, 2),
+                    'quantity': quantity,
+                    'pnl': round(pnl, 2),
+                    'pnl_pct': round(pnl_pct, 2),
+                    'side': side
                 })
                 
-                total_value += current_price * row[2]
+                total_value += current_price * quantity
             
             # Get today's P&L
             today_result = session.execute(text("""
@@ -7227,6 +7837,282 @@ def emit_trade_executed(trade_data):
         })
     except Exception as e:
         logger.error(f"Trade executed emit error: {e}")
+
+# ============================================================================
+# DUAL-MODE PATTERN DETECTION API ENDPOINTS
+# Hybrid Pro (AI + Rules) and AI Elite (Pure AI) detection modes
+# ============================================================================
+
+try:
+    from services.unified_pattern_service import UnifiedPatternDetectionService
+    from services.detection_modes import DetectionMode
+    unified_detector = UnifiedPatternDetectionService()
+    DUAL_MODE_AVAILABLE = True
+    logger.info("✅ Dual-Mode Detection System initialized")
+except Exception as e:
+    DUAL_MODE_AVAILABLE = False
+    logger.warning(f"⚠️ Dual-Mode Detection not available: {e}")
+
+
+@app.route('/api/patterns/modes', methods=['GET'])
+@limiter.limit("30 per minute")
+def get_detection_modes():
+    """Get information about available detection modes"""
+    try:
+        if not DUAL_MODE_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'Dual-mode detection not available'
+            }), 503
+        
+        modes_info = unified_detector.get_all_modes_info()
+        
+        return jsonify({
+            'success': True,
+            'data': modes_info,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Get detection modes error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/patterns/detect-dual-mode', methods=['POST'])
+@limiter.limit("20 per minute")
+def detect_patterns_dual_mode():
+    """
+    Detect patterns using specified mode (Hybrid Pro or AI Elite)
+    
+    Request body:
+    {
+        "symbol": "AAPL",
+        "mode": "hybrid_pro",  // or "ai_elite"
+        "timeframe": "1h",
+        "lookback_days": 5
+    }
+    """
+    try:
+        if not DUAL_MODE_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'Dual-mode detection not available'
+            }), 503
+        
+        data = request.get_json() or {}
+        symbol = (data.get('symbol') or '').upper().strip()
+        mode_str = (data.get('mode') or 'hybrid_pro').lower()
+        timeframe = data.get('timeframe', '1h')
+        lookback_days = int(data.get('lookback_days', 5))
+        
+        if not symbol:
+            return jsonify({
+                'success': False,
+                'error': 'Symbol is required'
+            }), 400
+        
+        # Parse detection mode
+        try:
+            if mode_str == 'hybrid_pro':
+                mode = DetectionMode.HYBRID_PRO
+            elif mode_str == 'ai_elite':
+                mode = DetectionMode.AI_ELITE
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': f'Invalid mode: {mode_str}. Use "hybrid_pro" or "ai_elite"'
+                }), 400
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': f'Mode parsing error: {str(e)}'
+            }), 400
+        
+        # Detect patterns
+        results = unified_detector.detect_patterns(
+            symbol=symbol,
+            mode=mode,
+            timeframe=timeframe,
+            lookback_days=lookback_days
+        )
+        
+        # Format for API
+        formatted_results = unified_detector.format_results_for_api(results)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'symbol': symbol,
+                'mode': mode.value,
+                'timeframe': timeframe,
+                'patterns': formatted_results,
+                'count': len(formatted_results),
+                'timestamp': datetime.now().isoformat()
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Dual-mode detection error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/patterns/detect-both', methods=['POST'])
+@limiter.limit("10 per minute")
+def detect_patterns_both_modes():
+    """
+    Detect patterns using BOTH modes for comparison
+    
+    Request body:
+    {
+        "symbol": "AAPL",
+        "timeframe": "1h",
+        "lookback_days": 5
+    }
+    
+    Returns patterns from both Hybrid Pro and AI Elite with comparison
+    """
+    try:
+        if not DUAL_MODE_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'Dual-mode detection not available'
+            }), 503
+        
+        data = request.get_json() or {}
+        symbol = (data.get('symbol') or '').upper().strip()
+        timeframe = data.get('timeframe', '1h')
+        lookback_days = int(data.get('lookback_days', 5))
+        
+        if not symbol:
+            return jsonify({
+                'success': False,
+                'error': 'Symbol is required'
+            }), 400
+        
+        # Detect with both modes
+        results = unified_detector.detect_patterns_both_modes(
+            symbol=symbol,
+            timeframe=timeframe,
+            lookback_days=lookback_days
+        )
+        
+        # Format results
+        formatted_hybrid = unified_detector.format_results_for_api(
+            results.get('hybrid_pro', [])
+        )
+        formatted_ai_elite = unified_detector.format_results_for_api(
+            results.get('ai_elite', [])
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'symbol': symbol,
+                'timeframe': timeframe,
+                'hybrid_pro': {
+                    'patterns': formatted_hybrid,
+                    'count': len(formatted_hybrid)
+                },
+                'ai_elite': {
+                    'patterns': formatted_ai_elite,
+                    'count': len(formatted_ai_elite)
+                },
+                'comparison': results.get('comparison', {}),
+                'timestamp': results.get('timestamp', datetime.now().isoformat())
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Both-modes detection error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/patterns/mode-info/<mode>', methods=['GET'])
+@limiter.limit("30 per minute")
+def get_mode_info(mode: str):
+    """Get detailed information about a specific detection mode"""
+    try:
+        if not DUAL_MODE_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'Dual-mode detection not available'
+            }), 503
+        
+        mode_str = mode.lower()
+        
+        if mode_str == 'hybrid_pro':
+            detection_mode = DetectionMode.HYBRID_PRO
+        elif mode_str == 'ai_elite':
+            detection_mode = DetectionMode.AI_ELITE
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid mode: {mode}. Use "hybrid_pro" or "ai_elite"'
+            }), 400
+        
+        mode_info = unified_detector.get_mode_info(detection_mode)
+        
+        return jsonify({
+            'success': True,
+            'data': mode_info,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Get mode info error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/user/detection-mode', methods=['POST'])
+@limiter.limit("10 per minute")
+def set_user_detection_mode():
+    """
+    Set user's preferred detection mode
+    
+    Request body:
+    {
+        "mode": "hybrid_pro"  // or "ai_elite"
+    }
+    """
+    try:
+        if not DUAL_MODE_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'Dual-mode detection not available'
+            }), 503
+        
+        data = request.get_json() or {}
+        mode_str = (data.get('mode') or '').lower()
+        
+        if mode_str == 'hybrid_pro':
+            mode = DetectionMode.HYBRID_PRO
+        elif mode_str == 'ai_elite':
+            mode = DetectionMode.AI_ELITE
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid mode: {mode_str}. Use "hybrid_pro" or "ai_elite"'
+            }), 400
+        
+        # Set default mode
+        unified_detector.set_default_mode(mode)
+        
+        # In production, save to user preferences in database
+        # For now, just confirm the change
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'mode': mode.value,
+                'message': f'Detection mode set to {mode.value}'
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Set detection mode error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))

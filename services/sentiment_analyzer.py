@@ -112,12 +112,14 @@ class TXSentimentAnalyzer:
         reddit_sentiment = self._analyze_reddit_sentiment(key)
         news_sentiment = self._analyze_news_sentiment(key)
         
-        # Combine sentiments with weights
-        sentiment_score.sources = {
-            'twitter': twitter_sentiment.get('sentiment', 0.0),
-            'reddit': reddit_sentiment.get('sentiment', 0.0),
-            'news': news_sentiment.get('sentiment', 0.0)
-        }
+        # Combine sentiments with weights (only if data available)
+        sentiment_score.sources = {}
+        if twitter_sentiment:
+            sentiment_score.sources['twitter'] = twitter_sentiment.get('sentiment', 0.0)
+        if reddit_sentiment:
+            sentiment_score.sources['reddit'] = reddit_sentiment.get('sentiment', 0.0)
+        if news_sentiment:
+            sentiment_score.sources['news'] = news_sentiment.get('sentiment', 0.0)
         
         # Calculate weighted overall sentiment
         weights = {'twitter': 0.4, 'reddit': 0.3, 'news': 0.3}
@@ -129,11 +131,11 @@ class TXSentimentAnalyzer:
                 total_weight += weight
         sentiment_score.overall_sentiment = total_sentiment / total_weight if total_weight > 0 else 0.0
         
-        # Calculate confidence based on volume and consistency
+        # Calculate confidence based on volume and consistency (only from real sources)
         sentiment_score.volume = int(
-            twitter_sentiment.get('volume', 0) +
-            reddit_sentiment.get('volume', 0) +
-            news_sentiment.get('volume', 0)
+            (twitter_sentiment.get('volume', 0) if twitter_sentiment else 0) +
+            (reddit_sentiment.get('volume', 0) if reddit_sentiment else 0) +
+            (news_sentiment.get('volume', 0) if news_sentiment else 0)
         )
         sentiment_score.confidence = self._calculate_confidence(
             sentiment_score.sources, sentiment_score.volume
@@ -169,19 +171,8 @@ class TXSentimentAnalyzer:
             self.twitter_metrics['last_error'] = None
             self.twitter_metrics['last_ts'] = datetime.now(timezone.utc).isoformat()
             self.logger.info("Twitter sentiment skipped: no TWITTER_BEARER_TOKEN configured")
-            tweet_count = random.randint(500, 2000)
-            bullish_mentions = sum(1 for _ in range(tweet_count) if random.random() < 0.4)
-            bearish_mentions = sum(1 for _ in range(tweet_count) if random.random() < 0.3)
-            neutral_mentions = tweet_count - bullish_mentions - bearish_mentions
-            sentiment = (bullish_mentions - bearish_mentions) / tweet_count if tweet_count else 0.0
-            return {
-                'sentiment': sentiment,
-                'volume': tweet_count,
-                'bullish': bullish_mentions,
-                'bearish': bearish_mentions,
-                'neutral': neutral_mentions,
-                'source': 'twitter_simulated'
-            }
+            # Return None instead of fake data
+            return None
         
         # Build query terms
         if symbol in self.crypto_keywords:
@@ -268,47 +259,21 @@ class TXSentimentAnalyzer:
             self.twitter_metrics['last_status'] = 'exception'
             self.twitter_metrics['last_error'] = 'exception'
             self.twitter_metrics['last_ts'] = datetime.now(timezone.utc).isoformat()
-            self.logger.exception("Twitter API request failed; using fallback sentiment")
-            tweet_count = random.randint(200, 800)
-            bullish_mentions = sum(1 for _ in range(tweet_count) if random.random() < 0.45)
-            bearish_mentions = sum(1 for _ in range(tweet_count) if random.random() < 0.35)
-            neutral_mentions = tweet_count - bullish_mentions - bearish_mentions
-            sentiment = (bullish_mentions - bearish_mentions) / tweet_count if tweet_count else 0.0
-            return {
-                'sentiment': sentiment,
-                'volume': tweet_count,
-                'bullish': bullish_mentions,
-                'bearish': bearish_mentions,
-                'neutral': neutral_mentions,
-                'source': 'twitter_fallback'
-            }
+            self.logger.exception("Twitter API request failed")
+            # Return None instead of fake fallback data
+            return None
     
     def _analyze_reddit_sentiment(self, symbol: str) -> Dict:
-        """Analyze Reddit sentiment (simulated for now)"""
-        # In production, use Reddit API (PRAW)
-        post_count = random.randint(50, 200)
-        comment_count = random.randint(200, 1000)
-        total_interactions = post_count + comment_count
-        bullish_score = random.uniform(-0.5, 0.8)  # Reddit tends to be more bullish
-        return {
-            'sentiment': bullish_score,
-            'volume': total_interactions,
-            'posts': post_count,
-            'comments': comment_count,
-            'source': 'reddit'
-        }
+        """Analyze Reddit sentiment (not implemented - requires Reddit API)"""
+        # TODO: Implement real Reddit API (PRAW, Pushshift, etc.)
+        # Return None until real API is configured
+        return None
     
     def _analyze_news_sentiment(self, symbol: str) -> Dict:
-        """Analyze news sentiment (simulated for now)"""
-        # In production, wire a news API (NewsAPI, CoinDesk, CryptoCompare, etc.)
-        article_count = random.randint(10, 50)
-        news_sentiment = random.uniform(-0.3, 0.5)
-        return {
-            'sentiment': news_sentiment,
-            'volume': article_count,
-            'articles': article_count,
-            'source': 'news'
-        }
+        """Analyze news sentiment (not implemented - requires News API)"""
+        # TODO: Implement real News API (NewsAPI, CoinDesk, CryptoCompare, etc.)
+        # Return None until real API is configured
+        return None
     
     def _calculate_confidence(self, sources: Dict, volume: int) -> float:
         """Calculate confidence based on consistency and volume"""
@@ -327,17 +292,14 @@ class TXSentimentAnalyzer:
     
     def _calculate_trending_score(self, symbol: str) -> float:
         """Calculate how much the symbol is trending"""
-        return random.uniform(0.1, 0.9)
+        # TODO: Implement real trending calculation from social media APIs
+        # Return 0.0 (neutral) until real data available
+        return 0.0
     
     def _extract_key_phrases(self, twitter_data: Dict, reddit_data: Dict, news_data: Dict) -> List[str]:
-        """Extract key phrases driving sentiment (simulated)"""
-        possible_phrases = [
-            "breaking resistance", "bullish momentum", "whale accumulation",
-            "institutional adoption", "regulatory clarity", "technical breakout",
-            "strong support level", "bearish divergence", "profit taking",
-            "market correction", "oversold conditions", "bullish reversal"
-        ]
-        return random.sample(possible_phrases, k=random.randint(2, 5))
+        """Extract key phrases driving sentiment"""
+        # TODO: Implement NLP key phrase extraction
+        return []
     
     def enhance_pattern_confidence(self, pattern_detection: Dict, sentiment_score: SentimentScore) -> float:
         """Enhance pattern detection confidence using sentiment analysis"""
