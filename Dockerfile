@@ -40,12 +40,12 @@ COPY . .
 # Make sure scripts in .local are usable
 ENV PATH=/root/.local/bin:$PATH
 
-# Expose port
+# Expose port (will be overridden by PORT env var)
 EXPOSE 5000
 
-# Health check
+# Health check (uses PORT env var if set, defaults to 5000)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:5000/health')"
+    CMD python -c "import os, requests; port=os.getenv('PORT', '5000'); requests.get(f'http://localhost:{port}/health')"
 
-# Run application
-CMD ["gunicorn", "-k", "geventwebsocket.gunicorn.workers.GeventWebSocketWorker", "-w", "1", "-b", "0.0.0.0:5000", "--timeout", "120", "main:app"]
+# Run application (uses PORT env var if set, defaults to 5000)
+CMD gunicorn -k geventwebsocket.gunicorn.workers.GeventWebSocketWorker -w 1 -b 0.0.0.0:${PORT:-5000} --timeout 120 main:app
