@@ -1,0 +1,141 @@
+# TX Predictive Intelligence - Optimized Dockerfile
+# Multi-stage build for production deployment
+# Optimized for network reliability and build speed
+
+# Build stage
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install PyTorch separately with increased timeout
+RUN pip install --no-cache-dir --user \
+    --timeout=300 \
+    --retries=5 \
+    torch==2.9.0 \
+    --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining packages with retry logic and increased timeout
+# Split into smaller batches to avoid timeouts
+RUN pip install --no-cache-dir --user \
+    --timeout=300 \
+    --retries=5 \
+    Flask==3.0.0 \
+    flask-cors==4.0.0 \
+    flask-socketio==5.3.0 \
+    flask-limiter==3.5.0 \
+    gunicorn==21.2.0 \
+    werkzeug>=3.0.0 \
+    waitress==3.0.0
+
+RUN pip install --no-cache-dir --user \
+    --timeout=300 \
+    --retries=5 \
+    SQLAlchemy>=2.0.23 \
+    psycopg>=3.2.2 \
+    psycopg[binary]>=3.2.2
+
+RUN pip install --no-cache-dir --user \
+    --timeout=300 \
+    --retries=5 \
+    numpy>=1.24.0 \
+    pandas>=2.0.0 \
+    scikit-learn>=1.3.0
+
+RUN pip install --no-cache-dir --user \
+    --timeout=300 \
+    --retries=5 \
+    yfinance>=0.2.0 \
+    ta>=0.11.0 \
+    ccxt>=4.4.86
+
+RUN pip install --no-cache-dir --user \
+    --timeout=300 \
+    --retries=5 \
+    requests>=2.32.0 \
+    httpx>=0.27.0 \
+    websocket-client==1.6.0
+
+RUN pip install --no-cache-dir --user \
+    --timeout=300 \
+    --retries=5 \
+    python-socketio==5.8.0 \
+    python-engineio==4.7.0 \
+    websocket>=0.2.1 \
+    simple-websocket \
+    gevent \
+    gevent-websocket
+
+RUN pip install --no-cache-dir --user \
+    --timeout=300 \
+    --retries=5 \
+    python-dotenv==1.0.0 \
+    supabase>=2.0.0 \
+    textblob>=0.19.0 \
+    pydantic>=2.7.0 \
+    PyJWT>=2.8.0
+
+RUN pip install --no-cache-dir --user \
+    --timeout=300 \
+    --retries=5 \
+    prometheus-client>=0.20.0 \
+    python-json-logger>=2.0.7 \
+    pytest>=8.0.0 \
+    joblib>=1.4.0 \
+    imbalanced-learn>=0.11.0
+
+RUN pip install --no-cache-dir --user \
+    --timeout=300 \
+    --retries=5 \
+    sentry-sdk[flask]>=1.40.0 \
+    redis>=5.0.0 \
+    celery>=5.3.0 \
+    alembic>=1.13.0 \
+    pytest-cov>=4.1.0 \
+    psutil>=5.9.0 \
+    tzdata>=2024.1
+
+# Copy application files
+COPY . .
+
+# Final stage
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed packages and app from builder
+COPY --from=builder /root/.local /root/.local
+COPY --from=builder /app /app
+
+# Make sure scripts are executable
+RUN chmod +x /app/*.sh 2>/dev/null || true
+
+# Set environment variables
+ENV PATH=/root/.local/bin:$PATH
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_APP=main.py
+ENV PORT=5000
+
+# Expose port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:5000/health', timeout=5)" || exit 1
+
+# Run the application
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "4", "--timeout", "120", "--worker-class", "geventwebsocket.gunicorn.workers.GeventWebSocketWorker", "main:app"]

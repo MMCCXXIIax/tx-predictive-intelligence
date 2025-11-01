@@ -8057,6 +8057,226 @@ def set_user_detection_mode():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ==================== ADVANCED RAW DATA ANALYSIS ENDPOINTS ====================
+# These endpoints provide institutional-grade analysis beyond NOMOLABS
+
+try:
+    from services.advanced_raw_data_analysis import advanced_analyzer
+    ADVANCED_ANALYSIS_AVAILABLE = True
+    logger.info("✅ Advanced Raw Data Analysis loaded successfully")
+except Exception as e:
+    ADVANCED_ANALYSIS_AVAILABLE = False
+    logger.warning(f"⚠️ Advanced Raw Data Analysis not available: {e}")
+
+
+@app.route('/api/analysis/correlations', methods=['POST'])
+@limiter.limit("10 per minute")
+def analyze_asset_correlations():
+    """
+    Multi-asset correlation analysis
+    
+    Request body:
+    {
+        "symbols": ["AAPL", "MSFT", "GOOGL", "BTC-USD"],
+        "period": "30d",  // optional
+        "interval": "1h"  // optional
+    }
+    """
+    try:
+        if not ADVANCED_ANALYSIS_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'Advanced analysis not available'
+            }), 503
+        
+        data = request.get_json() or {}
+        symbols = data.get('symbols', [])
+        period = data.get('period', '30d')
+        interval = data.get('interval', '1h')
+        
+        if not symbols or len(symbols) < 2:
+            return jsonify({
+                'success': False,
+                'error': 'At least 2 symbols required for correlation analysis'
+            }), 400
+        
+        result = advanced_analyzer.analyze_correlations(
+            symbols=symbols,
+            period=period,
+            interval=interval
+        )
+        
+        if 'error' in result:
+            return jsonify({'success': False, 'error': result['error']}), 500
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Correlation analysis error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/order-flow/<symbol>', methods=['GET'])
+@limiter.limit("20 per minute")
+def analyze_order_flow(symbol: str):
+    """
+    Order flow imbalance detection
+    
+    Query params:
+        - period: Data period (default: 5d)
+        - interval: Data interval (default: 5m)
+    """
+    try:
+        if not ADVANCED_ANALYSIS_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'Advanced analysis not available'
+            }), 503
+        
+        period = request.args.get('period', '5d')
+        interval = request.args.get('interval', '5m')
+        
+        result = advanced_analyzer.detect_order_flow_imbalance(
+            symbol=symbol,
+            period=period,
+            interval=interval
+        )
+        
+        if 'error' in result:
+            return jsonify({'success': False, 'error': result['error']}), 500
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Order flow analysis error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/microstructure/<symbol>', methods=['GET'])
+@limiter.limit("20 per minute")
+def analyze_market_microstructure(symbol: str):
+    """
+    Market microstructure analysis
+    
+    Query params:
+        - period: Data period (default: 1d)
+        - interval: Data interval (default: 1m)
+    """
+    try:
+        if not ADVANCED_ANALYSIS_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'Advanced analysis not available'
+            }), 503
+        
+        period = request.args.get('period', '1d')
+        interval = request.args.get('interval', '1m')
+        
+        result = advanced_analyzer.analyze_microstructure(
+            symbol=symbol,
+            period=period,
+            interval=interval
+        )
+        
+        if 'error' in result:
+            return jsonify({'success': False, 'error': result['error']}), 500
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Microstructure analysis error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/regime/<symbol>', methods=['GET'])
+@limiter.limit("20 per minute")
+def detect_market_regime(symbol: str):
+    """
+    Market regime detection with regime-adaptive recommendations
+    
+    Query params:
+        - period: Data period (default: 90d)
+        - interval: Data interval (default: 1d)
+    """
+    try:
+        if not ADVANCED_ANALYSIS_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'Advanced analysis not available'
+            }), 503
+        
+        period = request.args.get('period', '90d')
+        interval = request.args.get('interval', '1d')
+        
+        result = advanced_analyzer.detect_market_regime(
+            symbol=symbol,
+            period=period,
+            interval=interval
+        )
+        
+        if 'error' in result:
+            return jsonify({'success': False, 'error': result['error']}), 500
+        
+        return jsonify({
+            'success': True,
+            'data': result,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Regime detection error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/analysis/comprehensive/<symbol>', methods=['GET'])
+@limiter.limit("10 per minute")
+def comprehensive_analysis(symbol: str):
+    """
+    Comprehensive analysis combining all advanced features
+    Returns: order flow, microstructure, and regime analysis
+    """
+    try:
+        if not ADVANCED_ANALYSIS_AVAILABLE:
+            return jsonify({
+                'success': False,
+                'error': 'Advanced analysis not available'
+            }), 503
+        
+        # Run all analyses
+        order_flow = advanced_analyzer.detect_order_flow_imbalance(symbol, period='5d', interval='5m')
+        microstructure = advanced_analyzer.analyze_microstructure(symbol, period='1d', interval='1m')
+        regime = advanced_analyzer.detect_market_regime(symbol, period='90d', interval='1d')
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'symbol': symbol,
+                'order_flow': order_flow,
+                'microstructure': microstructure,
+                'regime': regime,
+                'analysis_type': 'comprehensive_raw_data_analysis',
+                'competitive_advantage': 'TX processes raw OHLCV data with institutional-grade analysis'
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Comprehensive analysis error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
     debug = os.getenv('FLASK_ENV') == 'development'
