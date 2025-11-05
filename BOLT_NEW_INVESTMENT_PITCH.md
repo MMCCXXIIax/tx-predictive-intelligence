@@ -1,4 +1,4 @@
-# 🚀 TX Ultra - Bolt.new Investment Pitch
+# 🚀 TX- Bolt.new Investment Pitch
 
 ## 📋 Executive Summary
 
@@ -12,7 +12,7 @@
 
 ## 🎯 What is TX Ultra?
 
-TX Ultra is an **AI-powered trading intelligence platform** that will dominate the trading space. We're not building another trading tool - we're building **THE platform** that every trader (from beginners to institutions) will depend on daily.
+TX is an **AI-powered trading intelligence platform** that will dominate the trading space. We're not building another trading tool - we're building **THE platform** that every trader (from beginners to institutions) will depend on daily.
 
 ### The Vision:
 Make TX as essential to traders as **oxygen, water, and food**. A platform so powerful, beautiful, and addictive that traders get hooked in 2 seconds and never leave.
@@ -81,7 +81,7 @@ Make TX as essential to traders as **oxygen, water, and food**. A platform so po
 
 ### Why Pro Plan ($60) vs Starter ($25)?
 
-**For TX Ultra, we recommend the $60 Pro plan:**
+**For TX, we recommend the $60 Pro plan:**
 
 1. **More Headroom**: 26M tokens vs 10M (2.6x more)
 2. **Rollover Tokens**: Unused tokens carry forward (Starter doesn't have this)
@@ -91,7 +91,7 @@ Make TX as essential to traders as **oxygen, water, and food**. A platform so po
 
 ---
 
-## 📊 Token Usage Breakdown for TX Ultra
+## 📊 Token Usage Breakdown for TX
 
 ### 2-Week Prototype Build
 
